@@ -1,0 +1,4 @@
+flake8
+pytest
+psycopg2-binary
+flask

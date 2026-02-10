@@ -1,0 +1,18 @@
+{
+    "name": "project-frontend",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "node src/index.js",
+        "build": "echo 'Building...'",
+        "test": "jest",
+        "lint": "eslint ."
+    },
+    "dependencies": {
+        "express": "^4.19.2"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "eslint": "^8.57.0",
+        "eslint-plugin-react": "^7.34.1"
+    }
+}
