@@ -73,6 +73,12 @@ def test_read_root():
     assert response.status_code == 200
     assert response.json() == {"message": "Academic Artifact Research Database API"}
 
+def test_get_tags():
+    # Ensure we get a list of strings
+    response = client.get("/tags")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
 def test_get_objects_map():
     response = client.get("/objects/map")
     assert response.status_code == 200

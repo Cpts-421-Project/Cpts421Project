@@ -48,6 +48,7 @@ class ObjectRepository:
 
         return query.all()
 
+
     def get_map_data(self) -> List[dict]:
         # Return lightweight data
         objects = self.db.query(Object.id, Object.object_type, Object.latitude, Object.longitude).all()
@@ -60,3 +61,9 @@ class ObjectRepository:
             } 
             for obj in objects
         ]
+
+    def get_all_tags(self) -> List[str]:
+        # Fetch all unique tag names
+        from ..models import Tag
+        tags = self.db.query(Tag.tag_name).distinct().all()
+        return [tag[0] for tag in tags]

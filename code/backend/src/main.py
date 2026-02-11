@@ -17,6 +17,22 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def read_root():
     return {"message": "Academic Artifact Research Database API"}
@@ -52,6 +68,11 @@ def search_objects(
 def get_objects_map(db: Session = Depends(get_db)):
     repo = ObjectRepository(db)
     return repo.get_map_data()
+
+@app.get("/tags", response_model=List[str])
+def get_tags(db: Session = Depends(get_db)):
+    repo = ObjectRepository(db)
+    return repo.get_all_tags()
 
 @app.get("/objects/{object_id}", response_model=ObjectDetailResponse)
 def get_object_detail(object_id: int, db: Session = Depends(get_db)):
