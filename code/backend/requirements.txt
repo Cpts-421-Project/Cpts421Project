@@ -1,4 +1,7 @@
-flake8
-pytest
+fastapi
+uvicorn
+sqlalchemy
 psycopg2-binary
-flask
+pydantic
+pytest
+httpx
