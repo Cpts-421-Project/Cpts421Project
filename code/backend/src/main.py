@@ -7,12 +7,20 @@ from .schemas import ObjectDetailResponse, ObjectMapResponse
 from .repositories.object_repository import ObjectRepository
 
 from contextlib import asynccontextmanager
+import time
+import sqlalchemy
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables on startup
-    # In production, use migrations (Alembic) instead
-    Base.metadata.create_all(bind=engine)
+    for i in range(10):
+        try:
+            Base.metadata.create_all(bind=engine)
+            break
+        except sqlalchemy.exc.OperationalError:
+            if i == 9:
+                raise
+            print(f"Database not ready, retrying in 5 seconds... ({i+1}/10)")
+            time.sleep(5)
     yield
 
 app = FastAPI(lifespan=lifespan)

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
@@ -22,10 +22,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-def run_sql(path: str):
-    with open(path: 'r') as f:
-        sql = f.read()
-    with engine.connect() as connection:
-        connection.execute(text(sql))
-        connection.commit()

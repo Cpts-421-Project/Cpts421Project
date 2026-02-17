@@ -10,7 +10,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../code/backend/src/schema.sql:/docker-entrypoint-initdb.d/01_init.sql
-      - ./dummy_data/seeds.sql:/docker-entrypoint-initdb.d/02_seeds.sql
+      - ../data/reduced_dataset/filtered_small.sql:/docker-entrypoint-initdb.d/03_data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d dev_db"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
 
   frontend:
     build:
