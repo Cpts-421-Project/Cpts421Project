@@ -46,7 +46,9 @@ class ObjectRepository:
         if date_end is not None:
             query = query.filter(Object.date_start <= date_end)
 
-        return query.all()
+        results = query.all()
+        print(f"DEBUG: Search found {len(results)} objects")
+        return results
 
 
     def get_map_data(self) -> List[dict]:
