@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../code/backend/src/schema.sql:/docker-entrypoint-initdb.d/01_init.sql
-      - ./dummy_data/seeds.sql:/docker-entrypoint-initdb.d/02_seeds.sql
+      - ../data/reduced_dataset/filtered_small.sql:/docker-entrypoint-initdb.d/02_seeds.sql
 
   frontend:
     build:
@@ -61,7 +61,7 @@ services:
       minio:
         condition: service_healthy
     volumes:
-      - ./dummy_data/images:/images
+      - ../data/reduced_dataset/images:/images
     entrypoint: >
       /bin/sh -c " /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin; /usr/bin/mc mb myminio/uploads; /usr/bin/mc anonymous set public myminio/uploads; /usr/bin/mc cp --recursive /images/ myminio/uploads/; exit 0; "
 
