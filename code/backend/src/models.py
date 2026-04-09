@@ -43,6 +43,7 @@ class Object(Base):
     longitude = Column(Numeric(9, 6))
     date_discovered = Column(Date)
     inventory_number = Column(String(100), unique=True)
+    description = Column(String)
     
     # Fuzzy Dates System
     date_display = Column(String(255), nullable=False)

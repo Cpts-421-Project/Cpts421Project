@@ -50,6 +50,12 @@ const ObjectPage = () => {
 
                     {/* Metadata Section */}
                     <div className="space-y-6">
+                        {object.description && (
+                            <div>
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Description</h2>
+                                <p className="text-gray-900 text-sm leading-relaxed">{object.description}</p>
+                            </div>
+                        )}
                         <div>
                             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Basic Info</h2>
                             <dl className="grid grid-cols-1 gap-y-2 text-sm">

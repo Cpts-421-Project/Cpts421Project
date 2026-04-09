@@ -7,3 +7,4 @@ requests
 pydantic
 pytest
 httpx
+beautifulsoup4

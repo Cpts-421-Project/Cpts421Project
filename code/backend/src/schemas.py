@@ -34,6 +34,7 @@ class ObjectDetailResponse(BaseModel):
     inventory_number: Optional[str]
     latitude: Optional[float]
     longitude: Optional[float]
+    description: Optional[str] = None
     images: List[ImageResponse]
     bibliography: List[str] 
 

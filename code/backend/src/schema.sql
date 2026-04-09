@@ -24,6 +24,7 @@ CREATE TABLE objects (
     longitude DECIMAL(9, 6),           -- For Map UI: -180.0 to 180.0
     date_discovered DATE,              -- Precise date of discovery (if known)
     inventory_number VARCHAR(100) UNIQUE, -- Museum/Collection ID
+    description TEXT,                  -- Optional descriptive text about the artifact
     
     -- Fuzzy Dates System (3-Column Approach)
     date_display VARCHAR(255) NOT NULL,-- Display string (e.g., "c. 350-400 AD")
