@@ -28,6 +28,9 @@ jobs:
         DATABASE_URL: "sqlite:///./test.db"
         JWT_SECRET_KEY: "test_secret_key"
         ADMIN_TOKEN: "test_admin_token"
+        MINIO_ENDPOINT: "http://test:9000"
+        MINIO_ACCESS_KEY: "test_access"
+        MINIO_SECRET_KEY: "test_secret"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/src
         pytest tests/
