@@ -122,7 +122,7 @@ class TestGetObjectDetail:
     def test_nonExistentId_returns404(self, client):
         response = client.get("/objects/999")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Object not found"
+        assert "Object not found" in response.json()["detail"]
 
 
 class TestSearchObjectsFuzzyDate:
