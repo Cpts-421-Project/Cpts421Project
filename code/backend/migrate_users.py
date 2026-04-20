@@ -1,18 +1,17 @@
 import os
 import sys
 from sqlalchemy import text
-from passlib.context import CryptContext
+import bcrypt
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.database import SessionLocal, engine
+from src.database import get_db, get_engine
 from src.models import Base
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def run_migration():
     print("Checking if users table exists...")
     # Base.metadata.create_all(bind=engine) will create the 'users' table if it doesn't exist
+    engine = get_engine()
     Base.metadata.create_all(bind=engine)
 
     # Seed admins
@@ -29,13 +28,14 @@ def run_migration():
         }
     ]
 
-    db = SessionLocal()
+    db = next(get_db())
     try:
         from src.models import User
         for admin_data in admins_to_seed:
             existing_user = db.query(User).filter(User.email == admin_data["email"]).first()
             if not existing_user:
-                hashed_password = pwd_context.hash(admin_data["password"])
+                password_string = str(admin_data["password"])
+                hashed_password = bcrypt.hashpw(password_string.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 new_admin = User(
                     email=admin_data["email"],
                     username=admin_data["username"],

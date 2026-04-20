@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import timedelta
 
-from .database import get_db, engine, Base
+from .database import get_db, get_engine, Base
 from .schemas import ObjectDetailResponse, ObjectMapResponse, UserLogin, ObjectCreate, ObjectUpdate
 from .services.object_service import ObjectService
 from .services.s3_service import upload_file_to_minio
@@ -13,11 +13,11 @@ from .models import User
 
 from contextlib import asynccontextmanager
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables on startup
     # In production, use migrations (Alembic) instead
+    engine = get_engine()
     Base.metadata.create_all(bind=engine)
     yield
 

@@ -13,3 +13,4 @@ selenium
 undetected-chromedriver
 PyJWT
 passlib[bcrypt]
+python-multipart
