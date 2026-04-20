@@ -1,0 +1,71 @@
+name: Production CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./code/backend
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run Pytest
+      run: |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+        pytest tests/
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./code/frontend
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: code/frontend/package-lock.json
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build  
+      run: npm run build --if-present
+      
+    - name: Test
+      run: npm test --if-present
+
+  deploy:
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deploy to WSU Production Server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.PROD_HOST }}
+        username: ${{ secrets.PROD_USERNAME }}
+        key: ${{ secrets.PROD_SSH_KEY }}
+        script: |
+          cd /opt/artifact
+          git fetch origin main
+          git reset --hard origin/main
+          cd deployment
+          docker compose down
+          docker compose up -d --force-recreate --remove-orphans
