@@ -24,6 +24,10 @@ jobs:
         pip install -r requirements.txt
         
     - name: Run Pytest
+      env:
+        DATABASE_URL: "sqlite:///./test.db"
+        JWT_SECRET_KEY: "test_secret_key"
+        ADMIN_TOKEN: "test_admin_token"
       run: |
         export PYTHONPATH=$PYTHONPATH:$(pwd)/src
         pytest tests/
@@ -41,7 +45,7 @@ jobs:
       with:
         node-version: 20.x
         cache: 'npm'
-        cache-dependency-path: code/frontend/package-lock.json
+        cache-dependency-path: './code/frontend/package-lock.json'
         
     - name: Install dependencies
       run: npm ci

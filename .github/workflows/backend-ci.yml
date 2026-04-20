@@ -30,6 +30,10 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run tests with pytest
+      env:
+        DATABASE_URL: "sqlite:///./test.db"
+        JWT_SECRET_KEY: "test_secret_key"
+        ADMIN_TOKEN: "test_admin_token"
       run: |
         # Set PYTHONPATH to src so tests can import main
         export PYTHONPATH=$PYTHONPATH:$(pwd)/src
