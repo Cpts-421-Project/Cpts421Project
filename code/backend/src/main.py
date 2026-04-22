@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from .database import get_db, get_engine, Base
-from .schemas import ObjectDetailResponse, ObjectMapResponse, UserLogin, ObjectCreate, ObjectUpdate
+from .schemas import ObjectDetailResponse, ObjectMapResponse, UserLogin, ObjectCreate, ObjectUpdate, ReviewUpdate
 from .services.object_service import ObjectService
 from .services.s3_service import upload_file_to_minio
 from .auth import verify_password, create_access_token, get_current_user, get_current_admin_user, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -184,6 +184,30 @@ async def delete_object(object_id: int, db: Session = Depends(get_db), current_u
     service = ObjectService(db)
     await run_in_threadpool(service.delete_object, object_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get("/objects/pending", response_model=List[ObjectDetailResponse])
+async def get_pending_objects(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    service = ObjectService(db)
+    return await run_in_threadpool(service.get_pending_objects)
+
+
+@app.patch("/objects/{object_id}/review", response_model=ObjectDetailResponse)
+async def review_object(object_id: int, review_data: ReviewUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    service = ObjectService(db)
+    result = await run_in_threadpool(service.update_object, object_id, {"review_status": review_data.status})
+    if not result:
+        raise HTTPException(status_code=404, detail="Object not found")
+        
+    if review_data.status == "rejected":
+        # Keep only 3 most recent rejected, hard delete older
+        from .models import Object
+        rejected_objs = db.query(Object).filter(Object.review_status == 'rejected').order_by(Object.id.desc()).all()
+        if len(rejected_objs) > 3:
+            for obj_to_delete in rejected_objs[3:]:
+                await run_in_threadpool(service.delete_object, obj_to_delete.id)
+                
+    return result
 
 
 # Existing Endpoints

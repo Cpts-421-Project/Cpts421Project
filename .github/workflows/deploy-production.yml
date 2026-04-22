@@ -3,6 +3,8 @@ name: Production CI/CD
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   backend-test:
@@ -58,6 +60,7 @@ jobs:
       run: npm test --if-present
 
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [backend-test, frontend-test]
     runs-on: self-hosted
     steps:
@@ -70,5 +73,5 @@ jobs:
     - name: Deploy with Docker Compose
       run: |
         cd /opt/artifact/deployment
-        docker compose down
-        docker compose up -d --force-recreate --remove-orphans
+        echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S docker compose down
+        echo "${{ secrets.SUDO_PASSWORD }}" | sudo -S docker compose up -d --force-recreate --remove-orphans

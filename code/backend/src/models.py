@@ -64,6 +64,9 @@ class Object(Base):
     depth = Column(Numeric(10, 2))
     unit = Column(String(20), default='cm')
 
+    # Review Feature (Admin-only queue)
+    review_status = Column(String(50), default="pending", index=True)
+
     # Relationships
     images = relationship("Image", backref="object", cascade="all, delete-orphan")
 

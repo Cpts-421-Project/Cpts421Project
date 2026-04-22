@@ -29,6 +29,7 @@ def _enrich_object_dict(obj: Object) -> dict:
     """Converts an ORM Object to a dict enriched with bibliography data."""
     obj_dict = obj.__dict__.copy()
     obj_dict['bibliography'] = build_bibliography(obj)
+    obj_dict['images'] = obj.images
     return obj_dict
 
 
@@ -81,6 +82,11 @@ class ObjectService:
     def get_all_tags(self) -> List[str]:
         """All unique tag names."""
         return self.repo.get_all_tags()
+
+    def get_pending_objects(self) -> List[dict]:
+        """Fetch objects awaiting review."""
+        objects = self.repo.get_pending_objects()
+        return [_enrich_object_dict(obj) for obj in objects]
 
     def create_object(self, object_data: dict) -> dict:
         """Create a new artifact manually."""

@@ -22,7 +22,7 @@ class ObjectRepository:
     def search(self, material: Optional[str] = None, year: Optional[int] = None, date_start: Optional[int] = None, date_end: Optional[int] = None, skip: int = 0, limit: int = 100) -> List[Object]:
         query = self.db.query(Object).options(
             joinedload(Object.images).joinedload(Image.source)
-        )
+        ).filter(Object.review_status == 'accepted')
 
         if material:
             query = query.filter(Object.material.ilike(f"%{material}%"))
@@ -41,7 +41,7 @@ class ObjectRepository:
 
     def get_map_data(self) -> List[dict]:
         # Return lightweight data
-        objects = self.db.query(Object.id, Object.object_type, Object.latitude, Object.longitude).all()
+        objects = self.db.query(Object.id, Object.object_type, Object.latitude, Object.longitude).filter(Object.review_status == 'accepted').all()
         return [
             {
                 "id": obj.id, 
@@ -56,6 +56,12 @@ class ObjectRepository:
         """Fetch all unique tag names."""
         tags = self.db.query(Tag.tag_name).distinct().all()
         return [tag[0] for tag in tags]
+        
+    def get_pending_objects(self) -> List[Object]:
+        """Fetch all objects awaiting admin review."""
+        return self.db.query(Object).options(
+            joinedload(Object.images).joinedload(Image.source)
+        ).filter(Object.review_status == 'pending').order_by(Object.id.asc()).limit(50).all()
 
     def add_object(self, obj_data: dict, images_data: List[dict] = []) -> Object:
         db_obj = Object(**obj_data)

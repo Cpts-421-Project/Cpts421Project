@@ -13,7 +13,12 @@ const Layout = () => {
                         <Link to="/" className="text-gray-600 hover:text-blue-600 font-medium">Home</Link>
                         <Link to="/search" className="text-gray-600 hover:text-blue-600 font-medium">Data Gallery</Link>
                         <Link to="/map" className="text-gray-600 hover:text-blue-600 font-medium">Map View</Link>
-                        {isAdmin && <Link to="/objects/new" className="text-blue-600 hover:text-blue-800 font-medium ml-4">+ Add Artifact</Link>}
+                        {isAdmin && (
+                            <>
+                                <Link to="/objects/new" className="text-blue-600 hover:text-blue-800 font-medium ml-4">+ Add Artifact</Link>
+                                <Link to="/admin/review" className="text-purple-600 hover:text-purple-800 font-medium ml-4">Review Queue</Link>
+                            </>
+                        )}
                     </nav>
                 </div>
                 <div>
