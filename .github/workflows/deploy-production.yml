@@ -3,6 +3,8 @@ name: Production CI/CD
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   backend-test:
@@ -58,6 +60,7 @@ jobs:
       run: npm test --if-present
 
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [backend-test, frontend-test]
     runs-on: self-hosted
     steps:
