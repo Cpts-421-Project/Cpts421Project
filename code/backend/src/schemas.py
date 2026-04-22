@@ -21,6 +21,7 @@ class ObjectBase(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None
+    review_status: Optional[str] = "pending"
 
 class ObjectCreate(ObjectBase):
     images: List[ImageCreate] = []
@@ -52,3 +53,6 @@ class ObjectDetailResponse(ObjectBase):
     images: List[ImageResponse]
     bibliography: List[str] 
     model_config = ConfigDict(from_attributes=True)
+
+class ReviewUpdate(BaseModel):
+    status: str

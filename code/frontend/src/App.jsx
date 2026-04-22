@@ -6,6 +6,7 @@ import ObjectPage from './pages/ObjectPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import EditObjectPage from './pages/EditObjectPage';
+import ReviewPage from './pages/ReviewPage';
 import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/objects/new" element={<EditObjectPage />} />
             <Route path="/objects/:id" element={<ObjectPage />} />
             <Route path="/objects/:id/edit" element={<EditObjectPage />} />
+            <Route path="/admin/review" element={<ReviewPage />} />
             <Route path="/login" element={<LoginPage />} />
           </Route>
         </Routes>
