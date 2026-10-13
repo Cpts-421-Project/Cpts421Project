@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
+from .config import config
 from .database import get_db, get_engine, Base
 from .schemas import ObjectDetailResponse, ObjectMapResponse, UserLogin, ObjectCreate, ObjectUpdate, ReviewUpdate
 from .services.object_service import ObjectService
@@ -30,17 +31,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -133,6 +126,7 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     
+    is_production = not config.DEBUG
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
@@ -140,7 +134,7 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         max_age=1800,
         expires=1800,
         samesite="lax",
-        secure=False, # Set True in production with HTTPS
+        secure=is_production,
     )
     app_logger.info("User logged in successfully", extra={"username": user.username})
     return {"message": "Logged in successfully", "is_admin": user.is_admin}
@@ -148,7 +142,12 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
 
 @app.post("/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token")
+    is_production = not config.DEBUG
+    response.delete_cookie(
+        "access_token",
+        samesite="lax",
+        secure=is_production,
+    )
     return {"message": "Logged out successfully"}
 
 
