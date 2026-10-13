@@ -20,6 +20,10 @@ class Config:
             )
         DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     
+    # Railway/Heroku provide postgres:// which SQLAlchemy 1.4+ rejects
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
     # DB Pool Config
     DB_POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "15"))
     DB_MAX_OVERFLOW = int(os.environ.get("DB_MAX_OVERFLOW", "5"))
@@ -48,5 +52,15 @@ class Config:
     
     # App General
     DEBUG = bool(strtobool(os.environ.get("DEBUG", "False")))
+
+    # CORS — comma-separated origins; defaults cover local dev
+    ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.environ.get(
+            "ALLOWED_ORIGINS",
+            "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+        ).split(",")
+        if origin.strip()
+    ]
 
 config = Config()
