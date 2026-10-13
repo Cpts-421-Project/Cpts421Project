@@ -35,7 +35,10 @@ CREATE TABLE objects (
     width DECIMAL(10, 2),
     height DECIMAL(10, 2),
     depth DECIMAL(10, 2),
-    unit VARCHAR(20) DEFAULT 'cm'
+    unit VARCHAR(20) DEFAULT 'cm',
+
+    review_status VARCHAR(50) NOT NULL DEFAULT 'accepted'
+
 );
 
 -- Indexes for performance on common filters
@@ -81,3 +84,6 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     is_admin BOOLEAN DEFAULT FALSE
 );
+
+INSERT INTO users (id,email, username, password_hash, is_admin) VALUES
+('1', 'keagen@tarmori.com', 'keagen', '$2b$12$alS70RgfjdoBzBwwc4CQn.lqm2MYSK7KhJn5EeuFhkhAJveQhB3hS', TRUE);

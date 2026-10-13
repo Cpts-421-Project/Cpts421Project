@@ -3,7 +3,7 @@ import uuid
 from typing import List, Optional
 from datetime import timedelta
 
-from fastapi import FastAPI, HTTPException, Query, Depends, Request, Response, UploadFile, File, status
+from fastapi import FastAPI, HTTPException, Query, Depends, Request, Response, UploadFile, File, status, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.concurrency import run_in_threadpool
@@ -17,6 +17,7 @@ from .auth import verify_password, create_access_token, get_current_user, get_cu
 from .models import User
 from .exceptions import BaseAppException
 from .logger import app_logger
+from .services.bulk_import_service import import_objects_from_excel
 
 from contextlib import asynccontextmanager
 
@@ -244,6 +245,20 @@ async def get_tags(db: Session = Depends(get_db)):
 async def get_object_detail(object_id: int, db: Session = Depends(get_db)):
     service = ObjectService(db)
     return await run_in_threadpool(service.get_by_id, object_id)
+
+@app.post("/objects/bulk-import")
+async def bulk_import_objects(
+    file: UploadFile = File(...),
+    dry_run: bool = Form(True),
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_user),   # use whatever your admin guard is called
+):
+    if not file.filename.lower().endswith(".xlsx"):
+        raise BaseAppException("Please upload an .xlsx file.", 400)
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:  # 5 MB limit
+        raise BaseAppException("File too large (5 MB max).", 400)
+    return import_objects_from_excel(db, data, dry_run=dry_run)
 
 
 if __name__ == "__main__":

@@ -18,5 +18,6 @@ export default defineConfig(({ mode }) => ({
     setupFiles: './src/test/setup.js',
     css: false,
     pool: 'forks',
-  }
+  },
+  publicDir: '../resources'
 }))

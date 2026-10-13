@@ -200,4 +200,13 @@ INSERT INTO image_tags (image_id, tag_id) VALUES (47, 7);
 INSERT INTO image_tags (image_id, tag_id) VALUES (49, 7);
 INSERT INTO image_tags (image_id, tag_id) VALUES (53, 2);
 
+SELECT setval(
+    pg_get_serial_sequence('objects', 'id'),
+    COALESCE((SELECT MAX(id) FROM objects), 1)
+);
+SELECT setval(pg_get_serial_sequence('objects', 'id'), COALESCE((SELECT MAX(id) FROM objects), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('sources', 'id'), COALESCE((SELECT MAX(id) FROM sources), 0) + 1, false);
+SELECT setval(pg_get_serial_sequence('tags',    'id'), COALESCE((SELECT MAX(id) FROM tags),    0) + 1, false);
+SELECT setval(pg_get_serial_sequence('users',   'id'), COALESCE((SELECT MAX(id) FROM users),   0) + 1, false);
+SELECT setval(pg_get_serial_sequence('images', 'id'), COALESCE((SELECT MAX(id) FROM images), 0) + 1, false);
 COMMIT;

@@ -1,4 +1,4 @@
--- Insert Dummy Data
+/*-- Insert Dummy Data
 
 -- Sources
 INSERT INTO sources (citation_text) VALUES 
@@ -13,6 +13,6 @@ INSERT INTO objects (object_type, material, findspot, latitude, longitude, date_
 -- Images
 -- Note: File URLs point to the local MinIO instance accessible via localhost (for browser) or minio container (internal)
 -- Using localhost:9000 for browser-accessible URLs in this context
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url) VALUES
+--INSERT INTO images (object_id, source_id, image_type, view_type, file_url) VALUES
 (1, 1, 'Photograph', 'Front', 'http://localhost:9000/uploads/vase.png'),
 (2, 2, 'Photograph', 'Obverse', 'http://localhost:9000/uploads/coin.png');

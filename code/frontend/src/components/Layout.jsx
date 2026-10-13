@@ -16,6 +16,7 @@ const Layout = () => {
                         {isAdmin && (
                             <>
                                 <Link to="/objects/new" className="text-blue-600 hover:text-blue-800 font-medium ml-4">+ Add Artifact</Link>
+                                <Link to="/objects/bulk-upload" className="text-blue-600 hover:text-blue-800 font-medium ml-4">+ Bulk Upload From Excel</Link>
                                 <Link to="/admin/review" className="text-purple-600 hover:text-purple-800 font-medium ml-4">Review Queue</Link>
                             </>
                         )}

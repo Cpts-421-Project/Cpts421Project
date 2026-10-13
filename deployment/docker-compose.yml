@@ -11,7 +11,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ../code/backend/src/schema.sql:/docker-entrypoint-initdb.d/01_init.sql
       - ../data/reduced_dataset/filtered_small.sql:/docker-entrypoint-initdb.d/02_seeds.sql
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
   frontend:
     build:
       context: ../code/frontend
@@ -42,10 +46,12 @@ services:
     env_file:
       - .env
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+
 
   minio:
-    image: minio/minio
+    image: codemowers/minio:RELEASE.2025-09-07T16-13-09Z
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -56,13 +62,19 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
-      interval: 5s
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:9000/minio/health/live
       timeout: 3s
+      interval: 5s
       retries: 5
 
+
   createbuckets:
-    image: minio/mc
+    image: ghcr.io/golithus/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       minio:
         condition: service_healthy

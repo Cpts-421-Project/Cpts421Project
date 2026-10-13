@@ -15,3 +15,4 @@ PyJWT
 passlib[bcrypt]
 python-multipart
 alembic
+openpyxl

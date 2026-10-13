@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import EditObjectPage from './pages/EditObjectPage';
 import ReviewPage from './pages/ReviewPage';
 import { AuthProvider } from './contexts/AuthContext';
+import BulkUploadPage from './pages/BulkUploadPage';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
             <Route path="/objects/:id/edit" element={<EditObjectPage />} />
             <Route path="/admin/review" element={<ReviewPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/objects/bulk-upload" element={<BulkUploadPage />} />
           </Route>
         </Routes>
       </AuthProvider>
