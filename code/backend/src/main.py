@@ -133,7 +133,7 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         httponly=True,
         max_age=1800,
         expires=1800,
-        samesite="none" if is_production else "lax",
+        samesite="lax",
         secure=is_production,
     )
     app_logger.info("User logged in successfully", extra={"username": user.username})
@@ -145,7 +145,7 @@ async def logout(response: Response):
     is_production = not config.DEBUG
     response.delete_cookie(
         "access_token",
-        samesite="none" if is_production else "lax",
+        samesite="lax",
         secure=is_production,
     )
     return {"message": "Logged out successfully"}

@@ -25,5 +25,5 @@ RUN rm /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
 
-# Substitute only $PORT in the template (preserving nginx's own $uri, $request_uri, etc.)
-CMD ["/bin/sh", "-c", "export PORT=${PORT:-3000} && envsubst '$PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# Substitute $PORT, $BACKEND_HOST, and $BACKEND_PORT in the template
+CMD ["/bin/sh", "-c", "export PORT=${PORT:-3000} BACKEND_HOST=${BACKEND_HOST:-backend.railway.internal} BACKEND_PORT=${BACKEND_PORT:-8000} && envsubst '$PORT $BACKEND_HOST $BACKEND_PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
