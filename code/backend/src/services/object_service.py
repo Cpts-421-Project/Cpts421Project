@@ -77,11 +77,19 @@ class ObjectService:
 
     def get_map_data(self) -> List[dict]:
         """Lightweight map data — no enrichment needed."""
-        return self.repo.get_map_data()
+        try:
+            return self.repo.get_map_data()
+        except SQLAlchemyError:
+            app_logger.error("Database map data query failed", exc_info=True)
+            raise BaseAppException("Internal database error fetching map data", 500)
 
     def get_all_tags(self) -> List[str]:
         """All unique tag names."""
-        return self.repo.get_all_tags()
+        try:
+            return self.repo.get_all_tags()
+        except SQLAlchemyError:
+            app_logger.error("Database tags query failed", exc_info=True)
+            raise BaseAppException("Internal database error fetching tags", 500)
 
     def get_pending_objects(self) -> List[dict]:
         """Fetch objects awaiting review."""
