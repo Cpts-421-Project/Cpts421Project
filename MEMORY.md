@@ -81,6 +81,14 @@
   - Updated `code/backend/src/config.py` to seamlessly accept standard S3/AWS/Tigris environment variables (`AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `BUCKET_NAME`) in addition to `MINIO_*`.
   - Configured Boto3 S3 client in `code/backend/src/services/s3_service.py` with path-style addressing (`s3={'addressing_style': 'path'}`) and region support.
   - Merged via PR [#31](https://github.com/Cpts-421-Project/Cpts421Project/pull/31) into `origin/main`.
+- **Cycle 12 (Railway Storage Bucket Variables Configured):**
+  - Verified user's Backend service configuration referencing the `Images` bucket:
+    - `MINIO_ACCESS_KEY` = `${{Images.ACCESS_KEY_ID}}`
+    - `MINIO_BUCKET` = `${{Images.RAILWAY_BUCKET_NAME}}`
+    - `MINIO_ENDPOINT` = `${{Images.ENDPOINT}}`
+    - `MINIO_PUBLIC_URL` = `${{Images.ENDPOINT}}`
+    - `MINIO_SECRET_KEY` = `${{Images.SECRET_ACCESS_KEY}}`
+  - All variables mapped and aligned with `Config` and `s3_service.py`.
 
 ---
 
@@ -90,8 +98,9 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Connecting Railway Storage Bucket credentials to the Backend service.
+- Verifying image upload and bucket storage in production.
 
 ### [PENDING]
-- **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page.
+- **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page (`data/reduced_dataset/filtered_small.sql`).
+- **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
 - **Stashed Work Restoration:** Restore non-railway stashed files (`Reports/`, `Sprints/`) on `development` branch when ready.
