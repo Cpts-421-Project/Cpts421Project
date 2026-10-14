@@ -29,10 +29,10 @@ def upgrade() -> None:
         if 'review_status' not in columns:
             op.add_column(
                 'objects',
-                sa.Column('review_status', sa.String(length=50), server_default='accepted', nullable=True)
+                sa.Column('review_status', sa.String(length=50), server_default=sa.text("'accepted'"), nullable=True)
             )
             # Mark any existing records as accepted
-            conn.execute(sa.text("UPDATE objects SET review_status = 'accepted' WHERE review_status IS NULL"))
+            op.execute("UPDATE objects SET review_status = 'accepted' WHERE review_status IS NULL")
 
         indices = [idx['name'] for idx in inspector.get_indexes('objects')]
         if 'ix_objects_review_status' not in indices:
