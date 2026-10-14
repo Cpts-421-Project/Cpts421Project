@@ -19,5 +19,5 @@ USER app
 
 EXPOSE 8000
 
-# Railway injects PORT dynamically; fall back to 8000 for local Docker usage
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Bind to :: (IPv6 wildcard + dual-stack IPv4) for Railway Private Networking
+CMD ["sh", "-c", "alembic upgrade head && uvicorn src.main:app --host '::' --port ${PORT:-8000}"]

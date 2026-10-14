@@ -35,7 +35,11 @@
   - Updated `code/frontend/Dockerfile` to interpolate `PORT`, `BACKEND_HOST`, and `BACKEND_PORT` via `envsubst`.
   - Updated `code/frontend/src/services/api.js` to default `API_URL` to `/api` (same-origin).
   - Updated `code/frontend/vite.config.js` to proxy `/api` to `http://localhost:8000` in local dev.
-  - Updated `code/backend/src/main.py` cookie settings to `samesite="lax"` since the reverse proxy makes all requests same-origin.
+  - Updated `code/backend/src/main.py` cookie settings to `samesite="lax"`.
+- **Cycle 6 (Internal Networking & Repository Sync):**
+  - Identified Railway project was connected to user's personal GitHub fork (`asafked121/Cpts421Project`), synced remote branch with latest commits.
+  - Configured Uvicorn in `code/backend/Dockerfile` to listen on `::` (IPv6 wildcard + dual-stack IPv4) to accept WireGuard mesh connections on Railway.
+  - Added dynamic DNS resolver discovery (`awk '/nameserver/' /etc/resolv.conf`) and rewrite rules in `code/frontend/nginx.conf.template` to resolve internal Railway DNS and prevent stale IP timeouts.
 
 ---
 
@@ -45,13 +49,9 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Deploying Frontend service on Railway:
-  - Create service pointing to `code/frontend`.
-  - Click "Generate Domain" on Frontend (only public URL needed).
-  - No public domain needed on Backend (communicates via `backend.railway.internal`).
+- Verifying internal Railway reverse proxy connection between frontend and backend.
 
 ### [PENDING]
-- **End-to-End Verification:** Verify frontend loads, routes to `/api`, authenticates, and retrieves data.
+- **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page.
 - **Production Storage Deployment:** Deploy MinIO template on Railway with persistent volume or configure S3 bucket credentials.
-- **Database Seeding on Railway:** Run seed data ingestion in production if required.
 - **Stashed Work Restoration:** Restore non-railway stashed files (`Reports/`, `Sprints/`) on `development` branch when ready.
