@@ -77,6 +77,10 @@
   - End-to-end functionality verified in production on Railway.
   - Frontend Nginx successfully proxying API calls (`/api/objects/search`, `/api/tags`, `/api/objects/map`) over the private WireGuard mesh to `backend.railway.internal:8000`.
   - Database migrations applied cleanly in PostgreSQL and application responding with 200 OK.
+- **Cycle 11 (Railway S3 / Storage Bucket Support):**
+  - Updated `code/backend/src/config.py` to seamlessly accept standard S3/AWS/Tigris environment variables (`AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `BUCKET_NAME`) in addition to `MINIO_*`.
+  - Configured Boto3 S3 client in `code/backend/src/services/s3_service.py` with path-style addressing (`s3={'addressing_style': 'path'}`) and region support.
+  - Merged via PR [#31](https://github.com/Cpts-421-Project/Cpts421Project/pull/31) into `origin/main`.
 
 ---
 
@@ -86,9 +90,8 @@
 - None currently.
 
 ### [IN PROGRESS]
-- None currently.
+- Connecting Railway Storage Bucket credentials to the Backend service.
 
 ### [PENDING]
 - **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page.
-- **Production Storage Deployment:** Deploy MinIO template on Railway with persistent volume or configure S3 bucket credentials.
 - **Stashed Work Restoration:** Restore non-railway stashed files (`Reports/`, `Sprints/`) on `development` branch when ready.

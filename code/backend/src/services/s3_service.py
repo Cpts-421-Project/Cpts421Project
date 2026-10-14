@@ -22,12 +22,16 @@ def get_s3_client():
             endpoint_url=config.MINIO_ENDPOINT,
             aws_access_key_id=config.MINIO_ACCESS_KEY,
             aws_secret_access_key=config.MINIO_SECRET_KEY,
-            config=Config(signature_version='s3v4')
+            region_name=config.AWS_REGION,
+            config=Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'}
+            )
         )
     return s3_client
 
 def upload_file_to_minio(file: UploadFile) -> str:
-    """Uploads a FastAPI UploadFile to MinIO and returns the public URL."""
+    """Uploads a FastAPI UploadFile to MinIO / S3 and returns the public URL."""
     
     # Validation Phase
     content_type = file.content_type
@@ -55,8 +59,9 @@ def upload_file_to_minio(file: UploadFile) -> str:
             Body=content,
             ContentType=content_type
         )
-        app_logger.info("Successfully uploaded object to MinIO", extra={"file_name": file_name})
-        return f"{config.MINIO_PUBLIC_URL}/{config.MINIO_BUCKET}/{file_name}"
+        app_logger.info("Successfully uploaded object to storage", extra={"file_name": file_name})
+        base_url = config.MINIO_PUBLIC_URL.rstrip('/')
+        return f"{base_url}/{config.MINIO_BUCKET}/{file_name}"
     except ClientError as e:
         app_logger.error("Boto3 ClientError during upload", exc_info=True)
         raise StorageError(f"Cloud storage error: {e.response['Error']['Message']}")
