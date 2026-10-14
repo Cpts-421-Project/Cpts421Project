@@ -62,6 +62,7 @@ class Config:
 
     MINIO_BUCKET = (
         os.environ.get("MINIO_BUCKET")
+        or os.environ.get("AWS_S3_BUCKET_NAME")
         or os.environ.get("AWS_BUCKET")
         or os.environ.get("BUCKET_NAME")
         or os.environ.get("AWS_S3_BUCKET")
