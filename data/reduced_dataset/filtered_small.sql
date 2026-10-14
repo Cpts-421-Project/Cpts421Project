@@ -8,11 +8,11 @@ SELECT 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metr
 WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.');
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241792)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image'
@@ -41,11 +41,11 @@ WHERE o.inventory_number = '241792' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Marble funerary inscription (https://www.metmuseum.org/art/collection/search/256773)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: slave
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image'
@@ -74,11 +74,11 @@ WHERE o.inventory_number = '256773' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Sea Lion Hunt Bottle (https://www.metmuseum.org/art/collection/search/310521)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310521/674244/main-image'
@@ -100,11 +100,11 @@ WHERE o.inventory_number = '310521' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Sarcophagus with a Greek Physician (https://www.metmuseum.org/art/collection/search/468268)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: physician
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468268/950913/main-image'
@@ -126,11 +126,11 @@ WHERE o.inventory_number = '468268' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241511)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image'
@@ -159,11 +159,11 @@ WHERE o.inventory_number = '241511' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241789)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image'
@@ -192,11 +192,11 @@ WHERE o.inventory_number = '241789' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241790)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image'
@@ -225,11 +225,11 @@ WHERE o.inventory_number = '241790' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241791)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image'
@@ -258,11 +258,11 @@ WHERE o.inventory_number = '241791' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241793)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image'
@@ -291,11 +291,11 @@ WHERE o.inventory_number = '241793' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Bottle with Runners (https://www.metmuseum.org/art/collection/search/308507)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: craftsman
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/308507/675135/main-image'
@@ -317,11 +317,11 @@ WHERE o.inventory_number = '308507' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Pulque Maker (https://www.metmuseum.org/art/collection/search/318960)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: maker
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/318960/680587/main-image'
@@ -343,11 +343,11 @@ WHERE o.inventory_number = '318960' AND i.file_url = 'https://collectionapi.metm
 ON CONFLICT DO NOTHING;
 
 -- Hemispherical bowl with scenes of wine making (https://www.metmuseum.org/art/collection/search/326008)
--- WARNING: could not parse date ''; placeholder range used
+-- NOTE: no date on record; date_display set to midpoint of 200-800
 -- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+                     date_display, date_start, date_end, height, width, depth, unit)
+VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', '500', 200, 800, NULL, NULL, NULL, 'cm')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image'
@@ -368,7 +368,4 @@ JOIN tags t ON t.tag_name = 'scene'
 WHERE o.inventory_number = '326008' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image'
 ON CONFLICT DO NOTHING;
 
-UPDATE objects SET review_status = 'accepted' WHERE review_status LIKE 'pending%';
-
 COMMIT;
-
