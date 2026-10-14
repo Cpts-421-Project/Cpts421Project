@@ -1,14 +1,6 @@
 services:
   postgres:
     image: postgres:15-alpine
-    # Keep your existing environment, ports, and volumes.
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-postgres}"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 10s
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -37,16 +29,10 @@ services:
           path: ../code/frontend/package.json
 
   backend:
-    depends_on:
-      postgres:
-        condition: service_healthy
     build:
       context: ../code/backend
     ports:
       - "8000:8000"
-    command: >
-      sh -c "alembic upgrade head &&
-      uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
@@ -55,9 +41,11 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
     env_file:
       - .env
+    depends_on:
+      - postgres
 
   minio:
-    image: dappros/minio:RELEASE.2025-09-07T16-13-09Z
+    image: minio/minio
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -74,7 +62,7 @@ services:
       retries: 5
 
   createbuckets:
-    image: ghcr.io/golithus/mc:RELEASE.2025-08-13T08-35-41Z
+    image: minio/mc
     depends_on:
       minio:
         condition: service_healthy
