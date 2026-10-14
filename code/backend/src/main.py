@@ -81,7 +81,13 @@ _rate_limit_store: dict = {}
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    client_ip = request.client.host
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    elif request.client and request.client.host:
+        client_ip = request.client.host
+    else:
+        client_ip = "127.0.0.1"
     now = time.time()
 
     if client_ip not in _rate_limit_store:

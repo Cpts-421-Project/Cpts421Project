@@ -244,3 +244,21 @@ class TestExtraordinaryCases:
         response = client.get("/objects/search")
         assert response.status_code == 200
         assert len(response.json()) >= 1
+
+    def test_getTags_dbError_returns500(self, client):
+        """Simulate database error on tags query."""
+        from unittest.mock import patch
+        from sqlalchemy.exc import SQLAlchemyError
+        with patch("src.repositories.object_repository.ObjectRepository.get_all_tags", side_effect=SQLAlchemyError("DB error")):
+            response = client.get("/tags")
+            assert response.status_code == 500
+            assert "database error" in response.json()["detail"].lower()
+
+    def test_getObjectsMap_dbError_returns500(self, client):
+        """Simulate database error on map query."""
+        from unittest.mock import patch
+        from sqlalchemy.exc import SQLAlchemyError
+        with patch("src.repositories.object_repository.ObjectRepository.get_map_data", side_effect=SQLAlchemyError("DB error")):
+            response = client.get("/objects/map")
+            assert response.status_code == 500
+            assert "database error" in response.json()["detail"].lower()
