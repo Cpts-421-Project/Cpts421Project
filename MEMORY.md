@@ -69,6 +69,10 @@
 - **Cycle 8 (Fix 502 Bad Gateway & Alembic String Literal Quotes):**
   - Resolved startup crash causing 502 Bad Gateway: In `e1a2b3c4d5e6_add_review_status_to_objects.py`, changed unquoted `server_default='accepted'` to explicit `server_default=sa.text("'accepted'")` and `op.execute(...)`. In PostgreSQL, raw unquoted string defaults evaluate to column identifiers, causing `column "accepted" does not exist` and preventing Uvicorn from starting.
   - Documented Railway port configuration requirements: Set `PORT=8000` on Backend service or `BACKEND_PORT=${{backend.PORT}}` on Frontend service to ensure internal port alignment.
+- **Cycle 9 (Original Team Repo Sync & PR #29 Merged):**
+  - Railway switched to team repository (`Cpts-421-Project/Cpts421Project`).
+  - Created Pull Request [#29](https://github.com/Cpts-421-Project/Cpts421Project/pull/29), passed all 4 CI checks (Structure, Backend CI, Frontend & Backend Docker build), and merged it into `origin/main`.
+  - Synced local `main` and `personal/main` with `origin/main` at commit `a0410de`. Railway now deploys the fixes from the primary team repository.
 
 ---
 
@@ -78,7 +82,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Verifying backend container boot with corrected Alembic migration and Railway port alignment.
+- Verifying deployment on Railway from origin/main.
 
 ### [PENDING]
 - **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page.
