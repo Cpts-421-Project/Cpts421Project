@@ -51,7 +51,8 @@ class ObjectMapResponse(BaseModel):
 class ObjectDetailResponse(ObjectBase):
     id: int
     images: List[ImageResponse]
-    bibliography: List[str] 
+    bibliography: List[str]
+    tags: List[str] = []
     model_config = ConfigDict(from_attributes=True)
 
 class ReviewUpdate(BaseModel):

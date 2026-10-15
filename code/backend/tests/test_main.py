@@ -2,6 +2,16 @@
 Backend API tests covering Normal, Edge, and Extraordinary cases.
 Uses in-memory SQLite for isolation.
 """
+import os
+
+# Configure test environment variables before importing app and config
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-12345678901234567890")
+os.environ.setdefault("MINIO_ENDPOINT", "http://localhost:9000")
+os.environ.setdefault("MINIO_ACCESS_KEY", "minioadmin")
+os.environ.setdefault("MINIO_SECRET_KEY", "minioadmin")
+os.environ.setdefault("MINIO_BUCKET_NAME", "artifacts")
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -60,13 +70,45 @@ def setup_database():
     db.commit()
     db.refresh(obj1)
 
+    tag_roman = Tag(tag_name="Roman")
+    tag_egyptian = Tag(tag_name="Egyptian")
+    db.add(tag_roman)
+    db.add(tag_egyptian)
+    db.commit()
+
     image = Image(
         object_id=obj1.id,
         source_id=source.id,
         image_type="Photo",
         file_url="http://example.com/image.jpg"
     )
+    image.tags.append(tag_roman)
     db.add(image)
+    db.commit()
+
+    obj2 = Object(
+        object_type="Coin",
+        material="Gold",
+        findspot="Alexandria",
+        latitude=31.2001,
+        longitude=29.9187,
+        date_display="c. 100 BC",
+        date_start=-150,
+        date_end=-50,
+        inventory_number="INV002",
+        review_status="accepted"
+    )
+    db.add(obj2)
+    db.commit()
+
+    image2 = Image(
+        object_id=obj2.id,
+        source_id=source.id,
+        image_type="Photo",
+        file_url="http://example.com/coin.jpg"
+    )
+    image2.tags.append(tag_egyptian)
+    db.add(image2)
     db.commit()
 
     import bcrypt
@@ -167,7 +209,7 @@ class TestSearchObjectsMaterial:
         assert len(response.json()) == 1
 
     def test_nonMatchingMaterial_returnsEmpty(self, client):
-        response = client.get("/objects/search?material=Gold")
+        response = client.get("/objects/search?material=Silver")
         assert response.status_code == 200
         assert len(response.json()) == 0
 
@@ -315,3 +357,84 @@ class TestAuthLogin:
         response = client.post("/auth/login", json={"username": "unknown_user_999", "password": "password"})
         assert response.status_code == 401
         assert "incorrect username or password" in response.json()["detail"].lower()
+
+
+class TestSearchAndTags:
+    """Tests for general search and tag filtering functionality."""
+
+    def test_search_byObjectType_returnsMatchingObject(self, client):
+        """Normal case: Search by artifact object_type."""
+        response = client.get("/objects/search?search=Vase")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["object_type"] == "Vase"
+        assert "Roman" in data[0]["tags"]
+
+    def test_search_byFindspot_returnsMatchingObject(self, client):
+        """Normal case: Search by discovery findspot."""
+        response = client.get("/objects/search?search=Alexandria")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["object_type"] == "Coin"
+
+    def test_search_byAliasQ_returnsMatchingObject(self, client):
+        """Normal case: Search using alias query parameter 'q'."""
+        response = client.get("/objects/search?q=Clay")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["material"] == "Clay"
+
+    def test_search_byAssociatedTagName_returnsMatchingObject(self, client):
+        """Normal case: Search term matching an associated tag name."""
+        response = client.get("/objects/search?search=Roman")
+        assert response.status_code == 200
+        data = response.json()
+        assert any(obj["object_type"] == "Vase" for obj in data)
+
+    def test_filter_bySingleTag_returnsMatchingObject(self, client):
+        """Normal case: Filter objects by a single tag."""
+        response = client.get("/objects/search?tags=Egyptian")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["object_type"] == "Coin"
+
+    def test_filter_byTagCaseInsensitive_returnsMatchingObject(self, client):
+        """Edge case: Tag filtering should be case-insensitive."""
+        response = client.get("/objects/search?tags=roman")
+        assert response.status_code == 200
+        data = response.json()
+        assert any(obj["object_type"] == "Vase" for obj in data)
+
+    def test_filter_byMultipleTagsCommaSeparated_returnsBoth(self, client):
+        """Normal case: Filter by multiple comma-separated tags with default any mode."""
+        response = client.get("/objects/search?tags=Roman,Egyptian")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+
+    def test_filter_byMultipleTagsRepeatedParam_returnsBoth(self, client):
+        """Normal case: Filter by repeated tags query parameter (tags=A&tags=B)."""
+        response = client.get("/objects/search?tags=Roman&tags=Egyptian")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+
+    def test_filter_byNonExistentTag_returnsEmpty(self, client):
+        """Edge case: Filtering by a tag that no object has returns empty list."""
+        response = client.get("/objects/search?tags=NonExistentTag12345")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 0
+
+    def test_search_withLeadingTrailingWhitespace_trimmedProperly(self, client):
+        """Edge case: Search term with spaces is properly trimmed."""
+        response = client.get("/objects/search?search=%20Vase%20")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["object_type"] == "Vase"
+

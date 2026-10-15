@@ -111,10 +111,26 @@
   - Deleted empty placeholder directories and files: `code/Filter/`, `code/scripts/` (3 empty shell scripts), `data/processed/`, `data/raw/`.
   - Deleted orphaned `deployment/dummy_data/` directory (old dummy seeds + PNGs, unreferenced by any config).
   - Cleaned `.gitignore`: removed rambling internal-debate comments, added entries for `*.log`, `import_log.txt`, `.pytest_cache/`.
-- **Cycle 16 (Pull Request #38: Staging into Main):**
-  - Synced `staging` branch with latest remote `main` commits and pushed to `origin/staging`.
-  - Opened Pull Request [#38](https://github.com/Cpts-421-Project/Cpts421Project/pull/38) targeting `main` to comply with repository branch protection rules.
-  - Changes included: database seeder, case-insensitive auth, login UI polish, and complete codebase cleanup (removal of 8 orphaned scripts and debug artifacts).
+- **Cycle 16 (Pull Request #38 Merged into Main):**
+  - Synced `staging` branch with latest remote `main` commits and opened Pull Request [#38](https://github.com/Cpts-421-Project/Cpts421Project/pull/38).
+  - All 8 CI checks passed (`Structure Check`, `Frontend CI`, `Backend CI`, `Docker Builds`, Railway).
+  - Successfully merged PR [#38](https://github.com/Cpts-421-Project/Cpts421Project/pull/38) into `main` at commit `5540aa3`.
+  - Synced local `main` and `personal/main` with `origin/main`. Changes including automated seeder, case-insensitive auth, login UI polish, and codebase cleanup are now live on `main`.
+- **Cycle 17 (Search Bar & Tag Filtering End-to-End Implementation):**
+  - Backend API & Service:
+    - Updated `/objects/search` endpoint in [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py) to accept `search`, `q`, `tags`, `tag`, and `tag_mode` parameters.
+    - Added multi-field text search in [object_repository.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/repositories/object_repository.py) covering `object_type`, `description`, `material`, `findspot`, `inventory_number`, and tag names via `ilike` and `or_`.
+    - Added tag filtering matching associated tags with case-insensitivity and support for `any` (OR) and `all` (AND) modes.
+    - Eager-loaded `Image.tags` with `joinedload` and invoked `.all()` to eliminate N+1 queries.
+    - Added `tags: List[str]` to `ObjectDetailResponse` in [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/schemas.py) and enriched dicts in [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/object_service.py).
+    - Added comprehensive unit tests in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) under `TestSearchAndTags`. All 40 backend tests and 10 frontend tests passing.
+  - Frontend UI & State:
+    - Updated [useArtifacts.js](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/hooks/useArtifacts.js) to pass `search` and `tags` query parameters.
+    - Configured `paramsSerializer: { indexes: null }` in [api.js](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/services/api.js).
+    - Enhanced [SearchPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/SearchPage.jsx) with URL query synchronization (`useSearchParams`), clearable search input with icon, active filter chips with one-click removal, and improved empty state.
+    - Enhanced [FilterSidebar.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/components/FilterSidebar.jsx) with filter reset, active tag counter, tag search filter, and parent state synchronization.
+    - Added tag chips rendering on [ArtifactGrid.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/components/ArtifactGrid.jsx) and [ObjectPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/ObjectPage.jsx).
+    - Verified production build compiles cleanly (`npm run build`).
 
 ---
 
@@ -124,7 +140,8 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Verifying admin login and dashboard access in staging.
+- Committing and pushing search bar and tag filtering to `staging`, verifying staging deployment.
 
 ### [PENDING]
+- **Merge Staging to Main:** Open PR from `staging` to `main` once staging is verified.
 - **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.

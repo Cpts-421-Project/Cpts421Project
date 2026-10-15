@@ -21,9 +21,23 @@ const ArtifactCard = ({ artifact }) => {
                 <div className="p-4">
                     <h3 className="font-semibold text-lg text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{artifact.object_type}</h3>
                     <p className="text-sm text-gray-500 mb-2">{artifact.date_display}</p>
-                    <div className="flex flex-wrap gap-1">
-                        {/* If tags were available on the object response, we'd list them here */}
-                    </div>
+                    {artifact.tags && artifact.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                            {artifact.tags.slice(0, 3).map(tag => (
+                                <span
+                                    key={tag}
+                                    className="inline-block px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-100"
+                                >
+                                    {tag}
+                                </span>
+                            ))}
+                            {artifact.tags.length > 3 && (
+                                <span className="inline-block px-1.5 py-0.5 text-xs text-gray-500">
+                                    +{artifact.tags.length - 3}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </Link>

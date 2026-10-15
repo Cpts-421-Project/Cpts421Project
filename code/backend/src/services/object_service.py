@@ -25,11 +25,22 @@ def build_bibliography(obj: Object) -> List[str]:
     return list(citations)
 
 
+def extract_tags(obj: Object) -> List[str]:
+    """Extracts unique tag names associated with an object's images."""
+    tags = set()
+    for img in getattr(obj, "images", []):
+        for t in getattr(img, "tags", []):
+            if hasattr(t, "tag_name") and t.tag_name:
+                tags.add(t.tag_name)
+    return sorted(list(tags))
+
+
 def _enrich_object_dict(obj: Object) -> dict:
-    """Converts an ORM Object to a dict enriched with bibliography data."""
+    """Converts an ORM Object to a dict enriched with bibliography and tags data."""
     obj_dict = obj.__dict__.copy()
     obj_dict['bibliography'] = build_bibliography(obj)
     obj_dict['images'] = obj.images
+    obj_dict['tags'] = extract_tags(obj)
     return obj_dict
 
 
@@ -45,16 +56,22 @@ class ObjectService:
         year: Optional[int] = None,
         date_start: Optional[int] = None,
         date_end: Optional[int] = None,
+        search: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        tag_mode: str = "any",
         skip: int = 0,
         limit: int = 100,
     ) -> List[dict]:
-        """Search objects and enrich each with bibliography."""
+        """Search objects and enrich each with bibliography and tags."""
         try:
             objects = self.repo.search(
                 material=material,
                 year=year,
                 date_start=date_start,
                 date_end=date_end,
+                search=search,
+                tags=tags,
+                tag_mode=tag_mode,
                 skip=skip,
                 limit=limit
             )

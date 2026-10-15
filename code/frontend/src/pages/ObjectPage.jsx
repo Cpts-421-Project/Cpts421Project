@@ -103,6 +103,23 @@ const ObjectPage = () => {
                             </dl>
                         </div>
 
+                        {/* Tags */}
+                        {object.tags && object.tags.length > 0 && (
+                            <div>
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Tags</h2>
+                                <div className="flex flex-wrap gap-2">
+                                    {object.tags.map(tag => (
+                                        <span
+                                            key={tag}
+                                            className="inline-block px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-200"
+                                        >
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Dimensions */}
                         <div>
                             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Dimensions</h2>
