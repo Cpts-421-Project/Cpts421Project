@@ -111,7 +111,9 @@
   - Deleted empty placeholder directories and files: `code/Filter/`, `code/scripts/` (3 empty shell scripts), `data/processed/`, `data/raw/`.
   - Deleted orphaned `deployment/dummy_data/` directory (old dummy seeds + PNGs, unreferenced by any config).
   - Cleaned `.gitignore`: removed rambling internal-debate comments, added entries for `*.log`, `import_log.txt`, `.pytest_cache/`.
-  - Purged local caches: `.pytest_cache/`, `__pycache__/`, `code/frontend/dist/`, `.DS_Store` files.
+- **Cycle 16 (Merge Staging into Main):**
+  - Fast-forward merged `staging` branch (commits `ad546a6` through `c8d12af`) into `main`.
+  - Propagated database seeder, case-insensitive auth, login UI polish, and complete codebase cleanup (removal of 8 orphaned scripts and debug artifacts) into `main`.
 
 ---
 
