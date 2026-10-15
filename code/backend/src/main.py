@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Query, Depends, Request, Response, U
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from .config import config
@@ -116,12 +117,19 @@ async def read_root():
 # Custom Auth Endpoints Using HttpOnly Cookies
 @app.post("/auth/login")
 async def login(login_data: UserLogin, response: Response, db: Session = Depends(get_db)):
+    identifier = login_data.username.strip()
+
     def _do_login():
-        return db.query(User).filter(User.username == login_data.username).first()
+        return db.query(User).filter(
+            or_(
+                func.lower(User.username) == identifier.lower(),
+                func.lower(User.email) == identifier.lower(),
+            )
+        ).first()
 
     user = await run_in_threadpool(_do_login)
     if not user or not verify_password(login_data.password, user.password_hash):
-        app_logger.warning("Failed login attempt", extra={"username": login_data.username})
+        app_logger.warning("Failed login attempt", extra={"identifier": identifier})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -143,7 +151,7 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         secure=is_production,
     )
     app_logger.info("User logged in successfully", extra={"username": user.username})
-    return {"message": "Logged in successfully", "is_admin": user.is_admin}
+    return {"message": "Logged in successfully", "username": user.username, "is_admin": user.is_admin}
 
 
 @app.post("/auth/logout")

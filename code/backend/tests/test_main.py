@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 import pytest
 from src.main import app
 from src.database import get_db
-from src.models import Base, Object, Image, Source, Tag
+from src.models import Base, Object, Image, Source, Tag, User
 
 # Setup in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -68,6 +68,18 @@ def setup_database():
     )
     db.add(image)
     db.commit()
+
+    import bcrypt
+    hashed_pw = bcrypt.hashpw("-EgX6nsEMfsAZW".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    test_user = User(
+        email="asaf.kedar1@gmail.com",
+        username="asafKedar",
+        password_hash=hashed_pw,
+        is_admin=True,
+    )
+    db.add(test_user)
+    db.commit()
+
     db.close()
 
     yield
@@ -262,3 +274,44 @@ class TestExtraordinaryCases:
             response = client.get("/objects/map")
             assert response.status_code == 500
             assert "database error" in response.json()["detail"].lower()
+
+
+class TestAuthLogin:
+    """Authentication tests covering Normal, Edge, and Extraordinary cases."""
+
+    def test_login_exactUsername_succeeds(self, client):
+        """Normal case: Login with exact case username and correct password."""
+        response = client.post("/auth/login", json={"username": "asafKedar", "password": "-EgX6nsEMfsAZW"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message"] == "Logged in successfully"
+        assert data["username"] == "asafKedar"
+        assert data["is_admin"] is True
+        assert "access_token" in response.cookies
+
+    def test_login_lowercaseUsername_succeeds(self, client):
+        """Edge case: Login with all-lowercase username."""
+        response = client.post("/auth/login", json={"username": "asafkedar", "password": "-EgX6nsEMfsAZW"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == "asafKedar"
+        assert data["is_admin"] is True
+
+    def test_login_emailAddress_succeeds(self, client):
+        """Edge case: Login using email address instead of username."""
+        response = client.post("/auth/login", json={"username": "asaf.kedar1@gmail.com", "password": "-EgX6nsEMfsAZW"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == "asafKedar"
+
+    def test_login_wrongPassword_returns401(self, client):
+        """Extraordinary case: Correct username with invalid password."""
+        response = client.post("/auth/login", json={"username": "asafKedar", "password": "WrongPassword123!"})
+        assert response.status_code == 401
+        assert "incorrect username or password" in response.json()["detail"].lower()
+
+    def test_login_nonExistentUser_returns401(self, client):
+        """Extraordinary case: Non-existent username."""
+        response = client.post("/auth/login", json={"username": "unknown_user_999", "password": "password"})
+        assert response.status_code == 401
+        assert "incorrect username or password" in response.json()["detail"].lower()

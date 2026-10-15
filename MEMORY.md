@@ -25,10 +25,14 @@
   - `src/auth.py`: Password hashing, JWT token creation, cookie auth dependencies.
   - `src/services/`: Service layer (ObjectService, s3_service).
   - `src/repositories/`: Repository layer (ObjectRepository).
+  - `datacollection/`: Data ingestion pipeline (British Museum, Met API scrapers, S3/MinIO upload utils, URL validation).
   - `alembic/versions/`:
     - `d86f7k1a32b9_initial_schema.py`: Base table creation.
     - `e1a2b3c4d5e6_add_review_status_to_objects.py`: Adds `review_status` column and index to `objects`.
-  - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head` and `uvicorn --host '::'`.
+  - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head && python seed_db.py && uvicorn --host '::'`.
+  - `seed_db.py`: Database seeder script with idempotent SQL execution, admin account provisioning, and verification summary.
+  - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context.
+  - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`.
 - `code/frontend/`: React Vite frontend
   - `src/services/api.js`: Axios instance pointing to `/api`.
   - `src/contexts/AuthContext.jsx`: Auth state management.
@@ -81,6 +85,36 @@
   - Updated `code/backend/src/config.py` to seamlessly accept standard S3/AWS/Tigris environment variables (`AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `BUCKET_NAME`) in addition to `MINIO_*`.
   - Configured Boto3 S3 client in `code/backend/src/services/s3_service.py` with path-style addressing (`s3={'addressing_style': 'path'}`) and region support.
   - Merged via PR [#31](https://github.com/Cpts-421-Project/Cpts421Project/pull/31) into `origin/main`.
+- **Cycle 12 (Railway Storage Bucket Variables Configured):**
+  - Verified user's Backend service configuration referencing the `Images` bucket:
+    - `MINIO_ACCESS_KEY` = `${{Images.ACCESS_KEY_ID}}`
+    - `MINIO_BUCKET` = `${{Images.RAILWAY_BUCKET_NAME}}`
+    - `MINIO_ENDPOINT` = `${{Images.ENDPOINT}}`
+    - `MINIO_PUBLIC_URL` = `${{Images.ENDPOINT}}`
+    - `MINIO_SECRET_KEY` = `${{Images.SECRET_ACCESS_KEY}}`
+  - All variables mapped and aligned with `Config` and `s3_service.py`.
+- **Cycle 13 (Automated Production Database Seeding):**
+  - Created standalone idempotent seeder script [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/seed_db.py) supporting local, Docker Compose, and remote Railway environments.
+  - Bundled seed dataset [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) inside `code/backend/data/` for container build context.
+  - Updated [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/Dockerfile) startup command to execute `seed_db.py` directly after Alembic migrations, automatically seeding Railway's PostgreSQL database securely over the internal network on deploy.
+  - Added unit test suite [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_seed_db.py) following AAA pattern and testing Normal, Edge, and Extraordinary cases.
+  - Added explicit `bcrypt` dependency in [requirements.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/requirements.txt).
+  - Pushed to `staging` at commit `3217cf9`; verified `/api/tags` and `/api/objects/search` returning seeded artifacts in production.
+- **Cycle 14 (Flexible Case-Insensitive & Email Login Authentication):**
+  - Upgraded `/auth/login` endpoint in [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py) to match users by either `username` or `email` case-insensitively using `func.lower()`.
+  - Updated [LoginPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/LoginPage.jsx) label to "Username or Email" and removed placeholder pretext.
+  - Updated [AuthContext.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/contexts/AuthContext.jsx) to store canonical username returned from backend.
+  - Added unit test suite `TestAuthLogin` in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) testing exact username, lowercase username, email login, wrong password, and non-existent user.
+- **Cycle 15 (Codebase Cleanup):**
+  - Deleted 8 orphaned one-off scripts from `code/backend/`: `api_test.py`, `clean_db.py`, `sql_clean.py`, `sql_test.py`, `test_db.py`, `migrate_review_mode.py`, `migrate_users.py` (contained hardcoded plaintext passwords), `retro_cache.py`.
+  - Removed `import_log.txt` from git tracking (`git rm --cached`) and added to `.gitignore`.
+  - Deleted empty placeholder directories and files: `code/Filter/`, `code/scripts/` (3 empty shell scripts), `data/processed/`, `data/raw/`.
+  - Deleted orphaned `deployment/dummy_data/` directory (old dummy seeds + PNGs, unreferenced by any config).
+  - Cleaned `.gitignore`: removed rambling internal-debate comments, added entries for `*.log`, `import_log.txt`, `.pytest_cache/`.
+- **Cycle 16 (Pull Request #38: Staging into Main):**
+  - Synced `staging` branch with latest remote `main` commits and pushed to `origin/staging`.
+  - Opened Pull Request [#38](https://github.com/Cpts-421-Project/Cpts421Project/pull/38) targeting `main` to comply with repository branch protection rules.
+  - Changes included: database seeder, case-insensitive auth, login UI polish, and complete codebase cleanup (removal of 8 orphaned scripts and debug artifacts).
 
 ---
 
@@ -90,8 +124,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Connecting Railway Storage Bucket credentials to the Backend service.
+- Verifying admin login and dashboard access in staging.
 
 ### [PENDING]
-- **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page.
-- **Stashed Work Restoration:** Restore non-railway stashed files (`Reports/`, `Sprints/`) on `development` branch when ready.
+- **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.

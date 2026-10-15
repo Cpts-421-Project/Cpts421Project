@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password) => {
         const response = await api.post('/auth/login', { username, password });
-        setUser({ username, is_admin: response.data.is_admin });
+        setUser({ username: response.data.username || username, is_admin: response.data.is_admin });
         return response.data;
     };
 

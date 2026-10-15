@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN addgroup --system app && adduser --system --ingroup app app
 
 COPY src/ src/
+COPY data/ data/
+COPY seed_db.py .
 COPY alembic.ini .
 COPY alembic/ alembic/
 
@@ -20,4 +22,4 @@ USER app
 EXPOSE 8000
 
 # Bind to :: (IPv6 wildcard + dual-stack IPv4) for Railway Private Networking
-CMD ["sh", "-c", "alembic upgrade head && uvicorn src.main:app --host '::' --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && python seed_db.py && uvicorn src.main:app --host '::' --port ${PORT:-8000}"]
