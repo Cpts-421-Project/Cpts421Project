@@ -25,13 +25,14 @@
   - `src/auth.py`: Password hashing, JWT token creation, cookie auth dependencies.
   - `src/services/`: Service layer (ObjectService, s3_service).
   - `src/repositories/`: Repository layer (ObjectRepository).
+  - `datacollection/`: Data ingestion pipeline (British Museum, Met API scrapers, S3/MinIO upload utils, URL validation).
   - `alembic/versions/`:
     - `d86f7k1a32b9_initial_schema.py`: Base table creation.
     - `e1a2b3c4d5e6_add_review_status_to_objects.py`: Adds `review_status` column and index to `objects`.
   - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head && python seed_db.py && uvicorn --host '::'`.
   - `seed_db.py`: Database seeder script with idempotent SQL execution, admin account provisioning, and verification summary.
   - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context.
-  - `tests/test_seed_db.py`: Unit tests for seeder covering Normal, Edge, and Extraordinary cases.
+  - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`.
 - `code/frontend/`: React Vite frontend
   - `src/services/api.js`: Axios instance pointing to `/api`.
   - `src/contexts/AuthContext.jsx`: Auth state management.
@@ -104,6 +105,13 @@
   - Updated [LoginPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/LoginPage.jsx) label to "Username or Email" and removed placeholder pretext.
   - Updated [AuthContext.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/contexts/AuthContext.jsx) to store canonical username returned from backend.
   - Added unit test suite `TestAuthLogin` in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) testing exact username, lowercase username, email login, wrong password, and non-existent user.
+- **Cycle 15 (Codebase Cleanup):**
+  - Deleted 8 orphaned one-off scripts from `code/backend/`: `api_test.py`, `clean_db.py`, `sql_clean.py`, `sql_test.py`, `test_db.py`, `migrate_review_mode.py`, `migrate_users.py` (contained hardcoded plaintext passwords), `retro_cache.py`.
+  - Removed `import_log.txt` from git tracking (`git rm --cached`) and added to `.gitignore`.
+  - Deleted empty placeholder directories and files: `code/Filter/`, `code/scripts/` (3 empty shell scripts), `data/processed/`, `data/raw/`.
+  - Deleted orphaned `deployment/dummy_data/` directory (old dummy seeds + PNGs, unreferenced by any config).
+  - Cleaned `.gitignore`: removed rambling internal-debate comments, added entries for `*.log`, `import_log.txt`, `.pytest_cache/`.
+  - Purged local caches: `.pytest_cache/`, `__pycache__/`, `code/frontend/dist/`, `.DS_Store` files.
 
 ---
 
@@ -117,4 +125,3 @@
 
 ### [PENDING]
 - **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
-- **Stashed Work Restoration:** Restore non-railway stashed files (`Reports/`, `Sprints/`) on `development` branch when ready.
