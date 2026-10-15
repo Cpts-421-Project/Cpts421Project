@@ -101,7 +101,7 @@
   - Pushed to `staging` at commit `3217cf9`; verified `/api/tags` and `/api/objects/search` returning seeded artifacts in production.
 - **Cycle 14 (Flexible Case-Insensitive & Email Login Authentication):**
   - Upgraded `/auth/login` endpoint in [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py) to match users by either `username` or `email` case-insensitively using `func.lower()`.
-  - Updated [LoginPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/LoginPage.jsx) label and placeholder to "Username or Email".
+  - Updated [LoginPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/LoginPage.jsx) label to "Username or Email" and removed placeholder pretext.
   - Updated [AuthContext.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/contexts/AuthContext.jsx) to store canonical username returned from backend.
   - Added unit test suite `TestAuthLogin` in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) testing exact username, lowercase username, email login, wrong password, and non-existent user.
 

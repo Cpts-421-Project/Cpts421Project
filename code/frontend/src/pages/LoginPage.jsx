@@ -34,7 +34,6 @@ const LoginPage = () => {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             required
-                            placeholder="asafKedar or asaf.kedar1@gmail.com"
                             className="w-full px-3 py-2 mt-1 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>
