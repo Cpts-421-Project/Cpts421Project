@@ -28,7 +28,10 @@
   - `alembic/versions/`:
     - `d86f7k1a32b9_initial_schema.py`: Base table creation.
     - `e1a2b3c4d5e6_add_review_status_to_objects.py`: Adds `review_status` column and index to `objects`.
-  - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head` and `uvicorn --host '::'`.
+  - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head && python seed_db.py && uvicorn --host '::'`.
+  - `seed_db.py`: Database seeder script with idempotent SQL execution, admin account provisioning, and verification summary.
+  - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context.
+  - `tests/test_seed_db.py`: Unit tests for seeder covering Normal, Edge, and Extraordinary cases.
 - `code/frontend/`: React Vite frontend
   - `src/services/api.js`: Axios instance pointing to `/api`.
   - `src/contexts/AuthContext.jsx`: Auth state management.
@@ -89,6 +92,12 @@
     - `MINIO_PUBLIC_URL` = `${{Images.ENDPOINT}}`
     - `MINIO_SECRET_KEY` = `${{Images.SECRET_ACCESS_KEY}}`
   - All variables mapped and aligned with `Config` and `s3_service.py`.
+- **Cycle 13 (Automated Production Database Seeding):**
+  - Created standalone idempotent seeder script [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/seed_db.py) supporting local, Docker Compose, and remote Railway environments.
+  - Bundled seed dataset [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) inside `code/backend/data/` for container build context.
+  - Updated [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/Dockerfile) startup command to execute `seed_db.py` directly after Alembic migrations, automatically seeding Railway's PostgreSQL database securely over the internal network on deploy.
+  - Added unit test suite [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_seed_db.py) following AAA pattern and testing Normal, Edge, and Extraordinary cases.
+  - Added explicit `bcrypt` dependency in [requirements.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/requirements.txt).
 
 ---
 
@@ -98,9 +107,8 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Verifying image upload and bucket storage in production.
+- **Deploying Seeder to Railway:** Push Cycle 13 changes so Railway automatically seeds artifacts, sources, images, tags, and admin users into PostgreSQL.
 
 ### [PENDING]
-- **Database Seeding on Railway:** Run seed data ingestion in production so artifacts appear on the search page (`data/reduced_dataset/filtered_small.sql`).
 - **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
 - **Stashed Work Restoration:** Restore non-railway stashed files (`Reports/`, `Sprints/`) on `development` branch when ready.
