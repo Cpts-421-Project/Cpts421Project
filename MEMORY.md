@@ -111,9 +111,10 @@
   - Deleted empty placeholder directories and files: `code/Filter/`, `code/scripts/` (3 empty shell scripts), `data/processed/`, `data/raw/`.
   - Deleted orphaned `deployment/dummy_data/` directory (old dummy seeds + PNGs, unreferenced by any config).
   - Cleaned `.gitignore`: removed rambling internal-debate comments, added entries for `*.log`, `import_log.txt`, `.pytest_cache/`.
-- **Cycle 16 (Merge Staging into Main):**
-  - Fast-forward merged `staging` branch (commits `ad546a6` through `c8d12af`) into `main`.
-  - Propagated database seeder, case-insensitive auth, login UI polish, and complete codebase cleanup (removal of 8 orphaned scripts and debug artifacts) into `main`.
+- **Cycle 16 (Pull Request #38: Staging into Main):**
+  - Synced `staging` branch with latest remote `main` commits and pushed to `origin/staging`.
+  - Opened Pull Request [#38](https://github.com/Cpts-421-Project/Cpts421Project/pull/38) targeting `main` to comply with repository branch protection rules.
+  - Changes included: database seeder, case-insensitive auth, login UI polish, and complete codebase cleanup (removal of 8 orphaned scripts and debug artifacts).
 
 ---
 
