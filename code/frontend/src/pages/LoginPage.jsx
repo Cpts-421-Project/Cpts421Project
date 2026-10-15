@@ -28,12 +28,13 @@ const LoginPage = () => {
                 
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Username</label>
+                        <label className="block text-sm font-medium text-gray-700">Username or Email</label>
                         <input
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             required
+                            placeholder="asafKedar or asaf.kedar1@gmail.com"
                             className="w-full px-3 py-2 mt-1 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                     </div>

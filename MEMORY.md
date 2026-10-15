@@ -97,7 +97,13 @@
   - Bundled seed dataset [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) inside `code/backend/data/` for container build context.
   - Updated [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/Dockerfile) startup command to execute `seed_db.py` directly after Alembic migrations, automatically seeding Railway's PostgreSQL database securely over the internal network on deploy.
   - Added unit test suite [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_seed_db.py) following AAA pattern and testing Normal, Edge, and Extraordinary cases.
-  - Added explicit `bcrypt` dependency in [requirements.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/requirements.txt).
+  - Added explicit `bcrypt` dependency in [requirements.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/requirements.txt).
+  - Pushed to `staging` at commit `3217cf9`; verified `/api/tags` and `/api/objects/search` returning seeded artifacts in production.
+- **Cycle 14 (Flexible Case-Insensitive & Email Login Authentication):**
+  - Upgraded `/auth/login` endpoint in [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py) to match users by either `username` or `email` case-insensitively using `func.lower()`.
+  - Updated [LoginPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/LoginPage.jsx) label and placeholder to "Username or Email".
+  - Updated [AuthContext.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/contexts/AuthContext.jsx) to store canonical username returned from backend.
+  - Added unit test suite `TestAuthLogin` in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) testing exact username, lowercase username, email login, wrong password, and non-existent user.
 
 ---
 
@@ -107,7 +113,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- **Deploying Seeder to Railway:** Push Cycle 13 changes so Railway automatically seeds artifacts, sources, images, tags, and admin users into PostgreSQL.
+- Verifying admin login and dashboard access in staging.
 
 ### [PENDING]
 - **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
