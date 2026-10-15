@@ -132,6 +132,13 @@
     - Added tag chips rendering on [ArtifactGrid.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/components/ArtifactGrid.jsx) and [ObjectPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/ObjectPage.jsx).
     - Verified production build compiles cleanly (`npm run build`).
 
+- **Cycle 18 (Pull Request #39 Merged into Main with Search and Tags):**
+  - All 8 CI checks passed on PR [#39](https://github.com/Cpts-421-Project/Cpts421Project/pull/39) (`Structure Check`, `Frontend CI 18.x`, `Frontend CI 20.x`, `Production CI/CD backend-test`, `Production CI/CD frontend-test`, `Backend CI`, `Railway Backend`, `Railway Frontend`).
+  - Successfully merged PR [#39](https://github.com/Cpts-421-Project/Cpts421Project/pull/39) into `main` at commit `70003a2`.
+  - Synced local `main`, `staging`, `origin/main`, `origin/staging`, `personal/main`, and `personal/staging`.
+  - Verified 40/40 backend tests and 10/10 frontend tests passing.
+  - Search bar and tag filtering are now deployed and live on both `staging` and `main`.
+
 ---
 
 ## [ACTIVE BACKLOG]
@@ -140,8 +147,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Committing and pushing search bar and tag filtering to `staging`, verifying staging deployment.
+- None currently.
 
 ### [PENDING]
-- **Merge Staging to Main:** Open PR from `staging` to `main` once staging is verified.
 - **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
