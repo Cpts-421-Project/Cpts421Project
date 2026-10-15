@@ -62,6 +62,25 @@ describe('ArtifactGrid', () => {
 
       expect(screen.getByText('Loading artifacts...')).toBeInTheDocument();
     });
+
+    it('rendersTagBadges_whenArtifactHasTags', () => {
+      const artifacts = [
+        {
+          id: 1,
+          object_type: 'Vase',
+          date_display: 'c. 300 AD',
+          images: [],
+          tags: ['Roman', 'Pottery'],
+        },
+      ];
+
+      renderWithRouter(
+        <ArtifactGrid artifacts={artifacts} loading={false} error={null} />
+      );
+
+      expect(screen.getByText('Roman')).toBeInTheDocument();
+      expect(screen.getByText('Pottery')).toBeInTheDocument();
+    });
   });
 
   // ---------------------------------------------------------------------------

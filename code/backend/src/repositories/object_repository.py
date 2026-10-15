@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text
+from sqlalchemy import text, or_, func
 from typing import List, Optional
 from ..models import Object, Image, Source, Tag
 from ..schemas import ObjectDetailResponse, ObjectMapResponse
@@ -10,22 +10,70 @@ class ObjectRepository:
 
     def get_all(self, skip: int = 0, limit: int = 100) -> List[Object]:
         return self.db.query(Object).options(
-            joinedload(Object.images).joinedload(Image.source)
+            joinedload(Object.images).joinedload(Image.source),
+            joinedload(Object.images).joinedload(Image.tags),
         ).offset(skip).limit(limit).all()
 
     def get_by_id(self, object_id: int) -> Optional[Object]:
         """Fetch a single object by primary key. Returns None if not found."""
         return self.db.query(Object).options(
-            joinedload(Object.images).joinedload(Image.source)
+            joinedload(Object.images).joinedload(Image.source),
+            joinedload(Object.images).joinedload(Image.tags),
         ).filter(Object.id == object_id).first()
 
-    def search(self, material: Optional[str] = None, year: Optional[int] = None, date_start: Optional[int] = None, date_end: Optional[int] = None, skip: int = 0, limit: int = 100) -> List[Object]:
+    def search(
+        self,
+        material: Optional[str] = None,
+        year: Optional[int] = None,
+        date_start: Optional[int] = None,
+        date_end: Optional[int] = None,
+        search: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        tag_mode: str = "any",
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[Object]:
         query = self.db.query(Object).options(
-            joinedload(Object.images).joinedload(Image.source)
+            joinedload(Object.images).joinedload(Image.source),
+            joinedload(Object.images).joinedload(Image.tags),
         ).filter(Object.review_status == 'accepted')
 
-        if material:
-            query = query.filter(Object.material.ilike(f"%{material}%"))
+        # General text search across type, description, material, findspot, inventory number, and tags
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    Object.object_type.ilike(term),
+                    Object.description.ilike(term),
+                    Object.material.ilike(term),
+                    Object.findspot.ilike(term),
+                    Object.inventory_number.ilike(term),
+                    Object.images.any(Image.tags.any(Tag.tag_name.ilike(term))),
+                )
+            )
+
+        if material and material.strip():
+            query = query.filter(Object.material.ilike(f"%{material.strip()}%"))
+
+        # Tag-based filtering
+        if tags:
+            valid_tags = [t.strip() for t in tags if t and t.strip()]
+            if valid_tags:
+                if tag_mode == "all":
+                    for t in valid_tags:
+                        query = query.filter(
+                            Object.images.any(
+                                Image.tags.any(func.lower(Tag.tag_name) == t.lower())
+                            )
+                        )
+                else:  # default: "any" (matches objects containing any of the selected tags)
+                    query = query.filter(
+                        Object.images.any(
+                            Image.tags.any(
+                                or_(*[func.lower(Tag.tag_name) == t.lower() for t in valid_tags])
+                            )
+                        )
+                    )
 
         if year is not None:
             query = query.filter(Object.date_start <= year, Object.date_end >= year)
