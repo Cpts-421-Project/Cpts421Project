@@ -10,6 +10,7 @@ from ..repositories.object_repository import ObjectRepository
 from ..models import Object
 from ..logger import app_logger
 from ..exceptions import EntityNotFoundError, BaseAppException
+from .s3_service import ensure_stored_in_bucket
 
 
 def build_bibliography(obj: Object) -> List[str]:
@@ -116,6 +117,13 @@ class ObjectService:
     def create_object(self, object_data: dict) -> dict:
         """Create a new artifact manually."""
         images_data = object_data.pop("images", [])
+        for img in images_data:
+            if isinstance(img, dict) and img.get("file_url"):
+                img["file_url"] = ensure_stored_in_bucket(
+                    img["file_url"],
+                    object_identifier=object_data.get("inventory_number"),
+                    prefix="obj"
+                )
         try:
             obj = self.repo.add_object(object_data, images_data)
             app_logger.info("Created object", extra={"object_id": obj.id})
@@ -127,6 +135,13 @@ class ObjectService:
     def update_object(self, object_id: int, object_data: dict) -> Optional[dict]:
         """Edit an artifact."""
         images_data = object_data.pop("images", [])
+        for img in images_data:
+            if isinstance(img, dict) and img.get("file_url"):
+                img["file_url"] = ensure_stored_in_bucket(
+                    img["file_url"],
+                    object_identifier=object_id,
+                    prefix="obj"
+                )
         try:
             obj = self.repo.update_object(object_id, object_data, images_data)
             if not obj:

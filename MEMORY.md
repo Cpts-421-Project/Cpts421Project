@@ -23,6 +23,7 @@
   - `src/models.py`: Database models (User, Source, Tag, Image, Object, image_tags).
   - `src/schemas.py`: Pydantic request and response schemas.
   - `src/auth.py`: Password hashing, JWT token creation, cookie auth dependencies.
+  - `src/url_validator.py`: Core URL validation and domain allowlists for SSRF prevention.
   - `src/services/`: Service layer (ObjectService, s3_service).
   - `src/repositories/`: Repository layer (ObjectRepository).
   - `datacollection/`: Data ingestion pipeline (British Museum, Met API scrapers, S3/MinIO upload utils, URL validation).
@@ -30,9 +31,10 @@
     - `d86f7k1a32b9_initial_schema.py`: Base table creation.
     - `e1a2b3c4d5e6_add_review_status_to_objects.py`: Adds `review_status` column and index to `objects`.
   - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head && python seed_db.py && uvicorn --host '::'`.
-  - `seed_db.py`: Database seeder script with idempotent SQL execution, admin account provisioning, and verification summary.
+  - `seed_db.py`: Database seeder and image migration script with idempotent SQL execution, bucket migration, and admin account provisioning.
   - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context.
-  - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`.
+  - `data/images/`: Seed artifact image bundle for offline and deploy-time bucket population.
+  - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`, `test_s3_service.py`.
 - `code/frontend/`: React Vite frontend
   - `src/services/api.js`: Axios instance pointing to `/api`.
   - `src/contexts/AuthContext.jsx`: Auth state management.
@@ -132,6 +134,29 @@
     - Added tag chips rendering on [ArtifactGrid.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/components/ArtifactGrid.jsx) and [ObjectPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/ObjectPage.jsx).
     - Verified production build compiles cleanly (`npm run build`).
 
+- **Cycle 18 (Pull Request #39 Merged into Main with Search and Tags):**
+  - All 8 CI checks passed on PR [#39](https://github.com/Cpts-421-Project/Cpts421Project/pull/39) (`Structure Check`, `Frontend CI 18.x`, `Frontend CI 20.x`, `Production CI/CD backend-test`, `Production CI/CD frontend-test`, `Backend CI`, `Railway Backend`, `Railway Frontend`).
+  - Successfully merged PR [#39](https://github.com/Cpts-421-Project/Cpts421Project/pull/39) into `main` at commit `70003a2`.
+  - Synced local `main`, `staging`, `origin/main`, `origin/staging`, `personal/main`, and `personal/staging`.
+  - Verified 40/40 backend tests and 10/10 frontend tests passing.
+  - Search bar and tag filtering are now deployed and live on both `staging` and `main`.
+
+- **Cycle 19 (Enforce Bucket Storage For All Photos & Automated Seed Migration):**
+  - Unified Storage Architecture & Security:
+    - Updated [s3_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/s3_service.py) with `is_bucket_url`, `validate_magic_bytes` (JPEG, PNG, WebP, GIF), `upload_bytes_to_minio`, `download_and_store_image` (with SSRF protection, 10MB streaming size limit, and MIME magic-byte verification), and `ensure_stored_in_bucket`.
+    - Extracted core SSRF domain allowlists and validation into [url_validator.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/url_validator.py), eliminating circular dependencies and DRY violations between `src` and `datacollection`.
+    - Updated [cache_utils.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/datacollection/cache_utils.py) and [s3_utils.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/datacollection/s3_utils.py) to delegate directly to `s3_service` and `config`.
+  - Auto-Bucket Pipeline in API & Services:
+    - Updated [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/object_service.py) `create_object` and `update_object` to automatically route any external image URLs through `ensure_stored_in_bucket`, guaranteeing that photos added or updated on artifacts are always stored in our own storage bucket rather than external servers.
+  - Pre-Downloaded Seed Assets & Automated Seeder Migration:
+    - Downloaded and bundled all 12 seed images into `code/backend/data/images/` and `data/reduced_dataset/images/` (`met_<inventory_number>.jpg`).
+    - Enhanced [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/seed_db.py) with `migrate_external_images_to_bucket()`, automatically migrating any external images in PostgreSQL to our bucket upon deployment, utilizing local bundled image assets first (zero network overhead/offline safe) and streaming external downloads as fallback.
+    - Updated [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql) to check `NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id)` so re-seeding on already-migrated databases remains strictly idempotent.
+  - Test Suite & Quality Assurance:
+    - Added [test_s3_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_s3_service.py) with 20 unit tests covering Normal, Edge, and Extraordinary scenarios (SSRF domain blocking, DoS payload size limits, magic bytes, S3 errors, and ObjectService auto-caching).
+    - Added unit tests in [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_seed_db.py) testing image migration to bucket with local assets, skipping already-cached images, and graceful degradation when credentials are missing.
+    - All 92 backend tests and 10 frontend tests passing cleanly.
+
 ---
 
 ## [ACTIVE BACKLOG]
@@ -140,8 +165,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- Committing and pushing search bar and tag filtering to `staging`, verifying staging deployment.
+- None currently.
 
 ### [PENDING]
-- **Merge Staging to Main:** Open PR from `staging` to `main` once staging is verified.
 - **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
