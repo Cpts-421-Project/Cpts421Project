@@ -25,6 +25,7 @@ from seed_db import (
     seed_admin_users,
     get_database_summary,
     run_seeder,
+    update_legacy_image_urls,
 )
 from src.models import Base, Object, Source, Tag, Image, User
 
@@ -258,3 +259,79 @@ def test_migrateExternalImagesToBucket_extraordinaryMissingCredentials_gracefull
         # Assert: Gracefully skips without raising
         assert stats["total"] == 0
         assert stats["migrated"] == 0
+
+
+def test_updateLegacyImageUrls_normalMetUrl_updatesToInternalBucketEndpoint(sqlite_test_engine):
+    # Arrange
+    engine = sqlite_test_engine
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    obj = Object(
+        object_type="Terracotta Flask",
+        inventory_number="241793",
+        date_display="c. 100 AD",
+        date_start=50,
+        date_end=150,
+        review_status="accepted",
+    )
+    session.add(obj)
+    session.commit()
+    session.refresh(obj)
+
+    img = Image(
+        object_id=obj.id,
+        image_type="Photograph",
+        view_type="Front",
+        file_url="https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image",
+    )
+    session.add(img)
+    session.commit()
+    target_obj_id = obj.id
+    session.close()
+
+    # Act
+    updated = update_legacy_image_urls(engine)
+
+    # Assert
+    assert updated == 1
+    session = Session()
+    db_img = session.query(Image).filter(Image.object_id == target_obj_id).first()
+    assert db_img.file_url == "/api/images/met_241793.jpg"
+    session.close()
+
+
+def test_updateLegacyImageUrls_edgeAlreadyInternal_skipsUpdate(sqlite_test_engine):
+    # Arrange
+    engine = sqlite_test_engine
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    obj = Object(
+        object_type="Terracotta Flask",
+        inventory_number="241793",
+        date_display="c. 100 AD",
+        date_start=50,
+        date_end=150,
+        review_status="accepted",
+    )
+    session.add(obj)
+    session.commit()
+    session.refresh(obj)
+
+    img = Image(
+        object_id=obj.id,
+        image_type="Photograph",
+        view_type="Front",
+        file_url="/api/images/met_241793.jpg",
+    )
+    session.add(img)
+    session.commit()
+    session.close()
+
+    # Act
+    updated = update_legacy_image_urls(engine)
+
+    # Assert: zero rows updated
+    assert updated == 0
+

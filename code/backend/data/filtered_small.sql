@@ -15,7 +15,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241792.jpg'
 FROM objects o WHERE o.inventory_number = '241792'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
@@ -48,7 +48,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_256773.jpg'
 FROM objects o WHERE o.inventory_number = '256773'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
@@ -81,7 +81,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310521/674244/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_310521.jpg'
 FROM objects o WHERE o.inventory_number = '310521'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
@@ -107,7 +107,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468268/950913/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_468268.jpg'
 FROM objects o WHERE o.inventory_number = '468268'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
@@ -133,7 +133,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241511.jpg'
 FROM objects o WHERE o.inventory_number = '241511'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
@@ -166,7 +166,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241789.jpg'
 FROM objects o WHERE o.inventory_number = '241789'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
@@ -199,7 +199,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241790.jpg'
 FROM objects o WHERE o.inventory_number = '241790'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
@@ -232,7 +232,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241791.jpg'
 FROM objects o WHERE o.inventory_number = '241791'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
@@ -265,7 +265,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241793.jpg'
 FROM objects o WHERE o.inventory_number = '241793'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
@@ -298,7 +298,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/308507/675135/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_308507.jpg'
 FROM objects o WHERE o.inventory_number = '308507'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
@@ -324,7 +324,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/318960/680587/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_318960.jpg'
 FROM objects o WHERE o.inventory_number = '318960'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Jalisco') ON CONFLICT (tag_name) DO NOTHING;
@@ -350,7 +350,7 @@ INSERT INTO objects (object_type, material, findspot, inventory_number, descript
 VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image'
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_326008.jpg'
 FROM objects o WHERE o.inventory_number = '326008'
   AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Sasanian') ON CONFLICT (tag_name) DO NOTHING;

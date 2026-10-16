@@ -3,6 +3,7 @@ Service layer for Object-related business logic.
 Sits between API routes (controllers) and the repository layer.
 Owns the bibliography aggregation logic that was previously duplicated in 3 places.
 """
+import re
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -36,10 +37,40 @@ def extract_tags(obj: Object) -> List[str]:
     return sorted(list(tags))
 
 
+def _normalize_image_url(url: Optional[str], inventory_number: Optional[str] = None) -> Optional[str]:
+    """
+    Normalizes any external Met Museum image URL to our internal bucket proxy endpoint.
+    Guarantees no external Met URLs are returned to the frontend.
+    """
+    if not url or not isinstance(url, str):
+        return url
+
+    url_lower = url.lower()
+    if "metmuseum.org" in url_lower or "collectionapi" in url_lower:
+        if inventory_number:
+            safe_inv = "".join(c if c.isalnum() else "_" for c in str(inventory_number))
+            return f"/api/images/met_{safe_inv}.jpg"
+        match = re.search(r"/iiif/([^/]+)/", url)
+        if match:
+            safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+            return f"/api/images/met_{safe_inv}.jpg"
+        return "/api/images/met_default.jpg"
+
+    return url
+
+
 def _enrich_object_dict(obj: Object) -> dict:
     """Converts an ORM Object to a dict enriched with bibliography and tags data."""
     obj_dict = obj.__dict__.copy()
     obj_dict['bibliography'] = build_bibliography(obj)
+
+    inv_num = getattr(obj, "inventory_number", None)
+    for img in getattr(obj, "images", []):
+        if hasattr(img, "file_url") and img.file_url:
+            img.file_url = _normalize_image_url(img.file_url, inv_num)
+        elif isinstance(img, dict) and "file_url" in img:
+            img["file_url"] = _normalize_image_url(img["file_url"], inv_num)
+
     obj_dict['images'] = obj.images
     obj_dict['tags'] = extract_tags(obj)
     return obj_dict

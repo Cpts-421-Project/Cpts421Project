@@ -181,6 +181,51 @@ def find_default_images_dir() -> Optional[Path]:
     return None
 
 
+def update_legacy_image_urls(engine: Engine) -> int:
+    """
+    Idempotently updates any existing image records containing legacy external
+    Met Museum URLs to our internal bucket proxy endpoint: /api/images/met_<inventory_number>.jpg.
+    Works independently of S3 connectivity so the frontend immediately stops calling the Met.
+    """
+    backend_src = str(Path(__file__).resolve().parent / "src")
+    if backend_src not in sys.path:
+        sys.path.insert(0, backend_src)
+
+    from src.models import Image, Object
+    from sqlalchemy import or_
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    updated_count = 0
+    try:
+        legacy_images = (
+            session.query(Image)
+            .join(Object, Image.object_id == Object.id)
+            .filter(
+                or_(
+                    Image.file_url.like("%metmuseum%"),
+                    Image.file_url.like("%collectionapi%")
+                )
+            )
+            .all()
+        )
+        for img in legacy_images:
+            if img.object and img.object.inventory_number:
+                safe_inv = "".join(c if c.isalnum() else "_" for c in str(img.object.inventory_number))
+                img.file_url = f"/api/images/met_{safe_inv}.jpg"
+                updated_count += 1
+        if updated_count > 0:
+            session.commit()
+            logger.info("Successfully updated %d legacy image URLs to /api/images/met_<inv>.jpg", updated_count)
+    except Exception as exc:
+        session.rollback()
+        logger.warning("Failed updating legacy image URLs: %s", exc)
+    finally:
+        session.close()
+
+    return updated_count
+
+
 def migrate_external_images_to_bucket(
     engine: Engine,
     images_dir: Optional[Path] = None
@@ -337,6 +382,12 @@ def run_seeder(
         sql_path = sql_file_path or find_default_sql_file()
         logger.info("Target database: %s", database_url.split("@")[-1] if "@" in database_url else database_url)
         execute_sql_file(engine, sql_path)
+
+        # Immediately normalize any existing or newly inserted legacy external image URLs
+        try:
+            update_legacy_image_urls(engine)
+        except Exception as e:
+            logger.warning("Non-fatal error updating legacy image URLs: %s", e)
 
         if seed_admins:
             seed_admin_users(engine)

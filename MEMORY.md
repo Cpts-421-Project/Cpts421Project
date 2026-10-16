@@ -155,7 +155,26 @@
   - Test Suite & Quality Assurance:
     - Added [test_s3_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_s3_service.py) with 20 unit tests covering Normal, Edge, and Extraordinary scenarios (SSRF domain blocking, DoS payload size limits, magic bytes, S3 errors, and ObjectService auto-caching).
     - Added unit tests in [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_seed_db.py) testing image migration to bucket with local assets, skipping already-cached images, and graceful degradation when credentials are missing.
-    - All 92 backend tests and 10 frontend tests passing cleanly.
+- **Cycle 20 (Direct Internal Bucket Proxy & External Met URL Sanitization):**
+  - **Root Cause Identified:**
+    - Seed SQL files (`code/backend/data/filtered_small.sql` and `data/reduced_dataset/filtered_small.sql`) retained 12 hardcoded `https://collectionapi.metmuseum.org/api/collection/v1/iiif/...` URLs.
+    - Existing Postgres databases already held these external URLs, causing `/objects/search` and `/objects/{id}` to send external Met URLs to the frontend browser `<img>` tags.
+  - **Direct Internal Bucket Proxy & Streaming (`main.py`):**
+    - Added `@app.get("/images/{key:path}")` and `@app.get("/api/images/{key:path}")` endpoints in [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py).
+    - Hardened with path traversal protection (`..`, `\`, leading `/`, `~` rejection).
+    - Streams directly from private S3/Tigris/MinIO bucket using backend credentials, eliminating browser CORS restrictions and private bucket permission failures.
+    - Implemented automatic fallback to bundled seed image assets (`code/backend/data/images/met_*.jpg`) with lazy auto-upload to the S3 bucket.
+    - Added HTTP caching headers (`Cache-Control: public, max-age=86400`) and security headers (`X-Content-Type-Options: nosniff`).
+  - **Database Migration & Seed Sanitization:**
+    - Updated all 12 seed records in [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql) and [data/reduced_dataset/filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/data/reduced_dataset/filtered_small.sql) to `/api/images/met_<inventory_number>.jpg`.
+    - Added `update_legacy_image_urls()` to [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/seed_db.py), automatically executing on deployment before server startup to rewrite any existing rows in PostgreSQL from Met URLs to `/api/images/met_<inv>.jpg`.
+  - **Multi-Layer Defensive Normalization:**
+    - In [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/object_service.py) (`_enrich_object_dict`), added `_normalize_image_url` to guarantee no external Met URLs can be returned from API queries.
+    - In [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/schemas.py), added a Pydantic `field_validator` on `ImageResponse.file_url` to normalize legacy Met URLs before API serialization.
+    - In [config.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/config.py), added Railway aliases (`ENDPOINT`, `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `RAILWAY_BUCKET_NAME`) and defaulted `MINIO_PUBLIC_URL` to `/api/images`.
+  - **Quality Assurance & Verification:**
+    - Added comprehensive unit tests in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) (`TestServeImage`, `TestLegacyUrlNormalization`) and [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_seed_db.py) covering image streaming, S3 mocking, path traversal prevention, and legacy URL normalization.
+    - Total tests: 101/101 backend unit tests passing, 10/10 frontend Vitest tests passing.
 
 ---
 
@@ -168,4 +187,5 @@
 - None currently.
 
 ### [PENDING]
-- **Bucket Public Read Verification:** Verify that the Railway `Images` bucket has public read enabled so uploaded photos can be viewed directly in `<img>` tags on the frontend.
+- **Verify Staging/Production Deployment:** Push to `staging`, create pull request to `main`, and confirm in browser network tab that all artifact images load via `/api/images/...` with zero external calls to the Met Museum.
+

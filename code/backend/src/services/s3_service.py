@@ -78,6 +78,11 @@ def is_bucket_url(url: Optional[str]) -> bool:
         return False
 
     url_lower = url.lower().strip()
+
+    # Internal bucket endpoints / proxy
+    if url_lower.startswith("/api/images/") or url_lower.startswith("/images/"):
+        return True
+
     bucket_name = (config.MINIO_BUCKET or "uploads").lower()
 
     # Check against configured public URL or endpoint
@@ -123,9 +128,10 @@ def upload_bytes_to_minio(
             Body=content,
             ContentType=final_mime
         )
-        app_logger.info("Successfully uploaded object to storage", extra={"file_name": file_name})
-        base_url = (config.MINIO_PUBLIC_URL or config.MINIO_ENDPOINT or "http://localhost:9000").rstrip('/')
-        return f"{base_url}/{config.MINIO_BUCKET}/{file_name}"
+        if config.MINIO_PUBLIC_URL and config.MINIO_PUBLIC_URL.startswith("http"):
+            base_url = config.MINIO_PUBLIC_URL.rstrip('/')
+            return f"{base_url}/{config.MINIO_BUCKET}/{file_name}"
+        return f"/api/images/{file_name}"
     except ClientError as e:
         app_logger.error("Boto3 ClientError during upload", exc_info=True)
         raise StorageError(f"Cloud storage error: {e.response.get('Error', {}).get('Message', str(e))}")
