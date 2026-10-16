@@ -167,6 +167,122 @@ def seed_admin_users(engine: Engine) -> None:
         session.close()
 
 
+def find_default_images_dir() -> Optional[Path]:
+    """Find default directory containing pre-downloaded seed images."""
+    candidates = [
+        Path(__file__).resolve().parent / "data" / "images",
+        Path(__file__).resolve().parent.parent.parent / "data" / "reduced_dataset" / "images",
+        Path("/app/data/images"),
+        Path("data/reduced_dataset/images"),
+    ]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def migrate_external_images_to_bucket(
+    engine: Engine,
+    images_dir: Optional[Path] = None
+) -> Dict[str, Any]:
+    """
+    Scans the database for any Image records with external URLs.
+    Migrates them into our storage bucket using pre-downloaded images if available,
+    or streaming downloads from the external URL with SSRF/DoS protection.
+    Updates the database with the new bucket URLs.
+    """
+    backend_src = str(Path(__file__).resolve().parent / "src")
+    if backend_src not in sys.path:
+        sys.path.insert(0, backend_src)
+
+    from src.models import Image, Object
+    from src.services.s3_service import is_bucket_url, upload_bytes_to_minio, download_and_store_image
+    from src.config import config
+
+    # Check if S3 credentials are configured
+    if not config.MINIO_ACCESS_KEY or not config.MINIO_ENDPOINT:
+        logger.warning(
+            "Storage bucket credentials not configured. Skipping external image migration."
+        )
+        return {"total": 0, "migrated": 0, "failed": 0, "skipped": 0}
+
+    resolved_images_dir = images_dir or find_default_images_dir()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    stats = {"total": 0, "migrated": 0, "failed": 0, "skipped": 0}
+    try:
+        images = session.query(Image).all()
+        external_images = [img for img in images if img.file_url and not is_bucket_url(img.file_url)]
+        stats["total"] = len(external_images)
+
+        if not external_images:
+            logger.info("All %d images are already stored in our bucket.", len(images))
+            return stats
+
+        logger.info("Found %d external images to migrate into our storage bucket...", len(external_images))
+
+        for img in external_images:
+            obj = session.query(Object).filter(Object.id == img.object_id).first() if img.object_id else None
+            inv_num = obj.inventory_number if obj else str(img.id)
+            safe_inv = "".join(c if c.isalnum() else "_" for c in str(inv_num))
+            target_filename = f"met_{safe_inv}.jpg"
+
+            bucket_url = None
+
+            # 1. Try local cached image file first (zero network overhead, instant & offline safe)
+            if resolved_images_dir:
+                local_path = resolved_images_dir / target_filename
+                if local_path.is_file():
+                    try:
+                        with open(local_path, "rb") as f:
+                            content = f.read()
+                        bucket_url = upload_bytes_to_minio(
+                            content=content,
+                            content_type="image/jpeg",
+                            file_name=target_filename
+                        )
+                        logger.info("Uploaded local seed image %s to bucket", target_filename)
+                    except Exception as e:
+                        logger.warning("Failed uploading local file %s to bucket: %s", local_path, e)
+
+            # 2. If not local or local upload failed, try download from external URL
+            if not bucket_url and img.file_url and img.file_url.startswith("http"):
+                try:
+                    bucket_url = download_and_store_image(
+                        image_url=img.file_url,
+                        object_identifier=inv_num,
+                        prefix="met",
+                        custom_filename=target_filename
+                    )
+                except Exception as e:
+                    logger.warning("Failed downloading external image %s: %s", img.file_url, e)
+
+            # 3. If successfully stored in bucket, update the record
+            if bucket_url:
+                old_url = img.file_url
+                img.file_url = bucket_url
+                stats["migrated"] += 1
+                logger.info("Migrated photo for object %s: %s -> %s", inv_num, old_url, bucket_url)
+            else:
+                stats["failed"] += 1
+                logger.warning("Could not migrate image for object %s (%s)", inv_num, img.file_url)
+
+        session.commit()
+        logger.info(
+            "Image migration complete: %d migrated, %d failed out of %d total external images.",
+            stats["migrated"], stats["failed"], stats["total"]
+        )
+    except Exception as exc:
+        session.rollback()
+        logger.error("Error during image migration to bucket: %s", exc)
+        raise
+    finally:
+        session.close()
+
+    return stats
+
+
 def get_database_summary(engine: Engine) -> Dict[str, Any]:
     """Retrieve row counts across key tables for verification."""
     backend_src = str(Path(__file__).resolve().parent / "src")
@@ -174,6 +290,7 @@ def get_database_summary(engine: Engine) -> Dict[str, Any]:
         sys.path.insert(0, backend_src)
 
     from src.models import Object, Image, Source, Tag, User, image_tags
+    from src.services.s3_service import is_bucket_url
 
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -187,6 +304,11 @@ def get_database_summary(engine: Engine) -> Dict[str, Any]:
             session.query(func.count(Object.id)).filter(Object.review_status != "accepted").scalar() or 0
         )
         summary["total_images"] = session.query(func.count(Image.id)).scalar() or 0
+        
+        all_images = session.query(Image.file_url).all()
+        summary["bucket_images"] = sum(1 for (url,) in all_images if url and is_bucket_url(url))
+        summary["external_images"] = summary["total_images"] - summary["bucket_images"]
+
         summary["total_sources"] = session.query(func.count(Source.id)).scalar() or 0
         summary["total_tags"] = session.query(func.count(Tag.id)).scalar() or 0
         summary["total_image_tags"] = session.query(func.count()).select_from(image_tags).scalar() or 0
@@ -205,6 +327,8 @@ def run_seeder(
     sql_file_path: Optional[Path] = None,
     seed_admins: bool = True,
     verify_only: bool = False,
+    migrate_images: bool = True,
+    images_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Main seeder orchestration function."""
     engine = create_engine(database_url, pool_pre_ping=True)
@@ -217,11 +341,18 @@ def run_seeder(
         if seed_admins:
             seed_admin_users(engine)
 
+        if migrate_images:
+            try:
+                migrate_external_images_to_bucket(engine, images_dir=images_dir)
+            except Exception as e:
+                logger.warning("Non-fatal error during image migration: %s", e)
+
     summary = get_database_summary(engine)
     logger.info("=== Database Verification Summary ===")
     logger.info("Total Objects:    %d (Accepted: %d, Pending: %d)",
                 summary["total_objects"], summary["accepted_objects"], summary["pending_objects"])
-    logger.info("Total Images:     %d", summary["total_images"])
+    logger.info("Total Images:     %d (Bucket: %d, External: %d)",
+                summary["total_images"], summary.get("bucket_images", 0), summary.get("external_images", 0))
     logger.info("Total Sources:    %d", summary["total_sources"])
     logger.info("Total Tags:       %d", summary["total_tags"])
     logger.info("Total Image Tags: %d", summary["total_image_tags"])
@@ -255,6 +386,22 @@ def main():
         help="Skip seeding default administrator accounts.",
     )
     parser.add_argument(
+        "--skip-images",
+        action="store_true",
+        help="Skip migrating external images to storage bucket.",
+    )
+    parser.add_argument(
+        "--migrate-images-only",
+        action="store_true",
+        help="Only run the image migration to bucket without executing SQL seeds.",
+    )
+    parser.add_argument(
+        "--images-dir",
+        type=Path,
+        default=None,
+        help="Path to directory containing local seed images.",
+    )
+    parser.add_argument(
         "--verify-only",
         action="store_true",
         help="Do not seed data; only query and print existing database statistics.",
@@ -264,11 +411,19 @@ def main():
 
     try:
         db_url = resolve_database_url(args.database_url)
+        if args.migrate_images_only:
+            engine = create_engine(db_url, pool_pre_ping=True)
+            migrate_external_images_to_bucket(engine, images_dir=args.images_dir)
+            get_database_summary(engine)
+            return
+
         run_seeder(
             database_url=db_url,
             sql_file_path=args.sql_file,
             seed_admins=not args.skip_admins,
             verify_only=args.verify_only,
+            migrate_images=not args.skip_images,
+            images_dir=args.images_dir,
         )
     except Exception as exc:
         logger.error("Seeding operation failed: %s", exc)

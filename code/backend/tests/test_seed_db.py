@@ -186,3 +186,75 @@ def test_executeSqlFile_invalidSqlSyntax_rollsBackAndThrows(sqlite_test_engine, 
     # Act & Assert
     with pytest.raises(Exception):
         execute_sql_file(sqlite_test_engine, invalid_sql)
+
+
+# =====================================================================
+# 4. Image Migration to Bucket Tests
+# =====================================================================
+
+def test_migrateExternalImagesToBucket_normalLocalFile_migratesSuccessfully(sqlite_test_engine, sample_sql_file, tmp_path):
+    # Arrange: Seed database with sample containing 1 external image
+    engine = sqlite_test_engine
+    execute_sql_file(engine, sample_sql_file)
+
+    # Create dummy local image file
+    images_dir = tmp_path / "images"
+    images_dir.mkdir()
+    local_img = images_dir / "met_TEST_INV_001.jpg"
+    local_img.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 20)
+
+    from unittest.mock import patch
+    with patch("src.services.s3_service.upload_bytes_to_minio") as mock_upload:
+        mock_upload.return_value = "http://test:9000/uploads/met_TEST_INV_001.jpg"
+
+        # Act
+        from seed_db import migrate_external_images_to_bucket
+        stats = migrate_external_images_to_bucket(engine, images_dir=images_dir)
+
+        # Assert
+        assert stats["total"] == 1
+        assert stats["migrated"] == 1
+        assert stats["failed"] == 0
+
+        # Verify DB updated
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        img = session.query(Image).first()
+        assert img.file_url == "http://test:9000/uploads/met_TEST_INV_001.jpg"
+        session.close()
+
+
+def test_migrateExternalImagesToBucket_edgeAlreadyInBucket_skipsMigration(sqlite_test_engine, tmp_path):
+    # Arrange: Create an image that is already in bucket
+    engine = sqlite_test_engine
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    bucket_url = "http://test:9000/uploads/already_there.jpg"
+    img = Image(file_url=bucket_url)
+    session.add(img)
+    session.commit()
+    session.close()
+
+    # Act
+    from seed_db import migrate_external_images_to_bucket
+    stats = migrate_external_images_to_bucket(engine, images_dir=tmp_path)
+
+    # Assert
+    assert stats["total"] == 0
+    assert stats["migrated"] == 0
+
+
+def test_migrateExternalImagesToBucket_extraordinaryMissingCredentials_gracefullySkips(sqlite_test_engine, tmp_path):
+    # Arrange
+    engine = sqlite_test_engine
+    from unittest.mock import patch
+    from src.config import config
+
+    with patch.object(config, "MINIO_ACCESS_KEY", ""):
+        # Act
+        from seed_db import migrate_external_images_to_bucket
+        stats = migrate_external_images_to_bucket(engine, images_dir=tmp_path)
+
+        # Assert: Gracefully skips without raising
+        assert stats["total"] == 0
+        assert stats["migrated"] == 0

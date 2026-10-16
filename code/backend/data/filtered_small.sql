@@ -17,27 +17,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image'
 FROM objects o WHERE o.inventory_number = '241792'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman, Cypriot'
-WHERE o.inventory_number = '241792' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image'
+WHERE o.inventory_number = '241792'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '241792' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image'
+WHERE o.inventory_number = '241792'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '241792' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image'
+WHERE o.inventory_number = '241792'
 ON CONFLICT DO NOTHING;
 
 -- Marble funerary inscription (https://www.metmuseum.org/art/collection/search/256773)
@@ -50,27 +50,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image'
 FROM objects o WHERE o.inventory_number = '256773'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman'
-WHERE o.inventory_number = '256773' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image'
+WHERE o.inventory_number = '256773'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '256773' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image'
+WHERE o.inventory_number = '256773'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('slave') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'slave'
-WHERE o.inventory_number = '256773' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/256773/536311/main-image'
+WHERE o.inventory_number = '256773'
 ON CONFLICT DO NOTHING;
 
 -- Sea Lion Hunt Bottle (https://www.metmuseum.org/art/collection/search/310521)
@@ -83,20 +83,20 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310521/674244/main-image'
 FROM objects o WHERE o.inventory_number = '310521'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310521/674244/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Moche'
-WHERE o.inventory_number = '310521' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310521/674244/main-image'
+WHERE o.inventory_number = '310521'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '310521' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310521/674244/main-image'
+WHERE o.inventory_number = '310521'
 ON CONFLICT DO NOTHING;
 
 -- Sarcophagus with a Greek Physician (https://www.metmuseum.org/art/collection/search/468268)
@@ -109,20 +109,20 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468268/950913/main-image'
 FROM objects o WHERE o.inventory_number = '468268'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468268/950913/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman'
-WHERE o.inventory_number = '468268' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468268/950913/main-image'
+WHERE o.inventory_number = '468268'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('physician') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'physician'
-WHERE o.inventory_number = '468268' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468268/950913/main-image'
+WHERE o.inventory_number = '468268'
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241511)
@@ -135,27 +135,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image'
 FROM objects o WHERE o.inventory_number = '241511'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman'
-WHERE o.inventory_number = '241511' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image'
+WHERE o.inventory_number = '241511'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '241511' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image'
+WHERE o.inventory_number = '241511'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '241511' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241511/2100627/main-image'
+WHERE o.inventory_number = '241511'
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241789)
@@ -168,27 +168,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image'
 FROM objects o WHERE o.inventory_number = '241789'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman, Cypriot'
-WHERE o.inventory_number = '241789' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image'
+WHERE o.inventory_number = '241789'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '241789' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image'
+WHERE o.inventory_number = '241789'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '241789' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241789/2098983/main-image'
+WHERE o.inventory_number = '241789'
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241790)
@@ -201,27 +201,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image'
 FROM objects o WHERE o.inventory_number = '241790'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman, Cypriot'
-WHERE o.inventory_number = '241790' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image'
+WHERE o.inventory_number = '241790'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '241790' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image'
+WHERE o.inventory_number = '241790'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '241790' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241790/2098973/main-image'
+WHERE o.inventory_number = '241790'
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241791)
@@ -234,27 +234,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image'
 FROM objects o WHERE o.inventory_number = '241791'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman, Cypriot'
-WHERE o.inventory_number = '241791' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image'
+WHERE o.inventory_number = '241791'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '241791' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image'
+WHERE o.inventory_number = '241791'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '241791' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241791/2083550/main-image'
+WHERE o.inventory_number = '241791'
 ON CONFLICT DO NOTHING;
 
 -- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241793)
@@ -267,27 +267,27 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image'
 FROM objects o WHERE o.inventory_number = '241793'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman, Cypriot'
-WHERE o.inventory_number = '241793' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image'
+WHERE o.inventory_number = '241793'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Late Imperial'
-WHERE o.inventory_number = '241793' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image'
+WHERE o.inventory_number = '241793'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '241793' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/241793/2090712/main-image'
+WHERE o.inventory_number = '241793'
 ON CONFLICT DO NOTHING;
 
 -- Bottle with Runners (https://www.metmuseum.org/art/collection/search/308507)
@@ -300,20 +300,20 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/308507/675135/main-image'
 FROM objects o WHERE o.inventory_number = '308507'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/308507/675135/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Moche'
-WHERE o.inventory_number = '308507' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/308507/675135/main-image'
+WHERE o.inventory_number = '308507'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('craftsman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'craftsman'
-WHERE o.inventory_number = '308507' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/308507/675135/main-image'
+WHERE o.inventory_number = '308507'
 ON CONFLICT DO NOTHING;
 
 -- Pulque Maker (https://www.metmuseum.org/art/collection/search/318960)
@@ -326,20 +326,20 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/318960/680587/main-image'
 FROM objects o WHERE o.inventory_number = '318960'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/318960/680587/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Jalisco') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Jalisco'
-WHERE o.inventory_number = '318960' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/318960/680587/main-image'
+WHERE o.inventory_number = '318960'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('maker') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'maker'
-WHERE o.inventory_number = '318960' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/318960/680587/main-image'
+WHERE o.inventory_number = '318960'
 ON CONFLICT DO NOTHING;
 
 -- Hemispherical bowl with scenes of wine making (https://www.metmuseum.org/art/collection/search/326008)
@@ -352,20 +352,20 @@ ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image'
 FROM objects o WHERE o.inventory_number = '326008'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image');
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Sasanian') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Sasanian'
-WHERE o.inventory_number = '326008' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image'
+WHERE o.inventory_number = '326008'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '326008' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/326008/2227274/main-image'
+WHERE o.inventory_number = '326008'
 ON CONFLICT DO NOTHING;
 
 UPDATE objects SET review_status = 'accepted' WHERE review_status LIKE 'pending%';
