@@ -1,5 +1,6 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Any, List, Optional
 
 class UserLogin(BaseModel):
     username: str
@@ -35,6 +36,19 @@ class ImageResponse(BaseModel):
     view_type: Optional[str]
     file_url: str
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("file_url", mode="before")
+    @classmethod
+    def normalize_file_url(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v_lower = v.lower()
+            if "metmuseum" in v_lower or "collectionapi" in v_lower:
+                match = re.search(r"/iiif/([^/]+)/", v)
+                if match:
+                    safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+                    return f"/api/images/met_{safe_inv}.jpg"
+                return "/api/images/met_default.jpg"
+        return v
 
 class SourceResponse(BaseModel):
     id: int

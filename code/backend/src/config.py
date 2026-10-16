@@ -39,6 +39,7 @@ class Config:
         os.environ.get("MINIO_ENDPOINT")
         or os.environ.get("AWS_ENDPOINT_URL")
         or os.environ.get("S3_ENDPOINT")
+        or os.environ.get("ENDPOINT")
         or os.environ.get("TIGRIS_URI")
     )
     if not MINIO_ENDPOINT:
@@ -47,6 +48,7 @@ class Config:
     MINIO_ACCESS_KEY = (
         os.environ.get("MINIO_ACCESS_KEY")
         or os.environ.get("AWS_ACCESS_KEY_ID")
+        or os.environ.get("ACCESS_KEY_ID")
         or os.environ.get("S3_ACCESS_KEY")
     )
     if not MINIO_ACCESS_KEY:
@@ -55,6 +57,7 @@ class Config:
     MINIO_SECRET_KEY = (
         os.environ.get("MINIO_SECRET_KEY")
         or os.environ.get("AWS_SECRET_ACCESS_KEY")
+        or os.environ.get("SECRET_ACCESS_KEY")
         or os.environ.get("S3_SECRET_KEY")
     )
     if not MINIO_SECRET_KEY:
@@ -65,13 +68,14 @@ class Config:
         or os.environ.get("AWS_S3_BUCKET_NAME")
         or os.environ.get("AWS_BUCKET")
         or os.environ.get("BUCKET_NAME")
+        or os.environ.get("RAILWAY_BUCKET_NAME")
         or os.environ.get("AWS_S3_BUCKET")
         or "uploads"
     )
     MINIO_PUBLIC_URL = (
         os.environ.get("MINIO_PUBLIC_URL")
-        or MINIO_ENDPOINT
-        or "http://localhost:9000"
+        or os.environ.get("S3_PUBLIC_URL")
+        or "/api/images"
     )
     AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "auto"))
     

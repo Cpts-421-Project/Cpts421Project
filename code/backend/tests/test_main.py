@@ -12,6 +12,8 @@ os.environ.setdefault("MINIO_ACCESS_KEY", "minioadmin")
 os.environ.setdefault("MINIO_SECRET_KEY", "minioadmin")
 os.environ.setdefault("MINIO_BUCKET_NAME", "artifacts")
 
+import io
+from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -437,4 +439,116 @@ class TestSearchAndTags:
         data = response.json()
         assert len(data) == 1
         assert data[0]["object_type"] == "Vase"
+
+
+class TestServeImage:
+    """Tests for GET /images/{key} and /api/images/{key} streaming and local fallback."""
+
+    def test_serveImage_normalBundledSeedImage_returns200(self, client):
+        # Arrange: met_241792.jpg is a bundled seed image
+        # Act
+        response = client.get("/images/met_241792.jpg")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.headers.get("content-type") == "image/jpeg"
+        assert response.headers.get("cache-control") == "public, max-age=86400"
+        assert len(response.content) > 0
+
+    def test_serveImage_normalViaApiPrefix_returns200(self, client):
+        # Arrange & Act
+        response = client.get("/api/images/met_241792.jpg")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.headers.get("content-type") == "image/jpeg"
+        assert len(response.content) > 0
+
+    @patch("src.main.get_s3_client")
+    def test_serveImage_normalS3Streaming_returnsObjectStream(self, mock_client_getter, client):
+        # Arrange
+        mock_s3 = MagicMock()
+        mock_body = io.BytesIO(b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 20)
+        mock_s3.get_object.return_value = {
+            "ContentType": "image/jpeg",
+            "Body": mock_body
+        }
+        mock_client_getter.return_value = mock_s3
+
+        # Act
+        response = client.get("/images/s3_stored_image.jpg")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.headers.get("content-type") == "image/jpeg"
+        assert response.content == b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 20
+
+    def test_serveImage_edgeBucketPrefix_stripsPrefixAndFindsFile(self, client):
+        # Arrange: client passes uploads/met_241792.jpg
+        # Act
+        response = client.get("/images/uploads/met_241792.jpg")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.headers.get("content-type") == "image/jpeg"
+
+    def test_serveImage_extraordinaryPathTraversal_rejected(self, client):
+        # Arrange: Attacker tries path traversal
+        # Act
+        response = client.get("/images/%2e%2e/etc/passwd")
+
+        # Assert
+        assert response.status_code in (400, 404)
+
+    def test_serveImage_extraordinaryNonExistentImage_returns404(self, client):
+        # Arrange & Act
+        response = client.get("/images/totally_non_existent_image_12345.jpg")
+
+        # Assert
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+
+class TestLegacyUrlNormalization:
+    """Tests to verify that external Met Museum URLs are never returned to frontend."""
+
+    def test_getObjectDetail_withLegacyMetUrl_normalizesToBucketEndpoint(self, client):
+        # Arrange: Insert an object with legacy external Met image URL directly in DB
+        db = TestingSessionLocal()
+        try:
+            obj = Object(
+                object_type="Ancient Bowl",
+                date_display="c. 200 AD",
+                date_start=150,
+                date_end=250,
+                inventory_number="241792",
+                review_status="accepted",
+            )
+            db.add(obj)
+            db.commit()
+            db.refresh(obj)
+
+            img = Image(
+                object_id=obj.id,
+                image_type="Photograph",
+                view_type="Front",
+                file_url="https://collectionapi.metmuseum.org/api/collection/v1/iiif/241792/2105480/main-image"
+            )
+            db.add(img)
+            db.commit()
+            target_id = obj.id
+        finally:
+            db.close()
+
+        # Act
+        response = client.get(f"/objects/{target_id}")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["images"]) == 1
+        assert data["images"][0]["file_url"] == "/api/images/met_241792.jpg"
+        assert "metmuseum.org" not in data["images"][0]["file_url"]
+        assert "collectionapi" not in data["images"][0]["file_url"]
+
 
