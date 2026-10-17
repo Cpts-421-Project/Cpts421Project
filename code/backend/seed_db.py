@@ -14,7 +14,8 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+import secrets
+from typing import Dict, Any, Optional, List
 
 import bcrypt
 from sqlalchemy import create_engine, text, func
@@ -29,19 +30,58 @@ logging.basicConfig(
 )
 logger = logging.getLogger("seed_db")
 
-# Default admin accounts to seed if not already present
-DEFAULT_ADMINS = [
-    {
-        "email": "Hallie.Meredith@lincoln.oxon.org",
-        "username": "halliemeredith",
-        "password": "T@g^s,arE;fOUr379!PvrPle",
-    },
-    {
-        "email": "asaf.kedar1@gmail.com",
-        "username": "asafKedar",
-        "password": "-EgX6nsEMfsAZW",
-    },
-]
+
+def get_default_admins() -> List[Dict[str, str]]:
+    """
+    Retrieve admin account specifications with passwords loaded from environment variables.
+    Avoids storing plaintext credentials in version control.
+    Env Vars:
+      - Admin 1: ADMIN_HALLIE_PASSWORD or ADMIN_PASSWORD_1
+      - Admin 2: ADMIN_ASAF_PASSWORD or ADMIN_PASSWORD_2 or ADMIN_PASSWORD
+    """
+    is_production = os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("ENVIRONMENT") == "production"
+
+    hallie_pw = os.environ.get("ADMIN_HALLIE_PASSWORD") or os.environ.get("ADMIN_PASSWORD_1")
+    if not hallie_pw:
+        if is_production:
+            hallie_pw = secrets.token_urlsafe(18)
+            logger.warning(
+                "No password in env for halliemeredith. Generated temporary random admin password: %s",
+                hallie_pw
+            )
+        else:
+            hallie_pw = os.environ.get("DEFAULT_ADMIN_PASSWORD", "DevAdminPass!2026")
+
+    asaf_pw = (
+        os.environ.get("ADMIN_ASAF_PASSWORD")
+        or os.environ.get("ADMIN_PASSWORD_2")
+        or os.environ.get("ADMIN_PASSWORD")
+    )
+    if not asaf_pw:
+        if is_production:
+            asaf_pw = secrets.token_urlsafe(18)
+            logger.warning(
+                "No password in env for asafKedar. Generated temporary random admin password: %s",
+                asaf_pw
+            )
+        else:
+            asaf_pw = os.environ.get("DEFAULT_ADMIN_PASSWORD", "DevAdminPass!2026")
+
+    return [
+        {
+            "email": "Hallie.Meredith@lincoln.oxon.org",
+            "username": "halliemeredith",
+            "password": hallie_pw,
+        },
+        {
+            "email": "asaf.kedar1@gmail.com",
+            "username": "asafKedar",
+            "password": asaf_pw,
+        },
+    ]
+
+
+DEFAULT_ADMINS = get_default_admins()
 
 
 def resolve_database_url(cli_url: Optional[str] = None) -> str:
@@ -143,7 +183,7 @@ def seed_admin_users(engine: Engine) -> None:
     Session = sessionmaker(bind=engine)
     session = Session()
     try:
-        for admin in DEFAULT_ADMINS:
+        for admin in get_default_admins():
             existing = session.query(User).filter(User.email == admin["email"]).first()
             if not existing:
                 password_bytes = admin["password"].encode("utf-8")

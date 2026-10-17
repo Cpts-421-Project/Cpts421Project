@@ -176,6 +176,37 @@
     - Added comprehensive unit tests in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) (`TestServeImage`, `TestLegacyUrlNormalization`) and [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_seed_db.py) covering image streaming, S3 mocking, path traversal prevention, and legacy URL normalization.
     - Total tests: 101/101 backend unit tests passing, 10/10 frontend Vitest tests passing.
 
+- **Cycle 21 (Comprehensive Security Audit Remediation & Hardening):**
+  - **Secret Elimination & Dynamic Admin Provisioning:**
+    - In [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/seed_db.py): Removed hardcoded plaintext admin passwords from VCS. Passwords now load dynamically via environment variables (`ADMIN_HALLIE_PASSWORD`, `ADMIN_ASAF_PASSWORD`, `ADMIN_PASSWORD_1`, `ADMIN_PASSWORD_2`) with secure cryptographic generation (`secrets.token_urlsafe(18)`) in production or dev fallbacks in testing.
+    - Updated test fixtures in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) to use isolated test passwords.
+  - **Rate Limiting Memory Exhaustion & IP Spoofing Mitigation:**
+    - In [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py): Resolved client IP via `X-Real-IP` (set directly by Nginx from `$remote_addr`), mitigating `X-Forwarded-For` client spoofing.
+    - Implemented store pruning for expired entries and capped memory to `MAX_RATE_LIMIT_STORE = 10000` to prevent memory exhaustion DoS.
+  - **Input Validation, Schema Hardening & Mass Assignment Protection:**
+    - In [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/schemas.py): Added `Literal["accepted", "rejected", "pending"]` validation to `ReviewUpdate`.
+    - Removed `review_status` from `ObjectBase`, preventing clients from setting `review_status` upon creation or update. Retained on `ObjectDetailResponse`.
+    - In [object_repository.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/repositories/object_repository.py): Enforced `UPDATABLE_OBJECT_FIELDS` whitelist against mass assignment. Replaced mutable list default arguments with `Optional[List[dict]] = None`.
+    - In [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/object_service.py): Fixed `update_object` to preserve existing images when updating metadata without image payloads.
+  - **Safe Storage Uploads & Strict HTTPS SSRF Defense:**
+    - In [s3_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/s3_service.py): Streamed file uploads in 64 KB chunks with size accumulation and early abort against memory DoS. Forced S3 `ContentType` and filename extension to magic-byte detected MIME (`detected_mime`).
+    - In [url_validator.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/url_validator.py): Restricted `ALLOWED_SCHEMES = frozenset({"https"})` to block HTTP downgrade SSRF.
+  - **Defense-in-Depth & Hygiene:**
+    - In [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/main.py): Constant-time password verification with decoy hash (`DUMMY_PASSWORD_HASH`) to prevent timing side-channels on user enumeration. Masked identifiers in auth logs.
+    - Hardened path traversal protection in `serve_image` using `PurePosixPath` and null byte detection.
+    - Explicitly restricted CORS methods and headers.
+    - Added `path="/"` and `httponly=True` to `delete_cookie`.
+    - Replaced deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)` in [auth.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/auth.py) and [logger.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/logger.py).
+    - In [exceptions.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/exceptions.py): Fixed `EntityNotFoundError` boundary check for `entity_id = 0`.
+    - In [nginx.conf.template](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/nginx.conf.template): Injected `Content-Security-Policy` and `Strict-Transport-Security` headers.
+  - **Quality Assurance & Verification:**
+    - Added unit test suite `TestSecurityAuditRemediations` in [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) covering review status validation, creation defense, path traversal, null bytes, entity IDs, and logout cookies.
+    - Total tests: 108/108 backend tests passing with 0 warnings (72.7s), 10/10 frontend Vitest tests passing, frontend Vite build clean.
+
+- **Cycle 22 (System Security Rules Upgrade):**
+  - **Comprehensive Rule Hardening:** Updated [.agents/rules/security-rules.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/.agents/rules/security-rules.md) with 9 dedicated architectural sections and a pre-commit checklist.
+  - Codified permanent developer constraints for: zero plaintext credentials in seeders/VCS, bounded in-memory rate limiting with cache eviction, reverse proxy `X-Real-IP` resolution, streaming chunked file uploads, magic-byte MIME/extension enforcement, mass assignment attribute whitelisting, strict `Literal` status validation, timing attack constant-time decoys, `PurePosixPath` traversal blocking, and log masking.
+
 ---
 
 ## [ACTIVE BACKLOG]
@@ -187,5 +218,7 @@
 - None currently.
 
 ### [PENDING]
-- **Verify Staging/Production Deployment:** Push to `staging`, create pull request to `main`, and confirm in browser network tab that all artifact images load via `/api/images/...` with zero external calls to the Met Museum.
+- **Verify Staging/Production Deployment:** Push to `staging`, open pull request to `main`, and verify CI checks pass with all security remediations applied.
+
+
 

@@ -1,6 +1,6 @@
 import time
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import List, Optional
 from datetime import timedelta
 
@@ -38,8 +38,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Trace-ID", "Accept"],
 )
 
 
@@ -80,34 +80,57 @@ async def logging_middleware(request: Request, call_next):
 # Rate limiter middleware
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX = 120    # max requests per window per IP
+MAX_RATE_LIMIT_STORE = 10000  # Cap maximum tracked IPs to prevent memory exhaustion DoS
 _rate_limit_store: dict = {}
+_last_rate_limit_cleanup = 0.0
+
+def _cleanup_rate_limit_store(now: float) -> None:
+    """Evict expired rate limit entries to prevent memory exhaustion."""
+    global _last_rate_limit_cleanup
+    if now - _last_rate_limit_cleanup < 30.0 and len(_rate_limit_store) < MAX_RATE_LIMIT_STORE:
+        return
+    _last_rate_limit_cleanup = now
+
+    expired_ips = [
+        ip for ip, timestamps in _rate_limit_store.items()
+        if not timestamps or (now - timestamps[-1] >= RATE_LIMIT_WINDOW)
+    ]
+    for ip in expired_ips:
+        _rate_limit_store.pop(ip, None)
+
+    if len(_rate_limit_store) >= MAX_RATE_LIMIT_STORE:
+        overflow_count = len(_rate_limit_store) - (MAX_RATE_LIMIT_STORE // 2)
+        for key in list(_rate_limit_store.keys())[:overflow_count]:
+            _rate_limit_store.pop(key, None)
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        client_ip = forwarded.split(",")[0].strip()
+    # Behind reverse proxy (Nginx), X-Real-IP is set from $remote_addr and cannot be spoofed.
+    # Fall back to client host if direct connection.
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        client_ip = real_ip.strip()
     elif request.client and request.client.host:
         client_ip = request.client.host
     else:
         client_ip = "127.0.0.1"
+
     now = time.time()
+    _cleanup_rate_limit_store(now)
 
-    if client_ip not in _rate_limit_store:
-        _rate_limit_store[client_ip] = []
-
-    _rate_limit_store[client_ip] = [
-        t for t in _rate_limit_store[client_ip] if now - t < RATE_LIMIT_WINDOW
+    timestamps = [
+        t for t in _rate_limit_store.get(client_ip, []) if now - t < RATE_LIMIT_WINDOW
     ]
 
-    if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_MAX:
+    if len(timestamps) >= RATE_LIMIT_MAX:
         app_logger.warning("Rate limit exceeded", extra={"ip": client_ip})
         return JSONResponse(
             content={"detail": "Rate limit exceeded. Try again later."},
             status_code=429
         )
 
-    _rate_limit_store[client_ip].append(now)
+    timestamps.append(now)
+    _rate_limit_store[client_ip] = timestamps
     return await call_next(request)
 
 
@@ -115,6 +138,9 @@ async def rate_limit_middleware(request: Request, call_next):
 async def read_root():
     return {"message": "Academic Artifact Research Database API"}
 
+
+# Constant-time decoy hash for timing attack mitigation (precomputed bcrypt hash)
+DUMMY_PASSWORD_HASH = "$2b$12$e80M5XqGvyf8y6vGj2d0eO6z0l6qY6G7K1h4N1x7Y3r7b5u9e2c6G"
 
 # Custom Auth Endpoints Using HttpOnly Cookies
 @app.post("/auth/login")
@@ -130,8 +156,19 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         ).first()
 
     user = await run_in_threadpool(_do_login)
-    if not user or not verify_password(login_data.password, user.password_hash):
-        app_logger.warning("Failed login attempt", extra={"identifier": identifier})
+    masked_identifier = f"{identifier[:2]}***" if len(identifier) > 2 else "***"
+
+    if not user:
+        # Constant-time decoy verification prevents username enumeration via response latency
+        verify_password(login_data.password, DUMMY_PASSWORD_HASH)
+        app_logger.warning("Failed login attempt", extra={"identifier_prefix": masked_identifier})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+
+    if not verify_password(login_data.password, user.password_hash):
+        app_logger.warning("Failed login attempt", extra={"identifier_prefix": masked_identifier})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -142,7 +179,7 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     
-    is_production = not config.DEBUG
+    is_production = config.IS_PRODUCTION
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
@@ -158,9 +195,11 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
 
 @app.post("/auth/logout")
 async def logout(response: Response):
-    is_production = not config.DEBUG
+    is_production = config.IS_PRODUCTION
     response.delete_cookie(
         "access_token",
+        path="/",
+        httponly=True,
         samesite="lax",
         secure=is_production,
     )
@@ -292,8 +331,15 @@ async def serve_image(key: str):
     image assets and auto-caches it to the bucket.
     Enforces path traversal protection and cache headers.
     """
+    if "\x00" in key or key.startswith("~"):
+        raise HTTPException(status_code=400, detail="Invalid image path")
+
     clean_key = key.lstrip("/").replace("\\", "/")
     if ".." in clean_key or clean_key.startswith("/") or clean_key.startswith("~"):
+        raise HTTPException(status_code=400, detail="Invalid image path")
+
+    posix_path = PurePosixPath(clean_key)
+    if ".." in posix_path.parts or posix_path.is_absolute():
         raise HTTPException(status_code=400, detail="Invalid image path")
 
     bucket = config.MINIO_BUCKET or "uploads"

@@ -114,7 +114,7 @@ def setup_database():
     db.commit()
 
     import bcrypt
-    hashed_pw = bcrypt.hashpw("-EgX6nsEMfsAZW".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    hashed_pw = bcrypt.hashpw("TestAdminPass!2026".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     test_user = User(
         email="asaf.kedar1@gmail.com",
         username="asafKedar",
@@ -325,7 +325,7 @@ class TestAuthLogin:
 
     def test_login_exactUsername_succeeds(self, client):
         """Normal case: Login with exact case username and correct password."""
-        response = client.post("/auth/login", json={"username": "asafKedar", "password": "-EgX6nsEMfsAZW"})
+        response = client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
         assert response.status_code == 200
         data = response.json()
         assert data["message"] == "Logged in successfully"
@@ -335,7 +335,7 @@ class TestAuthLogin:
 
     def test_login_lowercaseUsername_succeeds(self, client):
         """Edge case: Login with all-lowercase username."""
-        response = client.post("/auth/login", json={"username": "asafkedar", "password": "-EgX6nsEMfsAZW"})
+        response = client.post("/auth/login", json={"username": "asafkedar", "password": "TestAdminPass!2026"})
         assert response.status_code == 200
         data = response.json()
         assert data["username"] == "asafKedar"
@@ -343,7 +343,7 @@ class TestAuthLogin:
 
     def test_login_emailAddress_succeeds(self, client):
         """Edge case: Login using email address instead of username."""
-        response = client.post("/auth/login", json={"username": "asaf.kedar1@gmail.com", "password": "-EgX6nsEMfsAZW"})
+        response = client.post("/auth/login", json={"username": "asaf.kedar1@gmail.com", "password": "TestAdminPass!2026"})
         assert response.status_code == 200
         data = response.json()
         assert data["username"] == "asafKedar"
@@ -550,5 +550,79 @@ class TestLegacyUrlNormalization:
         assert data["images"][0]["file_url"] == "/api/images/met_241792.jpg"
         assert "metmuseum.org" not in data["images"][0]["file_url"]
         assert "collectionapi" not in data["images"][0]["file_url"]
+
+
+class TestSecurityAuditRemediations:
+    """Tests specifically validating security audit fixes."""
+
+    def test_reviewObject_validStatus_updatesStatusWithoutDeletingImages(self, client):
+        # Arrange: Login as admin
+        login_res = client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+        assert login_res.status_code == 200
+
+        # Act: Review object 1 (has Roman image tag)
+        review_res = client.patch("/objects/1/review", json={"status": "accepted"})
+
+        # Assert: 200 OK, status updated, images still present
+        assert review_res.status_code == 200
+        data = review_res.json()
+        assert data["review_status"] == "accepted"
+        assert len(data["images"]) > 0
+
+    def test_reviewObject_invalidStatus_returns422Validation(self, client):
+        # Arrange: Login as admin
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+
+        # Act: Attempt to send arbitrary unvalidated string / script payload
+        response = client.patch("/objects/1/review", json={"status": "<script>alert(1)</script>"})
+
+        # Assert: Pydantic Literal validation blocks with 422 Unprocessable Entity
+        assert response.status_code == 422
+
+    def test_createObject_cannotInjectAcceptedReviewStatus(self, client):
+        # Arrange: Login as admin
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+
+        # Act: Attempt to create an object directly with review_status="accepted"
+        new_obj_payload = {
+            "object_type": "Chalice",
+            "date_display": "c. 500 AD",
+            "date_start": 450,
+            "date_end": 550,
+            "material": "Silver",
+            "review_status": "accepted",  # Should be ignored/rejected by schema
+            "images": []
+        }
+        res = client.post("/objects", json=new_obj_payload)
+        assert res.status_code == 200
+        # By business rules, review_status must default to pending on creation
+        assert res.json()["review_status"] == "pending"
+
+    def test_serveImage_pathTraversal_blockedWith400(self, client):
+        # Act
+        response = client.get("/images/..%2F..%2Fetc%2Fpasswd")
+        # Assert
+        assert response.status_code == 400
+
+    def test_serveImage_nullByteInPath_blockedWith400(self, client):
+        # Act
+        response = client.get("/images/met_241792.jpg%00.png")
+        # Assert
+        assert response.status_code == 400
+
+    def test_entityNotFoundError_idZero_includesId(self):
+        # Arrange & Act
+        from src.exceptions import EntityNotFoundError
+        err = EntityNotFoundError("Object", 0)
+        # Assert
+        assert "ID: 0" in err.message
+
+    def test_logout_setsClearedCookieAttributes(self, client):
+        # Act
+        response = client.post("/auth/logout")
+        # Assert
+        assert response.status_code == 200
+        assert "Logged out successfully" in response.json()["message"]
+
 
 

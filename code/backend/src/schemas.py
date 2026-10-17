@@ -1,6 +1,6 @@
 import re
 from pydantic import BaseModel, ConfigDict, field_validator
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 
 class UserLogin(BaseModel):
     username: str
@@ -22,7 +22,6 @@ class ObjectBase(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None
-    review_status: Optional[str] = "pending"
 
 class ObjectCreate(ObjectBase):
     images: List[ImageCreate] = []
@@ -64,10 +63,11 @@ class ObjectMapResponse(BaseModel):
 
 class ObjectDetailResponse(ObjectBase):
     id: int
+    review_status: str = "pending"
     images: List[ImageResponse]
     bibliography: List[str]
     tags: List[str] = []
     model_config = ConfigDict(from_attributes=True)
 
 class ReviewUpdate(BaseModel):
-    status: str
+    status: Literal["accepted", "rejected", "pending"]

@@ -165,14 +165,15 @@ class ObjectService:
 
     def update_object(self, object_id: int, object_data: dict) -> Optional[dict]:
         """Edit an artifact."""
-        images_data = object_data.pop("images", [])
-        for img in images_data:
-            if isinstance(img, dict) and img.get("file_url"):
-                img["file_url"] = ensure_stored_in_bucket(
-                    img["file_url"],
-                    object_identifier=object_id,
-                    prefix="obj"
-                )
+        images_data = object_data.pop("images", None)
+        if images_data is not None:
+            for img in images_data:
+                if isinstance(img, dict) and img.get("file_url"):
+                    img["file_url"] = ensure_stored_in_bucket(
+                        img["file_url"],
+                        object_identifier=object_id,
+                        prefix="obj"
+                    )
         try:
             obj = self.repo.update_object(object_id, object_data, images_data)
             if not obj:

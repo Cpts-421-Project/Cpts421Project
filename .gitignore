@@ -51,6 +51,8 @@ import_log.txt
 
 # Testing
 .pytest_cache/
+*.db
+*.sqlite
 
 # IDEs
 .idea/
