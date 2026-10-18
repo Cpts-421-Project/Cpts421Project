@@ -115,10 +115,15 @@ def upload_bytes_to_minio(
         raise ValidationError(f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_MB}MB.")
 
     detected_ext, detected_mime = validate_magic_bytes(content)
-    final_mime = content_type or detected_mime
+    # Always trust magic-byte detected MIME for cloud storage metadata
+    final_mime = detected_mime
 
     if not file_name:
         file_name = f"{prefix}_{uuid.uuid4().hex[:8]}.{detected_ext}"
+    else:
+        # Guarantee extension aligns with detected image type
+        base_name = file_name.rsplit(".", 1)[0]
+        file_name = f"{base_name}.{detected_ext}"
 
     try:
         client = get_s3_client()
@@ -143,20 +148,29 @@ def upload_bytes_to_minio(
 def upload_file_to_minio(file: UploadFile) -> str:
     """Uploads a FastAPI UploadFile to MinIO / S3 and returns the public URL."""
     content_type = file.content_type
-    if content_type not in ALLOWED_MIME_TYPES:
+    if content_type and content_type not in ALLOWED_MIME_TYPES:
         app_logger.warning("Upload rejected: Invalid MIME type %s", content_type)
         raise ValidationError(f"Invalid file type. Allowed types: {ALLOWED_MIME_TYPES}")
 
-    content = file.file.read()
-    if len(content) > MAX_FILE_SIZE_BYTES:
-        app_logger.warning("Upload rejected: File size exceeded limit")
-        raise ValidationError(f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_MB}MB.")
+    # Stream chunks to avoid loading oversized files into memory (DoS protection)
+    chunks = []
+    total_size = 0
+    chunk_size = 64 * 1024  # 64 KB
+    while True:
+        chunk = file.file.read(chunk_size)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE_BYTES:
+            app_logger.warning("Upload rejected: File size exceeded limit during streaming")
+            raise ValidationError(f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_MB}MB.")
+        chunks.append(chunk)
 
-    file.file.seek(0)
-    ext = file.filename.split(".")[-1].lower() if file.filename and "." in file.filename else "bin"
-    file_name = f"manual_{uuid.uuid4().hex[:8]}.{ext}"
+    content = b"".join(chunks)
+    detected_ext, detected_mime = validate_magic_bytes(content)
+    file_name = f"manual_{uuid.uuid4().hex[:8]}.{detected_ext}"
 
-    return upload_bytes_to_minio(content, content_type=content_type, file_name=file_name)
+    return upload_bytes_to_minio(content, content_type=detected_mime, file_name=file_name)
 
 
 def download_and_store_image(

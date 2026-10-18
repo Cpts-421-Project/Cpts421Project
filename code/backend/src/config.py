@@ -81,6 +81,10 @@ class Config:
     
     # App General
     DEBUG = bool(strtobool(os.environ.get("DEBUG", "False")))
+    IS_PRODUCTION = bool(
+        os.environ.get("RAILWAY_ENVIRONMENT")
+        or os.environ.get("ENVIRONMENT") == "production"
+    )
 
     # CORS — comma-separated origins; defaults cover local dev
     ALLOWED_ORIGINS = [

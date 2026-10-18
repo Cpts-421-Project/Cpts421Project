@@ -22,7 +22,7 @@ ALLOWED_API_DOMAINS = frozenset({
     "www.britishmuseum.org",
 })
 
-ALLOWED_SCHEMES = frozenset({"https", "http"})
+ALLOWED_SCHEMES = frozenset({"https"})
 
 
 class URLValidationError(ValueError):
