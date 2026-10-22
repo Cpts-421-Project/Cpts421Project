@@ -33,10 +33,12 @@
     - `e1a2b3c4d5e6_add_review_status_to_objects.py`: Adds `review_status` column and index to `objects`.
   - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head && python seed_db.py && uvicorn --host '::'`.
   - `seed_db.py`: Database seeder and image migration script with idempotent SQL execution, bucket migration, and admin account provisioning.
-  - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context (expanded with 27 curated ancient worker artifacts).
-  - `data/met_ancient_workers.sql`: Standalone idempotent SQL seed script for ancient workers.
-  - `data/met_ancient_workers.json`: Curated dataset of 27 ancient worker artifacts from The Metropolitan Museum of Art with rich academic descriptions and metadata.
-  - `data/images/`: Seed artifact image bundle (39 total images) for offline and deploy-time bucket population.
+  - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context (expanded with 27 Met + 21 British Museum curated ancient worker artifacts = 60 total artifacts).
+  - `data/met_ancient_workers.sql`: Standalone idempotent SQL seed script for Met Museum ancient workers (27 artifacts).
+  - `data/met_ancient_workers.json`: Curated dataset of 27 ancient worker artifacts from The Metropolitan Museum of Art.
+  - `data/bm_ancient_workers.sql`: Standalone idempotent SQL seed script for British Museum ancient workers (21 artifacts).
+  - `data/bm_ancient_workers.json`: Curated dataset of 21 ancient worker artifacts from The British Museum with rich academic descriptions and metadata.
+  - `data/images/`: Seed artifact image bundle (60 total images) for offline and deploy-time bucket population.
   - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`, `test_s3_service.py`, `test_bot_defense.py`.
 - `code/frontend/`: React Vite frontend
   - `public/robots.txt`: Crawler policy disallowing sensitive routes, crawl delays, and AI scraper blocks.
@@ -260,7 +262,29 @@
     - Created [met_ancient_workers.json](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/met_ancient_workers.json) containing structured JSON records with dimensions, dates, findspots, materials, tags, and detailed academic descriptions.
     - Created standalone idempotent seed file [met_ancient_workers.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/met_ancient_workers.sql).
     - Merged all 27 records into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql), expanding the seed dataset from 12 to 39 artifacts with zero external URL dependencies.
-    - Downloaded and verified all 27 images with magic-byte validation into `code/backend/data/images/met_<inventory_number>.jpg`, fully bundled for offline dev, Docker builds, and automated Railway bucket seeding.
+  - **Pull Request #43 Merged into Main:**
+    - Opened PR [#43](https://github.com/Cpts-421-Project/Cpts421Project/pull/43) from `staging` into `main`.
+    - Passed all 8 CI checks and deployment verifications (`Structure Check`, `Frontend CI 18.x`, `Frontend CI 20.x`, `Production CI/CD frontend-test`, `Backend CI test`, `Production CI/CD backend-test`, `Railway Frontend`, `Railway Backend`).
+    - Successfully merged PR [#43](https://github.com/Cpts-421-Project/Cpts421Project/pull/43) into `origin/main` at commit `541c2d3`.
+    - Synced local `main`, `origin/main`, `personal/main`, `staging`, `origin/staging`, and `personal/staging`.
+    - Railway automatically builds and deploys the expanded dataset into live PostgreSQL and Tigris/S3 storage.
+
+---
+
+- **Cycle 26 (Ancient Workers Dataset Discovery & British Museum Ingestion):**
+  - **Domain Research & British Museum Collection Exploration:**
+    - Researched and curated a high-resolution, public-domain dataset of 21 authentic artifacts depicting ancient workers, craftspeople, trades, and agricultural labor from The British Museum across Egyptian, Greek, Roman, and Mesopotamian civilizations.
+    - **Ancient Egypt:** Tomb-chapel of Nebamun wall paintings (Inspecting cattle and herdsmen, counting geese and poultry, assessing crops, surveying fields and wheat harvesting with sickles, scribe of accounts tabulating records), and Middle Kingdom model boat with rowing crew from Beni Hasan.
+    - **Ancient Greece:** Attic black-figure amphora by the Antimenes Painter (olive harvest knocking olives with poles and collecting into baskets), Attic black-figure eye-kylix (potter assembling a kylix on the potter's wheel with workshop shelf of finished vases), Attic white-ground alabastron signed by master potter Pasiades (*Pasiades epoiesen*), Archaic bronze statuette of a ploughman driving a yoked pair of draft oxen with an ard-plow, and Classical marble grave stele of the shoemaker Xanthippos holding a shoemaker's last (*kalopous*).
+    - **Ancient Rome & Roman Britain:** Funerary relief of freedmen artisans (*liberti* Publius Licinius Philonicus and Demetrius) depicting carved blacksmith tools (anvil, tongs, die hammer) and carpenter tools (axe, adze, rule), Roman marble relief from Carthage of a merchant sailor navigating a coastal cargo vessel (*corbita*), Roman bronze surgical instruments set (catheters, specula, probes), and Roman ink leaf-tablet from Vindolanda Fort (Tablet 343: quartermaster letter concerning wheat supplies, hides, and sinews).
+    - **Ancient Mesopotamia (Late Uruk & Neo-Assyrian):** Proto-cuneiform clay tablet from southern Iraq (BM 140855: earliest known administrative account recording daily barley beer and grain rations for laborers), and the monumental Sennacherib Nineveh palace wall relief series across 5 contiguous panels illustrating the transport of a 30-ton colossal winged bull (*lamassu*) (hauling out of the quarry on sledge, tool-bearers with saws and pickaxes, work gangs pulling cables under taskmasters, rollers and shaduf water-lifters along the river, and palace ramp ascent).
+  - **Data Bundling & Seed Pipeline Integration:**
+    - Downloaded and verified all 21 image assets into `code/backend/data/images/bm_<safe_inventory_number>.jpg` with magic-byte verification (`\xff\xd8\xff`) and size constraints (<10MB) per `security-rules.md`.
+    - Created [bm_ancient_workers.json](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/bm_ancient_workers.json) containing structured JSON records with dimensions, dates, findspots, materials, tags, and detailed academic descriptions.
+    - Created standalone idempotent seed file [bm_ancient_workers.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/bm_ancient_workers.sql).
+    - Merged all 21 records into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql), expanding the seed dataset from 39 to 60 total artifacts.
+    - Updated [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/schemas.py) and [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/object_service.py) to normalize British Museum collection URLs to local proxy endpoints.
+    - Created comprehensive catalog artifact [bm_ancient_workers_dataset.md](file:///Users/asafkedar/.gemini/antigravity-ide/brain/acb83af7-2cdf-4ab7-a97d-8da17a99aab7/bm_ancient_workers_dataset.md).
 
 ---
 
@@ -270,7 +294,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- None currently.
+- **Deploy British Museum Dataset to Main:** Commit changes on `staging`, push to remotes, open PR to `main`, verify CI status checks, and merge into production.
 
 ### [PENDING]
-- **Verify Staging/Production Deployment:** Commit changes to `staging`, run CI checks, and open PR into `main`.
+- **Verify Live Production Deployment:** Inspect live Railway deployment logs to confirm successful migration and seeding of the 60 total artifacts (Met + British Museum).

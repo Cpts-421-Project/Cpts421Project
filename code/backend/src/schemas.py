@@ -49,6 +49,12 @@ class ImageResponse(BaseModel):
                     safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
                     return f"/api/images/met_{safe_inv}.jpg"
                 return "/api/images/met_default.jpg"
+            if "britishmuseum" in v_lower:
+                match = re.search(r"/object/([^/]+)", v)
+                if match:
+                    safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+                    return f"/api/images/bm_{safe_inv}.jpg"
+                return "/api/images/bm_default.jpg"
         return v
 
 class SourceResponse(BaseModel):
