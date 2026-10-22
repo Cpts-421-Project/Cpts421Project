@@ -21,8 +21,8 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
-    const login = async (username, password) => {
-        const response = await api.post('/auth/login', { username, password });
+    const login = async (username, password, honeypot = "") => {
+        const response = await api.post('/auth/login', { username, password, honeypot });
         setUser({ username: response.data.username || username, is_admin: response.data.is_admin });
         return response.data;
     };

@@ -36,6 +36,17 @@ const Layout = () => {
             <div className="flex flex-1 overflow-hidden">
                 <Outlet />
             </div>
+
+            {/* Invisible honeypot trap link to detect and ban aggressive scrapers/crawlers */}
+            <a
+                href="/api/bot-trap"
+                rel="nofollow"
+                style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }}
+                aria-hidden="true"
+                tabIndex={-1}
+            >
+                System Status Diagnostic
+            </a>
         </div>
     );
 };

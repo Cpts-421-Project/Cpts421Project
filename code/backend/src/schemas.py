@@ -5,6 +5,8 @@ from typing import Any, List, Optional, Literal
 class UserLogin(BaseModel):
     username: str
     password: str
+    honeypot: Optional[str] = None
+    website: Optional[str] = None
 
 class ImageCreate(BaseModel):
     file_url: str
