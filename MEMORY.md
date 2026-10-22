@@ -260,7 +260,12 @@
     - Created [met_ancient_workers.json](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/met_ancient_workers.json) containing structured JSON records with dimensions, dates, findspots, materials, tags, and detailed academic descriptions.
     - Created standalone idempotent seed file [met_ancient_workers.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/met_ancient_workers.sql).
     - Merged all 27 records into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql), expanding the seed dataset from 12 to 39 artifacts with zero external URL dependencies.
-    - Downloaded and verified all 27 images with magic-byte validation into `code/backend/data/images/met_<inventory_number>.jpg`, fully bundled for offline dev, Docker builds, and automated Railway bucket seeding.
+  - **Pull Request #43 Merged into Main:**
+    - Opened PR [#43](https://github.com/Cpts-421-Project/Cpts421Project/pull/43) from `staging` into `main`.
+    - Passed all 8 CI checks and deployment verifications (`Structure Check`, `Frontend CI 18.x`, `Frontend CI 20.x`, `Production CI/CD frontend-test`, `Backend CI test`, `Production CI/CD backend-test`, `Railway Frontend`, `Railway Backend`).
+    - Successfully merged PR [#43](https://github.com/Cpts-421-Project/Cpts421Project/pull/43) into `origin/main` at commit `541c2d3`.
+    - Synced local `main`, `origin/main`, `personal/main`, `staging`, `origin/staging`, and `personal/staging`.
+    - Railway automatically builds and deploys the expanded dataset into live PostgreSQL and Tigris/S3 storage.
 
 ---
 
@@ -273,4 +278,4 @@
 - None currently.
 
 ### [PENDING]
-- **Verify Staging/Production Deployment:** Commit changes to `staging`, run CI checks, and open PR into `main`.
+- **Verify Live Production Deployment:** Inspect live Railway deployment logs to confirm successful migration and seeding of the 27 ancient worker artifacts.
