@@ -285,6 +285,12 @@
     - Merged all 21 records into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql), expanding the seed dataset from 39 to 60 total artifacts.
     - Updated [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/schemas.py) and [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/services/object_service.py) to normalize British Museum collection URLs to local proxy endpoints.
     - Created comprehensive catalog artifact [bm_ancient_workers_dataset.md](file:///Users/asafkedar/.gemini/antigravity-ide/brain/acb83af7-2cdf-4ab7-a97d-8da17a99aab7/bm_ancient_workers_dataset.md).
+  - **Pull Request #44 Merged into Main:**
+    - Opened PR [#44](https://github.com/Cpts-421-Project/Cpts421Project/pull/44) from `staging` into `main`.
+    - Passed all 6 CI checks and deployment verifications (`Structure Check`, `Frontend CI`, `Production CI/CD frontend-test`, `Backend CI test`, `Production CI/CD backend-test`, `Railway Frontend`, `Railway Backend`).
+    - Successfully merged PR [#44](https://github.com/Cpts-421-Project/Cpts421Project/pull/44) into `origin/main` at commit `32463be`.
+    - Synced local `main`, `origin/main`, `personal/main`, `staging`, `origin/staging`, and `personal/staging`.
+    - Railway automatically builds and deploys the expanded 60-artifact dataset into live PostgreSQL and Tigris/S3 storage.
 
 ---
 
@@ -294,7 +300,7 @@
 - None currently.
 
 ### [IN PROGRESS]
-- **Deploy British Museum Dataset to Main:** Commit changes on `staging`, push to remotes, open PR to `main`, verify CI status checks, and merge into production.
+- None currently.
 
 ### [PENDING]
 - **Verify Live Production Deployment:** Inspect live Railway deployment logs to confirm successful migration and seeding of the 60 total artifacts (Met + British Museum).
