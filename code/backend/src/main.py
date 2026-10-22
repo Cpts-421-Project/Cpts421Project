@@ -21,6 +21,14 @@ from .auth import verify_password, create_access_token, get_current_user, get_cu
 from .models import User
 from .exceptions import BaseAppException
 from .logger import app_logger
+from .bot_defense import (
+    extract_client_ip,
+    is_malicious_user_agent,
+    is_empty_user_agent,
+    bot_jail,
+    login_rate_limiter,
+    EXPLOIT_PROBE_PATHS,
+)
 
 from contextlib import asynccontextmanager
 
@@ -103,17 +111,64 @@ def _cleanup_rate_limit_store(now: float) -> None:
         for key in list(_rate_limit_store.keys())[:overflow_count]:
             _rate_limit_store.pop(key, None)
 
+# Bot Defense Middleware
+@app.middleware("http")
+async def bot_defense_middleware(request: Request, call_next):
+    client_ip = extract_client_ip(request)
+    trace_id = getattr(request.state, "trace_id", None) or request.headers.get("X-Trace-ID", str(uuid.uuid4()))
+
+    # 1. Reject immediately if IP is currently jailed
+    if bot_jail.is_ip_banned(client_ip):
+        app_logger.warning("Blocked request from jailed bot IP", extra={"ip": client_ip, "trace_id": trace_id})
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "Access denied: automated bot activity detected."}
+        )
+
+    # 2. Check for Honeypot trap routes and common vulnerability scanner probes
+    path = request.url.path.rstrip("/")
+    if path in EXPLOIT_PROBE_PATHS or path.startswith("/.env") or path.startswith("/.git") or path.startswith("/wp-"):
+        bot_jail.ban_ip(client_ip, duration=3600.0, reason=f"honeypot_probe:{path}")
+        app_logger.warning(
+            "Bot probe or honeypot trap accessed. IP banned.",
+            extra={"ip": client_ip, "path": path, "trace_id": trace_id}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "Access denied: automated bot activity detected."}
+        )
+
+    # 3. Detect known malicious scanner / exploit tool User-Agents
+    user_agent = request.headers.get("user-agent", "")
+    if is_malicious_user_agent(user_agent):
+        bot_jail.ban_ip(client_ip, duration=3600.0, reason=f"malicious_user_agent:{user_agent[:50]}")
+        app_logger.warning(
+            "Malicious scanner User-Agent detected. IP banned.",
+            extra={"ip": client_ip, "user_agent": user_agent, "trace_id": trace_id}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "Access denied: automated security scanner detected."}
+        )
+
+    # 4. Enforce User-Agent on state-modifying endpoints (POST, PUT, PATCH, DELETE)
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and is_empty_user_agent(user_agent):
+        app_logger.warning(
+            "State-modifying request rejected due to missing User-Agent",
+            extra={"ip": client_ip, "method": request.method, "path": path, "trace_id": trace_id}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": "User-Agent header is required for state-modifying requests."}
+        )
+
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    # Behind reverse proxy (Nginx), X-Real-IP is set from $remote_addr and cannot be spoofed.
-    # Fall back to client host if direct connection.
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        client_ip = real_ip.strip()
-    elif request.client and request.client.host:
-        client_ip = request.client.host
-    else:
-        client_ip = "127.0.0.1"
+    # Safely resolve client IP via X-Real-IP (reverse proxy) or client host
+    client_ip = extract_client_ip(request)
 
     now = time.time()
     _cleanup_rate_limit_store(now)
@@ -134,6 +189,56 @@ async def rate_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+@app.get("/bot-trap")
+@app.get("/api/bot-trap")
+@app.post("/bot-trap")
+@app.post("/api/bot-trap")
+async def bot_trap_endpoint(request: Request):
+    """
+    Invisible honeypot trap route. Human users never access this route.
+    Any crawler or bot following this link is automatically banned.
+    """
+    client_ip = extract_client_ip(request)
+    trace_id = getattr(request.state, "trace_id", "unknown")
+    bot_jail.ban_ip(client_ip, duration=3600.0, reason="bot_trap_endpoint_accessed")
+    app_logger.warning("Bot honeypot trap accessed. IP banned.", extra={"ip": client_ip, "trace_id": trace_id})
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={"detail": "Access denied: automated bot activity detected."}
+    )
+
+
+@app.get("/robots.txt", response_class=Response)
+async def robots_txt_fallback():
+    """Fallback robots.txt for direct API requests instructing crawlers."""
+    content = (
+        "# Academic Artifact Database robots.txt\n"
+        "User-agent: *\n"
+        "Disallow: /api/\n"
+        "Disallow: /auth/\n"
+        "Disallow: /bot-trap\n"
+        "Disallow: /upload-images\n"
+        "Crawl-delay: 5\n"
+        "\n"
+        "# Disallow aggressive AI scraper bots\n"
+        "User-agent: GPTBot\n"
+        "Disallow: /\n"
+        "\n"
+        "User-agent: CCBot\n"
+        "Disallow: /\n"
+        "\n"
+        "User-agent: Bytespider\n"
+        "Disallow: /\n"
+        "\n"
+        "User-agent: ClaudeBot\n"
+        "Disallow: /\n"
+        "\n"
+        "User-agent: Scrapy\n"
+        "Disallow: /\n"
+    )
+    return Response(content=content, media_type="text/plain")
+
+
 @app.get("/")
 async def read_root():
     return {"message": "Academic Artifact Research Database API"}
@@ -144,8 +249,33 @@ DUMMY_PASSWORD_HASH = "$2b$12$e80M5XqGvyf8y6vGj2d0eO6z0l6qY6G7K1h4N1x7Y3r7b5u9e2
 
 # Custom Auth Endpoints Using HttpOnly Cookies
 @app.post("/auth/login")
-async def login(login_data: UserLogin, response: Response, db: Session = Depends(get_db)):
+async def login(login_data: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)):
+    client_ip = extract_client_ip(request)
+    trace_id = getattr(request.state, "trace_id", "unknown")
+
+    # Anti-bot honeypot check: automated form submitters fill all fields
+    if (login_data.honeypot and login_data.honeypot.strip()) or (login_data.website and login_data.website.strip()):
+        bot_jail.ban_ip(client_ip, duration=3600.0, reason="login_honeypot_field_populated")
+        app_logger.warning("Bot detected via honeypot form field. IP banned.", extra={"ip": client_ip, "trace_id": trace_id})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid request submission.",
+        )
+
     identifier = login_data.username.strip()
+    masked_identifier = f"{identifier[:2]}***" if len(identifier) > 2 else "***"
+
+    # Dedicated login rate limiter and brute-force lockout check
+    is_allowed, rate_err = login_rate_limiter.check_login_attempt(client_ip, identifier)
+    if not is_allowed:
+        app_logger.warning(
+            "Login attempt throttled",
+            extra={"ip": client_ip, "identifier_prefix": masked_identifier, "detail": rate_err, "trace_id": trace_id}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=rate_err or "Too many login attempts. Please try again later.",
+        )
 
     def _do_login():
         return db.query(User).filter(
@@ -156,11 +286,11 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         ).first()
 
     user = await run_in_threadpool(_do_login)
-    masked_identifier = f"{identifier[:2]}***" if len(identifier) > 2 else "***"
 
     if not user:
         # Constant-time decoy verification prevents username enumeration via response latency
         verify_password(login_data.password, DUMMY_PASSWORD_HASH)
+        login_rate_limiter.record_login_failure(client_ip, identifier)
         app_logger.warning("Failed login attempt", extra={"identifier_prefix": masked_identifier})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -168,12 +298,16 @@ async def login(login_data: UserLogin, response: Response, db: Session = Depends
         )
 
     if not verify_password(login_data.password, user.password_hash):
+        login_rate_limiter.record_login_failure(client_ip, identifier)
         app_logger.warning("Failed login attempt", extra={"identifier_prefix": masked_identifier})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
     
+    # Successful login resets failed attempt counters
+    login_rate_limiter.record_login_success(client_ip, identifier)
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires

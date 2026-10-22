@@ -17,11 +17,12 @@
 
 ### Production Structure Map
 - `code/backend/`: FastAPI application
-  - `src/main.py`: API routes, middleware (CORS, trace ID, rate limiting), exception handlers.
+  - `src/main.py`: API routes, middleware (CORS, trace ID, bot defense, rate limiting), exception handlers.
+  - `src/bot_defense.py`: Anti-bot engine (BotJail, LoginRateLimiter, scanner User-Agent detection, honeypot traps, client IP extraction).
   - `src/config.py`: Environment configuration and validation.
   - `src/database.py`: SQLAlchemy engine, session maker, base declarative model.
   - `src/models.py`: Database models (User, Source, Tag, Image, Object, image_tags).
-  - `src/schemas.py`: Pydantic request and response schemas.
+  - `src/schemas.py`: Pydantic request and response schemas (with anti-bot honeypot fields on UserLogin).
   - `src/auth.py`: Password hashing, JWT token creation, cookie auth dependencies.
   - `src/url_validator.py`: Core URL validation and domain allowlists for SSRF prevention.
   - `src/services/`: Service layer (ObjectService, s3_service).
@@ -32,13 +33,18 @@
     - `e1a2b3c4d5e6_add_review_status_to_objects.py`: Adds `review_status` column and index to `objects`.
   - `Dockerfile`: Python 3.10-slim container, runs `alembic upgrade head && python seed_db.py && uvicorn --host '::'`.
   - `seed_db.py`: Database seeder and image migration script with idempotent SQL execution, bucket migration, and admin account provisioning.
-  - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context.
-  - `data/images/`: Seed artifact image bundle for offline and deploy-time bucket population.
-  - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`, `test_s3_service.py`.
+  - `data/filtered_small.sql`: Seed dataset bundled directly within the backend build context (expanded with 27 curated ancient worker artifacts).
+  - `data/met_ancient_workers.sql`: Standalone idempotent SQL seed script for ancient workers.
+  - `data/met_ancient_workers.json`: Curated dataset of 27 ancient worker artifacts from The Metropolitan Museum of Art with rich academic descriptions and metadata.
+  - `data/images/`: Seed artifact image bundle (39 total images) for offline and deploy-time bucket population.
+  - `tests/`: `test_seed_db.py`, `test_main.py`, `test_ingestion.py`, `test_s3_service.py`, `test_bot_defense.py`.
 - `code/frontend/`: React Vite frontend
+  - `public/robots.txt`: Crawler policy disallowing sensitive routes, crawl delays, and AI scraper blocks.
   - `src/services/api.js`: Axios instance pointing to `/api`.
-  - `src/contexts/AuthContext.jsx`: Auth state management.
-  - `nginx.conf.template`: Production Nginx reverse proxy template routing `/api/*` to backend.
+  - `src/contexts/AuthContext.jsx`: Auth state management with honeypot parameter support.
+  - `src/components/Layout.jsx`: Root layout with invisible honeypot trap link.
+  - `src/pages/LoginPage.jsx`: Login view with hidden honeypot field.
+  - `nginx.conf.template`: Production Nginx reverse proxy template routing `/api/*` to backend with scanner bot blocking, rate limiting zones, and exploit probe rejection.
   - `Dockerfile`: Multi-stage build with Nginx and envsubst for dynamic PORT, BACKEND_HOST, and RESOLVER.
 
 ### Operational Rules & Patterns
@@ -207,6 +213,55 @@
   - **Comprehensive Rule Hardening:** Updated [.agents/rules/security-rules.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/.agents/rules/security-rules.md) with 9 dedicated architectural sections and a pre-commit checklist.
   - Codified permanent developer constraints for: zero plaintext credentials in seeders/VCS, bounded in-memory rate limiting with cache eviction, reverse proxy `X-Real-IP` resolution, streaming chunked file uploads, magic-byte MIME/extension enforcement, mass assignment attribute whitelisting, strict `Literal` status validation, timing attack constant-time decoys, `PurePosixPath` traversal blocking, and log masking.
 
+- **Cycle 23 (Pull Request #42 Merged into Main with Security Updates):**
+  - **Pull Request Creation & CI Pipeline:** Opened Pull Request [#42](https://github.com/Cpts-421-Project/Cpts421Project/pull/42) from `staging` into `main`.
+  - **CI & Deployment Verification:** All 8 CI and deployment checks passed cleanly (Structure Check, Frontend CI Node 18.x & 20.x, Production CI/CD backend & frontend tests, Backend CI unit tests, Railway frontend & backend builds).
+  - **Production Merge:** Successfully merged PR [#42](https://github.com/Cpts-421-Project/Cpts421Project/pull/42) into `origin/main` at commit `9f07222`.
+  - **Branch Synchronization:** Synced local `main`, `origin/main`, `staging`, `origin/staging`, `personal/main`, and `personal/staging`.
+
+- **Cycle 24 (Comprehensive Multi-Layer Anti-Bot & Abuse Defense Implementation):**
+  - **Architecture & Threat Vector Defense:**
+    - Addressed automated vulnerability scanners, brute-force credential stuffing, crawler/scraper denial of service, and bot form spam across Nginx, backend middleware, frontend forms, and crawler policies.
+  - **Backend Bot Defense Engine (`bot_defense.py`):**
+    - Implemented [bot_defense.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/bot_defense.py) with `BotJail` (temporary IP banning with 1-hour ban duration, bounded memory store of 5,000 IPs, and TTL cleanup eviction to prevent memory exhaustion DoS).
+    - Implemented `LoginRateLimiter` with strict sliding-window request throttling (10 requests/60s per IP) and consecutive failure tracking (locks out IP and target username after 5 consecutive failed logins for 15 minutes).
+    - Added regex signature matching (`BAD_BOT_PATTERN`) detecting known security scanners and exploit tools (`sqlmap`, `nikto`, `acunetix`, `dirbuster`, `gobuster`, `nuclei`, `wpscan`, `masscan`, `zgrab`, `censys`, `shodan`, `nmap`).
+    - Added `extract_client_ip` prioritizing reverse proxy `X-Real-IP` set by Nginx from `$remote_addr`.
+    - Added `reset_bot_defense_state` for deterministic test isolation.
+  - **FastAPI API & Middleware Integration (`main.py` & `schemas.py`):**
+    - Added `bot_defense_middleware` executing before route handlers: immediately rejects banned IPs with 403, detects malicious scanner User-Agents and jails them, blocks common exploit probes (`/.env`, `/.git`, `/wp-`, `/xmlrpc.php`), and enforces non-empty User-Agents on mutating endpoints (`POST`, `PUT`, `PATCH`, `DELETE`).
+    - Added honeypot endpoints `@app.get("/bot-trap")`, `/api/bot-trap`, `@app.post("/bot-trap")`, `/api/bot-trap`: any crawler accessing these routes is automatically jailed with 403.
+    - Updated `/auth/login` endpoint with anti-bot honeypot field detection (`honeypot` and `website` in [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/src/schemas.py)): automated form bots auto-filling the field are immediately rejected with 400 and jailed.
+    - Integrated `login_rate_limiter` into `/auth/login` to prevent brute force and credential stuffing, preserving constant-time decoy password hashing and identifier masking.
+    - Added `/robots.txt` fallback endpoint directing crawlers and disallowing AI scrapers.
+  - **Frontend Honeypot & Crawler Governance:**
+    - Created [robots.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/public/robots.txt) disallowing `/api/`, `/auth/`, `/bot-trap`, `/upload-images`, enforcing `Crawl-delay: 5`, and explicitly blocking aggressive AI scrapers (`GPTBot`, `CCBot`, `Bytespider`, `ClaudeBot`, `Anthropic-AI`, `Scrapy`, etc.).
+    - Added invisible honeypot trap link in [Layout.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/components/Layout.jsx) to trap automated web crawlers.
+    - Added hidden honeypot field (`website`) in [LoginPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/pages/LoginPage.jsx) and updated [AuthContext.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/frontend/src/contexts/AuthContext.jsx) to pass honeypot state.
+  - **Nginx Edge Layer Hardening (`nginx.conf.template`):**
+    - Configured User-Agent bad bot map (`$bad_bot`) returning 403 Forbidden.
+    - Configured rate limiting zones (`limit_req_zone` for API at 30r/s and login at 5r/m with 429 status).
+    - Blocked exploit probe paths (`.env`, `.git`, `.php`, `.asp`, `.jsp`, etc.) returning 444 before reaching upstream.
+    - Dedicated `location = /api/auth/login` rate limiting block.
+  - **Quality Assurance & Verification:**
+    - Created [test_bot_defense.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_bot_defense.py) covering Normal, Edge, and Extraordinary cases (AAA pattern).
+    - Updated [test_main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/tests/test_main.py) setup fixture to call `reset_bot_defense_state()`.
+
+---
+
+- **Cycle 25 (Ancient Workers Dataset Discovery & Met Museum Ingestion):**
+  - **Domain Research & Met Collection Exploration:**
+    - Researched and curated a high-resolution, public-domain dataset of 27 authentic artifacts depicting ancient workers, craftspeople, trades, and agricultural labor from The Metropolitan Museum of Art across Egyptian, Greek, Roman, and Mesopotamian civilizations.
+    - **Ancient Egypt:** Meketre Middle Kingdom models (granary with scribes, bakery and brewery, cattle stable, oxen plowing, slaughterhouse butchery, paddling and rowing crews, kitchen tender cooks, estate figure), New Kingdom workshop facsimiles from the Tomb of Rekhmire (brickmakers mixing mud and water, colossus/sphinx sculptors, joiners/carpenters, bronze smelters and casting molds, goldsmiths), Tomb of Nebamun & Ipuky (jewelers, goldsmiths, sculptors), Tomb of Sennedjem (agricultural plowing, sowing, and reaping in Fields of Iaru), and Henettawy agricultural worker shabti.
+    - **Ancient Greece:** Attic black-figure Amasis Painter lekythos (women spinning wool, weaving at vertical warp-weighted loom, weighing fleece), Hellenistic master artisan bronze with silver eyes and wax tablets, Hellenistic foundry youth bronze, and Archaic hydria (women drawing water at fountain house).
+    - **Ancient Rome:** 2nd-century marble commercial transport relief (merchant receiving sealed amphorae cargo from dock porter), and Cypriot terracotta mold-made relief lamps depicting enslaved workers preparing food and carrying heavy cargo on shoulder poles.
+    - **Ancient Mesopotamia (Ur III / Neo-Sumerian):** Copper foundation figures of King Ur-Namma and King Shulgi assuming the role of master builders carrying brick baskets of mortar on their heads.
+  - **Data Bundling & Seed Pipeline Integration:**
+    - Created [met_ancient_workers.json](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/met_ancient_workers.json) containing structured JSON records with dimensions, dates, findspots, materials, tags, and detailed academic descriptions.
+    - Created standalone idempotent seed file [met_ancient_workers.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/met_ancient_workers.sql).
+    - Merged all 27 records into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/code/backend/data/filtered_small.sql), expanding the seed dataset from 12 to 39 artifacts with zero external URL dependencies.
+    - Downloaded and verified all 27 images with magic-byte validation into `code/backend/data/images/met_<inventory_number>.jpg`, fully bundled for offline dev, Docker builds, and automated Railway bucket seeding.
+
 ---
 
 ## [ACTIVE BACKLOG]
@@ -218,7 +273,4 @@
 - None currently.
 
 ### [PENDING]
-- **Verify Staging/Production Deployment:** Push to `staging`, open pull request to `main`, and verify CI checks pass with all security remediations applied.
-
-
-
+- **Verify Staging/Production Deployment:** Commit changes to `staging`, run CI checks, and open PR into `main`.

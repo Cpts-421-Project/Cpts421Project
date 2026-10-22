@@ -22,6 +22,7 @@ import pytest
 from src.main import app
 from src.database import get_db
 from src.models import Base, Object, Image, Source, Tag, User
+from src.bot_defense import reset_bot_defense_state
 
 # Setup in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -45,6 +46,7 @@ def override_get_db():
 @pytest.fixture(autouse=True)
 def setup_database():
     """Create fresh tables and seed data for each test, then tear down."""
+    reset_bot_defense_state()
     app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=test_engine)
 

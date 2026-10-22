@@ -1,0 +1,37 @@
+# Academic Artifact Database robots.txt
+# Directs legitimate web crawlers and blocks malicious scrapers
+
+User-agent: *
+Disallow: /api/
+Disallow: /auth/
+Disallow: /upload-images
+Disallow: /bot-trap
+Crawl-delay: 5
+
+# Prohibit aggressive AI scrapers and automated content extractors
+User-agent: GPTBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Anthropic-AI
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Scrapy
+Disallow: /
