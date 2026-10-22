@@ -56,6 +56,16 @@ def _normalize_image_url(url: Optional[str], inventory_number: Optional[str] = N
             return f"/api/images/met_{safe_inv}.jpg"
         return "/api/images/met_default.jpg"
 
+    if "britishmuseum.org" in url_lower:
+        if inventory_number:
+            safe_inv = "".join(c if c.isalnum() else "_" for c in str(inventory_number))
+            return f"/api/images/bm_{safe_inv}.jpg"
+        match = re.search(r"/object/([^/]+)", url)
+        if match:
+            safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+            return f"/api/images/bm_{safe_inv}.jpg"
+        return "/api/images/bm_default.jpg"
+
     return url
 
 
