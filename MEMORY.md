@@ -116,6 +116,7 @@ Touching one column? Check every other column in the same row.
   - Fixed 60+ broken `file://` links and mapped 26 previously unmapped files. Checked every deep-node fact against the source and corrected 11 wrong details (e.g. Nginx bursts, `BotJail` params, seeder/validator function names).
   - Added `test_memory_integrity.py` (Normal/Edge/Extraordinary, AAA) — the live gate runs in Backend CI.
   - Rewrote `memory-backlog.md` rule for the 3-tier read → execute → expand/compact/verify loop.
+  - Merged PR [#45](https://github.com/Cpts-421-Project/Cpts421Project/pull/45) into `main` at `c35dc83` with all 6 CI and Railway checks passing.
 
 ## [ACTIVE BACKLOG]
 ### [BLOCKED]
