@@ -101,7 +101,7 @@ class ObjectService:
 
     def update_object(self, object_id: int, object_data: dict) -> Optional[dict]:
         """Edit an artifact."""
-        images_data = object_data.pop("images", [])
+        images_data = object_data.pop("images", None)
         try:
             obj = self.repo.update_object(object_id, object_data, images_data)
             if not obj:

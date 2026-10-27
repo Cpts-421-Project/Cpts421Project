@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import templateUrl from '../assets/bulk_upload_template.xlsx?url';
 
 const BulkUploadPage = () => {
     const navigate = useNavigate();
@@ -52,8 +53,7 @@ const BulkUploadPage = () => {
             <p className="text-gray-600 mb-6">
                 Upload an Excel (.xlsx) file based on the template: one row per object. Columns marked * are required;
                 put dates as whole years (negative for BC). Image URL may hold several links separated by semicolons.{' '}
-                <a href="bulk_upload_template.xlsx" download className="text-blue-600 underline">Download the template</a>
-                {' '}.
+                <a href={templateUrl} download="bulk_upload_template.xlsx" className="text-blue-600 underline">Download the template</a>.
             </p>
 
             {error && <div className="p-4 mb-6 bg-red-100 text-red-700 rounded">{error}</div>}
