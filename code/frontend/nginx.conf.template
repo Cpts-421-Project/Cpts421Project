@@ -1,0 +1,95 @@
+# ── Anti-Bot & Scanner Detection ──
+map $http_user_agent $bad_bot {
+    default 0;
+    ~*(sqlmap|nikto|acunetix|dirbuster|gobuster|nuclei|wpscan|masscan|zgrab|censys|shodan|havij|whatweb|burpcollaborator|nmap|morfeus|nessus) 1;
+}
+
+# ── Rate Limiting Zones ──
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
+limit_req_status 429;
+
+server {
+    listen ${PORT};
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # ── Compression ──
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        application/json
+        application/javascript
+        text/xml
+        application/xml
+        text/javascript
+        image/svg+xml;
+
+    # ── Security Headers ──
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: https: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self'; frame-ancestors 'self';" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+
+    # ── Internal DNS Resolver ──
+    resolver ${RESOLVER} [fd12::10] 127.0.0.11 valid=10s ipv6=on;
+    resolver_timeout 5s;
+
+    # ── Block Malicious Bots & Automated Scanners ──
+    if ($bad_bot) {
+        return 403 "Forbidden: Automated scanner or malicious bot detected.\n";
+    }
+
+    # ── Block Common Exploit Probes & Backdoors ──
+    location ~* ^/(\.git|\.env|\.aws|\.svn|wp-admin|wp-login|xmlrpc|phpmyadmin|.*\.(php|asp|aspx|jsp|cgi|sh|bash))$ {
+        return 444;
+    }
+
+    # ── Robots.txt ──
+    location = /robots.txt {
+        log_not_found off;
+        access_log off;
+    }
+
+    # ── Dedicated Strict Rate Limiting on Login (Brute-Force Defense) ──
+    location = /api/auth/login {
+        client_max_body_size 1M;
+        limit_req zone=login_limit burst=2 nodelay;
+        set $backend_target http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_pass $backend_target/auth/login$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── Proxy API requests internally to private backend ──
+    location ~ ^/api/?(?<path>.*)$ {
+        client_max_body_size 20M;
+        limit_req zone=api_limit burst=50 nodelay;
+        set $backend_target http://${BACKEND_HOST}:${BACKEND_PORT};
+        proxy_pass $backend_target/$path$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── SPA Fallback ──
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # ── Cache hashed static assets aggressively ──
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}

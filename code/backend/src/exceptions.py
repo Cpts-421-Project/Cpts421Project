@@ -9,7 +9,7 @@ class EntityNotFoundError(BaseAppException):
     """Raised when a requested database entity is not found."""
     def __init__(self, entity_name: str, entity_id: int = None):
         msg = f"{entity_name} not found"
-        if entity_id:
+        if entity_id is not None:
             msg += f" (ID: {entity_id})"
         super().__init__(message=msg, status_code=404)
 

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const LoginPage = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [honeypot, setHoneypot] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -13,7 +14,7 @@ const LoginPage = () => {
         e.preventDefault();
         setError('');
         try {
-            await login(username, password);
+            await login(username, password, honeypot);
             navigate('/');
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to login');
@@ -27,8 +28,22 @@ const LoginPage = () => {
                 {error && <div className="p-3 text-sm text-red-700 bg-red-100 rounded">{error}</div>}
                 
                 <form className="space-y-4" onSubmit={handleSubmit}>
+                    {/* Anti-bot honeypot field (hidden from legitimate users) */}
+                    <div style={{ display: 'none' }} aria-hidden="true">
+                        <label htmlFor="website">Website</label>
+                        <input
+                            id="website"
+                            type="text"
+                            name="website"
+                            tabIndex={-1}
+                            autoComplete="off"
+                            value={honeypot}
+                            onChange={(e) => setHoneypot(e.target.value)}
+                        />
+                    </div>
+
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Username</label>
+                        <label className="block text-sm font-medium text-gray-700">Username or Email</label>
                         <input
                             type="text"
                             value={username}

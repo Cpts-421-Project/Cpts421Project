@@ -13,6 +13,7 @@ selenium
 undetected-chromedriver
 PyJWT
 passlib[bcrypt]
+bcrypt
 python-multipart
 alembic
 openpyxl

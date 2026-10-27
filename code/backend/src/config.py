@@ -20,6 +20,10 @@ class Config:
             )
         DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     
+    # Railway/Heroku provide postgres:// which SQLAlchemy 1.4+ rejects
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
     # DB Pool Config
     DB_POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "15"))
     DB_MAX_OVERFLOW = int(os.environ.get("DB_MAX_OVERFLOW", "5"))
@@ -30,23 +34,66 @@ class Config:
         # Fails loudly in production if secret isn't set
         raise RuntimeError("CRITICAL: JWT_SECRET_KEY environment variable is missing.")
     
-    # S3 / MinIO
-    MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT")
+    # S3 / MinIO / Railway Storage Bucket
+    MINIO_ENDPOINT = (
+        os.environ.get("MINIO_ENDPOINT")
+        or os.environ.get("AWS_ENDPOINT_URL")
+        or os.environ.get("S3_ENDPOINT")
+        or os.environ.get("ENDPOINT")
+        or os.environ.get("TIGRIS_URI")
+    )
     if not MINIO_ENDPOINT:
-        raise RuntimeError("CRITICAL: MINIO_ENDPOINT is missing.")
-        
-    MINIO_ACCESS_KEY = os.environ.get("MINIO_ACCESS_KEY")
-    if not MINIO_ACCESS_KEY:
-         raise RuntimeError("CRITICAL: MINIO_ACCESS_KEY is missing.")
-         
-    MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY")
-    if not MINIO_SECRET_KEY:
-         raise RuntimeError("CRITICAL: MINIO_SECRET_KEY is missing.")
+        raise RuntimeError("CRITICAL: Storage endpoint is missing. Set MINIO_ENDPOINT or AWS_ENDPOINT_URL.")
 
-    MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", "http://localhost:9000")
-    MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "uploads")
+    MINIO_ACCESS_KEY = (
+        os.environ.get("MINIO_ACCESS_KEY")
+        or os.environ.get("AWS_ACCESS_KEY_ID")
+        or os.environ.get("ACCESS_KEY_ID")
+        or os.environ.get("S3_ACCESS_KEY")
+    )
+    if not MINIO_ACCESS_KEY:
+        raise RuntimeError("CRITICAL: Storage access key is missing. Set MINIO_ACCESS_KEY or AWS_ACCESS_KEY_ID.")
+
+    MINIO_SECRET_KEY = (
+        os.environ.get("MINIO_SECRET_KEY")
+        or os.environ.get("AWS_SECRET_ACCESS_KEY")
+        or os.environ.get("SECRET_ACCESS_KEY")
+        or os.environ.get("S3_SECRET_KEY")
+    )
+    if not MINIO_SECRET_KEY:
+        raise RuntimeError("CRITICAL: Storage secret key is missing. Set MINIO_SECRET_KEY or AWS_SECRET_ACCESS_KEY.")
+
+    MINIO_BUCKET = (
+        os.environ.get("MINIO_BUCKET")
+        or os.environ.get("AWS_S3_BUCKET_NAME")
+        or os.environ.get("AWS_BUCKET")
+        or os.environ.get("BUCKET_NAME")
+        or os.environ.get("RAILWAY_BUCKET_NAME")
+        or os.environ.get("AWS_S3_BUCKET")
+        or "uploads"
+    )
+    MINIO_PUBLIC_URL = (
+        os.environ.get("MINIO_PUBLIC_URL")
+        or os.environ.get("S3_PUBLIC_URL")
+        or "/api/images"
+    )
+    AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "auto"))
     
     # App General
     DEBUG = bool(strtobool(os.environ.get("DEBUG", "False")))
+    IS_PRODUCTION = bool(
+        os.environ.get("RAILWAY_ENVIRONMENT")
+        or os.environ.get("ENVIRONMENT") == "production"
+    )
+
+    # CORS — comma-separated origins; defaults cover local dev
+    ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.environ.get(
+            "ALLOWED_ORIGINS",
+            "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+        ).split(",")
+        if origin.strip()
+    ]
 
 config = Config()

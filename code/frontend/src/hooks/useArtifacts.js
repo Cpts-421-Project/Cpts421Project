@@ -12,12 +12,18 @@ const useArtifacts = (filters) => {
             try {
                 const params = {};
 
-                if (filters.search) params.material = filters.search;
-                if (filters.startDate) params.date_start = filters.startDate;
-                if (filters.endDate) params.date_end = filters.endDate;
-
-                // TODO: Backend does not support tag-based filtering yet.
-                // When backend adds a 'tags' query param, pass filters.selectedTags here.
+                if (filters.search && filters.search.trim()) {
+                    params.search = filters.search.trim();
+                }
+                if (filters.selectedTags && filters.selectedTags.length > 0) {
+                    params.tags = filters.selectedTags;
+                }
+                if (filters.startDate !== null && filters.startDate !== undefined && filters.startDate !== '') {
+                    params.date_start = filters.startDate;
+                }
+                if (filters.endDate !== null && filters.endDate !== undefined && filters.endDate !== '') {
+                    params.date_end = filters.endDate;
+                }
 
                 const response = await api.get('/objects/search', { params });
                 setArtifacts(response.data);

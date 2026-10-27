@@ -4,661 +4,371 @@
 BEGIN;
 
 INSERT INTO sources (citation_text)
-SELECT 'Moche artist(s). "Ear ornament with winged runner". 400–700 CE. Gold, turquoise, sodalite, shell. Metropolitan Museum of Art, New York, NY, 66.196.40.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Moche artist(s). "Ear ornament with winged runner". 400–700 CE. Gold, turquoise, sodalite, shell. Metropolitan Museum of Art, New York, NY, 66.196.40.');
+SELECT 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'
+WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.');
 
--- Ear ornament with winged runner (https://www.metmuseum.org/art/collection/search/309427)
--- matched worker terms: work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metal-Ornaments', 'Gold, turquoise, sodalite, shell', NULL, '66.196.40', 'This ear ornament, one of a pair, depicts a winged runner clutching a small cloth bag. Although it has been suggested that this figure may represent a human in a bird costume, it is more likely to portray an anthropomorphized bird, perhaps a hawk. The Moche (also known as the Mochicas) flourished on Peru’s North Coast from 200-850 CE, centuries before the rise of the Inca. Over the course of some six centuries they built thriving regional centers from the Nepeña River Valley in the south to perhaps as far north as the Piura River, near the modern border with Ecuador, developing coastal deserts into rich farmlands and drawing upon the abundant maritime resources of the Pacific Ocean’s Humboldt Current. Although the Moche never formed a single centralized political entity, they shared unifying cultural traits such as religious practices. Archaeologists in the middle of the twentieth century dubbed the time when the Moche came to power as the “Mastercraftsman Period” for its striking technological innovations in the arts. Moche artists are well-known for their developments in metal working, but they also excelled at the creation of micro-mosaics, shaping tiny pieces of highly valued materials such as shell, turquoise, and other blue-green stones into tesserae that would be fitted into gold, silver, or wood supports. Here, the mosaic was worked into the large circular frontals of a pair of ear ornaments. Often called earspools, the frontals of these ornaments were attached to long tubular shafts that would have been inserted through the stretched earlobes of a high-status individual, a conspicuous display of the wearer’s power and position. For many years scholars believed that such ornaments were worn only by men; recent archaeological studies on Peru’s north coast, however, reveal that such ornaments were worn by certain high-status women as well. The pair of ornaments was most likely worn with the (nearly identical) figures facing inward, toward the wearer. The bird’s face is executed in a dark turquoise, with eyes and beaks sheathed in gold. A chin strap fastens an elaborate tall trapezoidal headdress, which extends from a head band, itself bearing a projecting animal head. Graceful wings stretch out from the shoulders, and a rectangular element extending from the lower back likely represents tail feathers. Bracelets and a loincloth or short skirt are made of bright orange Spondylus shell, a vibrant contrast to the turquoise background. The figure holds a small bag, rendered in mother-of-pearl. The outstretched arms are positioned to suggest the vigorous pumping of a speedy runner, and the toes, in their swift movement, just grace the edges of the frontals. Darker inlays represent the runner’s body paint: the kneecaps are a dark turquoise, and the lower legs and feet are picked out in a royal blue mineral known as sodalite. Small hollow gold spheres made of sheet metal encircle the circumference of the frontals, echoing and enlivening the round composition. The subject matter of these earspools is not well understood. Ritual running—either by a human or a zoomorphic protagonist—is one of the most frequently depicted activities in later Moche ceramics. In the absence of texts from this period (writing, as it is traditionally known, was not practiced in South America until the arrival of Europeans in the 16th century), the precise meaning of such imagery is unknown. The use of rare materials and the high level of craftsmanship evident in these ear ornaments, however, would have definitively marked the wearer as an individual of great importance. Turquoise, for example, may have been imported from sources as far away as northern Chile, and Spondylus—a bivalve closely associated with ideas of water and fertility—was imported into this region from warmer waters off the coast of northern Peru and Ecuador. Joanne Pillsbury, Andrall E. Pearson Curator of the Arts of the Ancient Americas, 2017 Further Reading Castillo, Luis Jaime. 1989. Personajes míticos, escenas y narraciones en la iconografía mochica. Lima: Fondo Editorial, Pontificia Universidad Católica del Perú. Castillo, Luis Jaime. 2017. “Masters of the Universe: Moche Artists and Their Patrons,” in Golden Kingdoms: Luxury and Legacy in the Ancient Americas, edited by Joanne Pillsbury, Timothy Potts, and Kim Richter, 25-31. Los Angeles: J. Paul Getty Museum. Donnan, Christopher B. 2010. “Moche State Religion: A Unifying Force in Moche Political Organization.” In New Perspectives on Moche Political Organization, edited by Luis Jaime Castillo B. and Jeffrey Quilter, 47–69. Washington, DC: Dumbarton Oaks Research Library and Collection. Donnan, Christopher B. and Donna McClelland. 1999. Moche Fineline Painting: Its Evolution and Its Artists. Los Angeles: UCLA Fowler Museum of Cultural History. Wester La Torre, Carlos. 2016. Chornancap: Palacio de una gobernante y sacerdotisa de la cultura Lambayeque. Chiclayo: Ministerio de Cultura del Perú.', '400–700 CE', 400, 700, 9.53, 9.84, 8.26, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Moche artist(s). "Ear ornament with winged runner". 400–700 CE. Gold, turquoise, sodalite, shell. Metropolitan Museum of Art, New York, NY, 66.196.40.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309427/2165157/main-image'
-FROM objects o WHERE o.inventory_number = '66.196.40'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309427/2165157/main-image');
-INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Moche'
-WHERE o.inventory_number = '66.196.40' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309427/2165157/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '66.196.40' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309427/2165157/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Moche artist(s). "Ear ornament with winged runner". 400–700 CE. Gold, turquoise, sodalite, shell. Metropolitan Museum of Art, New York, NY, 66.196.41.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Moche artist(s). "Ear ornament with winged runner". 400–700 CE. Gold, turquoise, sodalite, shell. Metropolitan Museum of Art, New York, NY, 66.196.41.');
-
--- Ear ornament with winged runner (https://www.metmuseum.org/art/collection/search/309428)
--- matched worker terms: work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metal-Ornaments', 'Gold, turquoise, sodalite, shell', NULL, '66.196.41', 'This ear ornament, one of a pair, depicts a winged runner clutching a small cloth bag. Although it has been suggested that this figure may represent a human in a bird costume, it is more likely to portray an anthropomorphized bird, perhaps a hawk. The Moche (also known as the Mochicas) flourished on Peru’s North Coast from 200-850 CE, centuries before the rise of the Inca. Over the course of some six centuries they built thriving regional centers from the Nepeña River Valley in the south to perhaps as far north as the Piura River, near the modern border with Ecuador, developing coastal deserts into rich farmlands and drawing upon the abundant maritime resources of the Pacific Ocean’s Humboldt Current. Although the Moche never formed a single centralized political entity, they shared unifying cultural traits such as religious practices. Archaeologists in the middle of the twentieth century dubbed the time when the Moche came to power as the “Mastercraftsman Period” for its striking technological innovations in the arts. Moche artists are well-known for their developments in metal working, but they also excelled at the creation of micro-mosaics, shaping tiny pieces of highly valued materials such as shell, turquoise, and other blue-green stones into tesserae that would be fitted into gold, silver, or wood supports. Here, the mosaic was worked into the large circular frontals of a pair of ear ornaments. Often called earspools, the frontals of these ornaments were attached to long tubular shafts that would have been inserted through the stretched earlobes of a high-status individual, a conspicuous display of the wearer’s power and position. For many years scholars believed that such ornaments were worn only by men; recent archaeological studies on Peru’s north coast, however, reveal that such ornaments were worn by certain high-status women as well. The pair of ornaments was most likely worn with the (nearly identical) figures facing inward, toward the wearer. The bird’s face is executed in a dark turquoise, with eyes and beaks sheathed in gold. A chin strap fastens an elaborate tall trapezoidal headdress, which extends from a head band, itself bearing a projecting animal head. Graceful wings stretch out from the shoulders, and a rectangular element extending from the lower back likely represents tail feathers. Bracelets and a loincloth or short skirt are made of bright orange Spondylus shell, a vibrant contrast to the turquoise background. The figure holds a small bag, rendered in mother-of-pearl. The outstretched arms are positioned to suggest the vigorous pumping of a speedy runner, and the toes, in their swift movement, just grace the edges of the frontals. Darker inlays represent the runner’s body paint: the kneecaps are a dark turquoise, and the lower legs and feet are picked out in a royal blue mineral known as sodalite. Small hollow gold spheres made of sheet metal encircle the circumference of the frontals, echoing and enlivening the round composition. The subject matter of these earspools is not well understood. Ritual running—either by a human or a zoomorphic protagonist—is one of the most frequently depicted activities in later Moche ceramics. In the absence of texts from this period (writing, as it is traditionally known, was not practiced in South America until the arrival of Europeans in the 16th century), the precise meaning of such imagery is unknown. The use of rare materials and the high level of craftsmanship evident in these ear ornaments, however, would have definitively marked the wearer as an individual of great importance. Turquoise, for example, may have been imported from sources as far away as northern Chile, and Spondylus—a bivalve closely associated with ideas of water and fertility—was imported into this region from warmer waters off the coast of northern Peru and Ecuador. Joanne Pillsbury, Andrall E. Pearson Curator of the Arts of the Ancient Americas, 2017 Further Reading Castillo, Luis Jaime. 1989. Personajes míticos, escenas y narraciones en la iconografía mochica. Lima: Fondo Editorial, Pontificia Universidad Católica del Perú. Castillo, Luis Jaime. 2017. “Masters of the Universe: Moche Artists and Their Patrons,” in Golden Kingdoms: Luxury and Legacy in the Ancient Americas, edited by Joanne Pillsbury, Timothy Potts, and Kim Richter, 25-31. Los Angeles: J. Paul Getty Museum. Donnan, Christopher B. 2010. “Moche State Religion: A Unifying Force in Moche Political Organization.” In New Perspectives on Moche Political Organization, edited by Luis Jaime Castillo B. and Jeffrey Quilter, 47–69. Washington, DC: Dumbarton Oaks Research Library and Collection. Donnan, Christopher B. and Donna McClelland. 1999. Moche Fineline Painting: Its Evolution and Its Artists. Los Angeles: UCLA Fowler Museum of Cultural History. Wester La Torre, Carlos. 2016. Chornancap: Palacio de una gobernante y sacerdotisa de la cultura Lambayeque. Chiclayo: Ministerio de Cultura del Perú.', '400–700 CE', 400, 700, 9.53, 9.84, 8.26, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Moche artist(s). "Ear ornament with winged runner". 400–700 CE. Gold, turquoise, sodalite, shell. Metropolitan Museum of Art, New York, NY, 66.196.41.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309428/2165160/main-image'
-FROM objects o WHERE o.inventory_number = '66.196.41'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309428/2165160/main-image');
-INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Moche'
-WHERE o.inventory_number = '66.196.41' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309428/2165160/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '66.196.41' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/309428/2165160/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Metropolitan Painter (active 7th–8th century CE). "Vessel with mythological scene". 600–800 CE. Ceramic, slip. Metropolitan Museum of Art, New York, NY, 1978.412.206.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Metropolitan Painter (active 7th–8th century CE). "Vessel with mythological scene". 600–800 CE. Ceramic, slip. Metropolitan Museum of Art, New York, NY, 1978.412.206.');
-
--- Vessel with mythological scene (https://www.metmuseum.org/art/collection/search/310364)
--- WARNING: description looks truncated
--- matched worker terms: painter, scene
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Ceramics-Containers', 'Ceramic, slip', NULL, '1978.412.206', 'This cylindrical drinking cup is the magnum opus of the Maya vase painter known as the Metropolitan Master. It contains one of the finest extant deity...', '600–800 CE', 600, 800, 13.97, 10.16, 10.64, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Painter (active 7th–8th century CE). "Vessel with mythological scene". 600–800 CE. Ceramic, slip. Metropolitan Museum of Art, New York, NY, 1978.412.206.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310364/1598885/main-image'
-FROM objects o WHERE o.inventory_number = '1978.412.206'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310364/1598885/main-image');
-INSERT INTO tags (tag_name) VALUES ('Maya') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Maya'
-WHERE o.inventory_number = '1978.412.206' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310364/1598885/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('painter') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'painter'
-WHERE o.inventory_number = '1978.412.206' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310364/1598885/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '1978.412.206' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310364/1598885/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Nasca artist(s). "Drum". 100–400 CE. Ceramic, slip. Metropolitan Museum of Art, New York, NY, 1978.412.111.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Nasca artist(s). "Drum". 100–400 CE. Ceramic, slip. Metropolitan Museum of Art, New York, NY, 1978.412.111.');
-
--- Drum (https://www.metmuseum.org/art/collection/search/310563)
--- matched worker terms: work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Ceramics-Musical Instruments', 'Ceramic, slip', NULL, '1978.412.111', 'Ceramic drums with central, bulging sounding chambers were made in southern Peru at the turn of the first millennium. Among the most elaborately finished are those of Nasca style. They were surfaced with the many rich colors commonly used on Nasca ceramic vessels. A favored form was one in which a fat-bodied figure was worked into the shape of the instrument, the rotund body spreading out equally on all sides and the legs drawn up in the front. The figure is depicted atop the wide mouth of the drum, over which a skin would have been stretched. The image is symbolically complex; a snake emerges from under the figure''s chin and a killer whale outlines each eye. The killer whales are in profile and show the "two-tone" color differentiation normally given them in Nasca depictions. A headband is wound around the head and tied to form a hornlike projection on the forehead. In back, the figure''s hair is shown as serpents with long tongues.', '100–400 CE', -100, 400, 45.09, 25.4, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Nasca artist(s). "Drum". 100–400 CE. Ceramic, slip. Metropolitan Museum of Art, New York, NY, 1978.412.111.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310563/666958/main-image'
-FROM objects o WHERE o.inventory_number = '1978.412.111'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310563/666958/main-image');
-INSERT INTO tags (tag_name) VALUES ('Nasca') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Nasca'
-WHERE o.inventory_number = '1978.412.111' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310563/666958/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '1978.412.111' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310563/666958/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Nayarit. "Pair of  Figures". 200 BCE–200 CE. Ceramic. Metropolitan Museum of Art, New York, NY, 1978.412.156.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Nayarit. "Pair of  Figures". 200 BCE–200 CE. Ceramic. Metropolitan Museum of Art, New York, NY, 1978.412.156.');
-
--- Pair of Figures (https://www.metmuseum.org/art/collection/search/310604)
--- matched worker terms: scene, work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Ceramics-Sculpture', 'Ceramic', NULL, '1978.412.156', 'Paired male and female figures are common subjects in the ceramics of the western Mexico peoples of Jalisco, Colima, and Nayarit. Named for the states in which the works have been discovered in quantity in deeply buried, multichambered shaft tombs, the ceramic sculptures show aspects of daily and ritual life, from ballgame representations to feasting ceremonies to deceptively simple family scenes. While subject matter was relatively consistent throughout the entire region, style distinctions existed. The figures here are in Nayarit''s Ixtlán del Río style, which is characterized by thin, pliant limbs, and stout, cylindrical torsos. Gender differences center on attire and activity, but both sexes wear numerous ornaments on ears and nose. Here the male figure wears a conical hat, a shoulder cloth, and a loincloth. He holds a drum in his right hand and raised drumstick in the other. His companion wears a shoulder cloth and skirt, and her right arm is draped around his shoulder.', '200 BCE–200 CE', -200, 200, 41.27, 31.12, 13.97, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Nayarit. "Pair of  Figures". 200 BCE–200 CE. Ceramic. Metropolitan Museum of Art, New York, NY, 1978.412.156.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310604/643588/main-image'
-FROM objects o WHERE o.inventory_number = '1978.412.156'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310604/643588/main-image');
-INSERT INTO tags (tag_name) VALUES ('Nayarit') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Nayarit'
-WHERE o.inventory_number = '1978.412.156' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310604/643588/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '1978.412.156' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310604/643588/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '1978.412.156' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/310604/643588/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Wari artist(s). "Feathered panel". 650–1000 CE. Feathers, cotton, camelid fiber. Metropolitan Museum of Art, New York, NY, 1979.206.467.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Wari artist(s). "Feathered panel". 650–1000 CE. Feathers, cotton, camelid fiber. Metropolitan Museum of Art, New York, NY, 1979.206.467.');
-
--- Feathered panel (https://www.metmuseum.org/art/collection/search/312677)
--- matched worker terms: work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Textiles-Featherwork', 'Feathers, cotton, camelid fiber', NULL, '1979.206.467', 'The discovery of an ancient burial or ceremonial site in the upriver region of the Churunga Valley, in far south Peru, received little attention in the turbulent world of 1943. Decades later, it would take two generations of Andean scholars to painstakingly piece together the puzzling story of this discovery, which included the largest and most spectacular find of Precolumbian Peruvian feather work to date. Protected from decay by being rolled, placed into large ceramic jars, and buried in the arid soil, the cache included an estimated ninety-six panels, each densely covered with tens of thousands of small glossy macaw body feathers, primarily from the blue and yellow macaw ( Ara ararauna ). Although these panels were found in the dry western foothills of the Andes, the birds’ home is the Amazonian rainforest, far to the east. The effort required to secure such a mind-bogglingly large supply of either feathers or live birds suggests that colorful feathers were highly valued. The panels are of roughly similar dimensions, and the majority feature alternating rectangles of blue and yellow feathers, which came from the macaw’s dorsal and ventral sides, respectively. The panels have a woven heading tape, and most also include braided cords that hang from the narrow sides. Although the cords suggest that these works were meant to be secured to some kind of structure, their actual function remains frustratingly elusive. Christine Giuntini, Conservator, 2016 References Bird, Junius B. 1958. Art of Ancient Peru: Selected Works from the Collection . Checklist with commentary of an exhibition at the Museum of Primitive Art, Feb 19–May 18, 1958. New York: Museum of Primitive Art. (unpaginated) King, Heidi. 2013. "The Wari Feathered Panels from Corral Redondo, Churunga Valley: A Re-examination of Context." Ñawpa Pacha, Journal of Andean Archaeology 33 (1): 23–42.', '650–1000 CE', 650, 1000, 73.66, 213.04, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Wari artist(s). "Feathered panel". 650–1000 CE. Feathers, cotton, camelid fiber. Metropolitan Museum of Art, New York, NY, 1979.206.467.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312677/1834753/main-image'
-FROM objects o WHERE o.inventory_number = '1979.206.467'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312677/1834753/main-image');
-INSERT INTO tags (tag_name) VALUES ('Wari') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Wari'
-WHERE o.inventory_number = '1979.206.467' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312677/1834753/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '1979.206.467' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312677/1834753/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Teotihuacan artist(s). "Standing figure". 350–600 CE. Green schist. Metropolitan Museum of Art, New York, NY, 1979.206.585.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Teotihuacan artist(s). "Standing figure". 350–600 CE. Green schist. Metropolitan Museum of Art, New York, NY, 1979.206.585.');
-
--- Standing figure (https://www.metmuseum.org/art/collection/search/312781)
--- matched worker terms: drill, press, sculptor, work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Stone-Sculpture', 'Green schist', NULL, '1979.206.585', 'A sculptor created this standing figure, whose legs were broken intentionally in antiquity, from a dense green schist. The figure stoically gazes forward with arms at its side. The disproportionately large head displays conventionalized features: a squared off head and ears, arching brows, and slightly protruding, partially open mouth. The ear holes, eyes, and mouth likely once held ornaments or inlays of shell, pyrite, or another precious material. Further drill holes under the ears may have been used to attach perishable materials such as clothing or a ceremonial bundle. Subtle, fluid incisions and raised areas indicate the rib cage, bend of the arm, wrist bones, and fingers. The surface is finely polished. Standing figures of this scale and three-dimensional form are exceedingly rare in the corpus of Teotihuacan sculpture, with only about a dozen known examples. Similar sculptures excavated at the city center indicate that these types of works were used in private rituals in interior shrines, or created specifically for dedicatory or sacrificial offerings to be buried in pyramids or tunnels. The intentional nudity of the sculpture could refer to these sculptures as proxy war captives ready for sacrifice, with the violent removal of the sculptures’ legs as a final act of termination. Further Reading Berrin, Kathleen, and Esther Pasztory. Teotihuacan: Art from the City of the Gods . The Fine Arts Museums of San Francisco, 1993. Carballo, David M., Kenneth G. Hirth, and Barbara Arroyo. Teotihuacan: The World Beyond the City . Dumbarton Oaks, 2020. Cowgill, George L. State and Society at Teotihuacan. Annual Review of Anthropology , Vol. 26, pp. 129-161, 1997. Headrick, Annabeth. The Teotihuacan Trinity: The Sociopolitical Structure of an Ancient Mesoamerican City . University of Texas Press, 2007. López Luján, Leonardo, Laura Filloy Nadal, Barbara W. Fash, William L. Fash, and Pilar Hernández. The Destruction of Images in Teotihuacan: Anthropomorphic Sculpture, Elite Cults, and the End of a Civilization. RES: Anthropology and Aesthetics , no. 49/50, pp. 12-39, Spring-Autumn, 2006. Manzanilla, Linda R. Cooperation and tensions in multiethnic corporate societies using Teotihuacan, Central Mexico, as a case study. Proceedings of the National Academy of Sciences of the United States of America , Vol. 112, No. 30, pp. 9210-9215, 2015. The Metropolitan Museum of Art. Art of Oceania, Africa, and the Americas from the Museum of Primitive Art . New York: The Metropolitan Museum of Art, 1969, no. 574. Museum of Primitive Art. Masterpieces in the Museum of Primitive Art: Africa, Oceania, North America, Mexico, Central to South America, Peru . Handbook series. New York, NY: Museum of Primitive Art, 1965, no. 85. Newton, Douglas. Masterpieces of Primitive Art: The Nelson A. Rockefeller Collection . New York: Alfred A. Knopf, 1978, p. 120, lower right. Newton, Douglas, Julie Jones, and Kate Ezra. The Pacific Islands, Africa, and the Americas: The Metropolitan Museum of Art . New York: The Metropolitan Museum of Art, 1987. Pasztory, Esther. Teotihuacan: An Experiment in Living . University of Oklahoma Press, 1997. Paz, Octavio. Mexico: Splendors of Thirty Centuries . New York: The Metropolitan Museum of Art, 1990. Robb, Matthew. Teotihuacan: City of Water, City of Fire . Berkeley: University of California Press, 2017. Ruiz Gallut, María Elena, and Jesús Torres Peralta, eds. Arquitectura y urbanismo: pasado y presente de los espacios en Teotihuacan: Memoria de la Tercera Mesa Redonda de Teotihuacan . Mexico City, Instituto Nacional de Antropología e Historia, 2005. Sarro, Patricia J., and Matthew H. Robb. Passing through the Center: The Architectural and Social Contexts of Teotihuacan Painting. In Cynthia Kristan-Graham and Laura M. Amrhein, eds., Memory Traces: Analyzing Sacred Space at Five Mesoamerican Sites , pp. 21-43. University Press of Colorado, 2015. Sugiyama, Saburo. Human Sacrifice, Militarism, and Rulership: Materialization of State Ideology at the Feathered Serpent Pyramid, Teotihuacan . Cambridge University Press, 2005.', '350–600 CE', 350, 600, 40.96, 20.62, 15.54, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Teotihuacan artist(s). "Standing figure". 350–600 CE. Green schist. Metropolitan Museum of Art, New York, NY, 1979.206.585.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image'
-FROM objects o WHERE o.inventory_number = '1979.206.585'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image');
-INSERT INTO tags (tag_name) VALUES ('Teotihuacan') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Teotihuacan'
-WHERE o.inventory_number = '1979.206.585' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('drill') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'drill'
-WHERE o.inventory_number = '1979.206.585' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('press') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'press'
-WHERE o.inventory_number = '1979.206.585' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('sculptor') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'sculptor'
-WHERE o.inventory_number = '1979.206.585' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '1979.206.585' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/312781/2085845/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Moche artist(s). "Shirt". 500–850 CE. Camelid hair, cotton. Metropolitan Museum of Art, New York, NY, 1987.394.706.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Moche artist(s). "Shirt". 500–850 CE. Camelid hair, cotton. Metropolitan Museum of Art, New York, NY, 1987.394.706.');
-
--- Shirt (https://www.metmuseum.org/art/collection/search/315786)
--- matched worker terms: work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Textiles-Woven', 'Camelid hair, cotton', NULL, '1987.394.706', 'Throughout Peruvian prehistory, the tunic was the most elaborate garment worn by men. In addition to being important items of dress, tunics are significant for their technical variety and their great wealth of complex patterning. This example is strikingly bold in color. The main pattern, worked in red, represents interconnected, geometricized animals, whose serrated backs form strong diagonals across the body of the shirt. A border at the lower edge of the tunic (and originally at the sleeve ends as well), repeats a much smaller profile figure at regular intervals. Its long upraised tail has monkey references, but its long snout suggests that it is a composite animal. Such change of scale and the stylization of imagery from the center to the borders was common to textiles associated with the Huarmey Valley at this time. This variety was stimulated by external political and artistic forces as new influences moved into the area.', '500–850 CE', 500, 850, 87.0, 147.32, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Moche artist(s). "Shirt". 500–850 CE. Camelid hair, cotton. Metropolitan Museum of Art, New York, NY, 1987.394.706.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/315786/666955/main-image'
-FROM objects o WHERE o.inventory_number = '1987.394.706'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/315786/666955/main-image');
-INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Moche'
-WHERE o.inventory_number = '1987.394.706' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/315786/666955/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '1987.394.706' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/315786/666955/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'India, Nagarjunakonda, Guntur district, Andhra Pradesh. "Drum panel with scenes of the Great Departure and Temptation of the Buddha". first half 3rd century CE. Limestone. Metropolitan Museum of Art, New York, NY, 28.105.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'India, Nagarjunakonda, Guntur district, Andhra Pradesh. "Drum panel with scenes of the Great Departure and Temptation of the Buddha". first half 3rd century CE. Limestone. Metropolitan Museum of Art, New York, NY, 28.105.');
-
--- Drum panel with scenes of the Great Departure and Temptation of the Buddha (https://www.metmuseum.org/art/collection/search/38239)
--- matched worker terms: scene
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Sculpture', 'Limestone', NULL, '28.105', 'Of the many moments in the life of the historical Buddha told in the canonical biographies, two were especially favored for stupa decoration: the Great Departure and the Temptation. Both narratives are depicted on this drum panel from Nagarjunakonda. Each epitomizes the negation of desire, represented below by Prince Siddhartha’s renunciation of privilege to become an ascetic seeker of knowledge—the beginning of his spiritual journey—and above, by his resistance of the temptations offered by Mara, the force of darkness.', 'first half 3rd century CE', 200, 249, 144.2, 92.1, 15.2, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'India, Nagarjunakonda, Guntur district, Andhra Pradesh. "Drum panel with scenes of the Great Departure and Temptation of the Buddha". first half 3rd century CE. Limestone. Metropolitan Museum of Art, New York, NY, 28.105.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38239/1955749/main-image'
-FROM objects o WHERE o.inventory_number = '28.105'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38239/1955749/main-image');
-INSERT INTO tags (tag_name) VALUES ('India, Nagarjunakonda, Guntur district, Andhra Pradesh') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'India, Nagarjunakonda, Guntur district, Andhra Pradesh'
-WHERE o.inventory_number = '28.105' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38239/1955749/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('Ikshvaku period') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Ikshvaku period'
-WHERE o.inventory_number = '28.105' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38239/1955749/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '28.105' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38239/1955749/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'India (probably Bihar). "Buddha Offering Protection". late 6th–early 7th century. Copper alloy. Metropolitan Museum of Art, New York, NY, 69.222.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'India (probably Bihar). "Buddha Offering Protection". late 6th–early 7th century. Copper alloy. Metropolitan Museum of Art, New York, NY, 69.222.');
-
--- Buddha Offering Protection (https://www.metmuseum.org/art/collection/search/38965)
--- matched worker terms: product
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Sculpture', 'Copper alloy', NULL, '69.222', 'This Buddha image embodies the qualities of inner radiant calm and stillness, the products of supreme wisdom. He dispenses reassurance and protection to his followers with a raised hand held in abhaya-mudra, the ‘fear not’ gesture. The Buddha is robed in the simple uncut cloth of a monk, gracefully drawn around the body so as to define form, to create an image that is at once ethereal and sensuous. A state of Buddhahood is defined iconographically by the presence of a series of auspicious markings (lakshanas): here we see the attenuated earlobes, protruding skull and webbing between the fingers. Taken together these features, both natural and supernatural, denote preordained sanctity and a state of Buddhahood. Few metal Buddha images survived the collapsed of monastic Buddhism in the late 12th century, and most that are preserved did so in Tibet, where they had been spirited away for safety in the medieval period. Click here to read a discussion of recent conservation research on this object, Enlightened Technology: Radiographing an Image of the Buddha.', 'late 6th–early 7th century', 567, 633, 47.0, 15.6, 14.29, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'India (probably Bihar). "Buddha Offering Protection". late 6th–early 7th century. Copper alloy. Metropolitan Museum of Art, New York, NY, 69.222.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38965/1838863/main-image'
-FROM objects o WHERE o.inventory_number = '69.222'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38965/1838863/main-image');
-INSERT INTO tags (tag_name) VALUES ('India (probably Bihar)') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'India (probably Bihar)'
-WHERE o.inventory_number = '69.222' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38965/1838863/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('Gupta period') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Gupta period'
-WHERE o.inventory_number = '69.222' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38965/1838863/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('product') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'product'
-WHERE o.inventory_number = '69.222' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/38965/1838863/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT '"Ewer with a Feline-Shaped Handle". 7th century. Bronze; cast, chased, and inlaid with copper. Metropolitan Museum of Art, New York, NY, 47.100.90.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = '"Ewer with a Feline-Shaped Handle". 7th century. Bronze; cast, chased, and inlaid with copper. Metropolitan Museum of Art, New York, NY, 47.100.90.');
-
--- Ewer with a Feline-Shaped Handle (https://www.metmuseum.org/art/collection/search/450748)
+-- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241792)
+-- WARNING: could not parse date ''; placeholder range used
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metal', 'Bronze; cast, chased, and inlaid with copper', NULL, '47.100.90', 'EwerWith its elegant profile and imposing size, this ewer stands out among the metal vessels produced during the early period of Islam. The ovoid body has a cylindrical neck and rests on a ring-shaped molding atop a domical base', '7th century', 601, 700, 48.5, 21.1, NULL, 'cm')
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = '"Ewer with a Feline-Shaped Handle". 7th century. Bronze; cast, chased, and inlaid with copper. Metropolitan Museum of Art, New York, NY, 47.100.90.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/450748/898276/main-image'
-FROM objects o WHERE o.inventory_number = '47.100.90'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/450748/898276/main-image');
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241792.jpg'
+FROM objects o WHERE o.inventory_number = '241792'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Roman, Cypriot'
+WHERE o.inventory_number = '241792'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '241792'
+ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'mold'
-WHERE o.inventory_number = '47.100.90' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/450748/898276/main-image'
+WHERE o.inventory_number = '241792'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO sources (citation_text)
-SELECT 'Byzantine. "Plate with the Battle of David and Goliath". 629–30. Silver. Metropolitan Museum of Art, New York, NY, 17.190.396.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Byzantine. "Plate with the Battle of David and Goliath". 629–30. Silver. Metropolitan Museum of Art, New York, NY, 17.190.396.');
-
--- Plate with the Battle of David and Goliath (https://www.metmuseum.org/art/collection/search/464377)
--- matched worker terms: scene
+-- Marble funerary inscription (https://www.metmuseum.org/art/collection/search/256773)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: slave
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metalwork-Silver', 'Silver', NULL, '17.190.396', 'In 628–29 the Byzantine emperor Herakleios (r. 610–41) successfully ended a long, costly war with Persia and regained Jerusalem, Egypt, and other Byzantine territory. Silver stamps dating to 613–29/30 on the reverse of these masterpieces place their manufacture in Herakleios’s reign. The biblical figures on the plates wear the costume of the early Byzantine court, suggesting to the viewer that, like Saul and David, the Byzantine emperor was a ruler chosen by God. Elaborate dishes used for display at banquets were common in the late Roman and early Byzantine world; generally decorated with classical themes, these objects conveyed wealth, social status, and learning. This set of silver plates may be the earliest surviving example of the use of biblical scenes for such displays. Their intended arrangement may have closely followed the biblical order of the events, and their display may have conformed to the shape of a Christogram, or monogram for the name of Christ. At the top of this magnificent plate, David confronts Goliath, and between them is a personification of the river from which David gathered stones for his sling. The major scene shows the decisive battle. Although David appears to be on the defensive, his men move forward, forcing Goliath’s soldiers into retreat. At the bottom, the victorious David beheads the giant (1 Samuel 17:41–51).', '629–30', 30, 629, NULL, NULL, NULL, 'cm')
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Byzantine. "Plate with the Battle of David and Goliath". 629–30. Silver. Metropolitan Museum of Art, New York, NY, 17.190.396.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/464377/945903/main-image'
-FROM objects o WHERE o.inventory_number = '17.190.396'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/464377/945903/main-image');
-INSERT INTO tags (tag_name) VALUES ('Byzantine') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Byzantine'
-WHERE o.inventory_number = '17.190.396' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/464377/945903/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '17.190.396' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/464377/945903/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'East Germanic. "Bow Brooch". 400–450. Silver with gold-sheet overlay and garnets. Metropolitan Museum of Art, New York, NY, 47.100.19.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'East Germanic. "Bow Brooch". 400–450. Silver with gold-sheet overlay and garnets. Metropolitan Museum of Art, New York, NY, 47.100.19.');
-
--- Bow Brooch (https://www.metmuseum.org/art/collection/search/468181)
--- matched worker terms: bow
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metalwork-Gold', 'Silver with gold-sheet overlay and garnets', NULL, '47.100.19', 'This brooch is a luxury version of the kind worn by eastern Germanic women living along the Danube River in the 300s and 400s. It undoubtedly belonged to an aristocratic woman as part of a rich ensemble of gold jewelry consisting of armlets, rings, and collars with pendants.', '400–450', 400, 450, NULL, NULL, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'East Germanic. "Bow Brooch". 400–450. Silver with gold-sheet overlay and garnets. Metropolitan Museum of Art, New York, NY, 47.100.19.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468181/923194/main-image'
-FROM objects o WHERE o.inventory_number = '47.100.19'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468181/923194/main-image');
-INSERT INTO tags (tag_name) VALUES ('East Germanic') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'East Germanic'
-WHERE o.inventory_number = '47.100.19' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468181/923194/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('bow') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'bow'
-WHERE o.inventory_number = '47.100.19' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468181/923194/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Byzantine. "The Antioch "Chalice"". 500–550. Silver (inner cup) and silver with gilding (outer cup and foot). Metropolitan Museum of Art, New York, NY, 50.4.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Byzantine. "The Antioch "Chalice"". 500–550. Silver (inner cup) and silver with gilding (outer cup and foot). Metropolitan Museum of Art, New York, NY, 50.4.');
-
--- The Antioch "Chalice" (https://www.metmuseum.org/art/collection/search/468346)
--- matched worker terms: work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metalwork-Silver', 'Silver (inner cup) and silver with gilding (outer cup and foot)', NULL, '50.4', 'When it was discovered at the beginning of the twentieth century, this "chalice" was claimed to have been found in Antioch, a city so important to the early Christians that it was recognized with Rome and Alexandria as one of the great sees of the church. The chalice''s plain silver interior bowl was then ambitiously identified as the Holy Grail, the cup used by Christ at the Last Supper. The elaborate footed shell enclosing it was thought to have been made within a century after the death of Christ to encase and honor the Grail. The fruited grapevine forming the rinceau pattern of the gilded shell is inhabited by birds, including an eagle; animals, including a lamb and a rabbit; and twelve human figures holding scrolls and seated in high-backed chairs. Two of the figures are thought to be images of Christ. The other ten figures have been variously identified as ten of the twelve apostles, or philosophers of the classical age, who, like the prophets of the Old Testament, had foretold the coming of Christ. The sixth-century chronicler Malalas of Antioch was among those who sought to make such links between Christianity and classical philosophy. The identification of the "Antioch Chalice" as the Holy Grail has not been sustained, and even its authenticity has at times been challenged. The work has usually been considered a sixth-century chalice for the Eucharist. Most recently, however, its shape has been recognized as more closely resembling sixth-century standing lamps, its decoration possibly in recognition of Christ''s words "I am the light of the world" (John 8:12). It has been argued to be part of a treasure of liturgical objects found in 1908 belonging to the Church of Saint Sergios in the town of Kaper Koraon southeast of Antioch. If so, Saint Sergios'' parishioners might well have traveled to Antioch to purchase the object as a donation for their church. Or it may have been used in one of the churches in or near Antioch.', '500–550', 500, 550, NULL, NULL, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Byzantine. "The Antioch "Chalice"". 500–550. Silver (inner cup) and silver with gilding (outer cup and foot). Metropolitan Museum of Art, New York, NY, 50.4.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468346/945882/main-image'
-FROM objects o WHERE o.inventory_number = '50.4'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468346/945882/main-image');
-INSERT INTO tags (tag_name) VALUES ('Byzantine') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Byzantine'
-WHERE o.inventory_number = '50.4' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468346/945882/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '50.4' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/468346/945882/main-image'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO sources (citation_text)
-SELECT 'Roman. "Wing Brooch". 100–200. Silver, gold, and four carnelians. Metropolitan Museum of Art, New York, NY, 1998.76.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Roman. "Wing Brooch". 100–200. Silver, gold, and four carnelians. Metropolitan Museum of Art, New York, NY, 1998.76.');
-
--- Wing Brooch (https://www.metmuseum.org/art/collection/search/469961)
--- matched worker terms: bow, work
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metalwork-Silver', 'Silver, gold, and four carnelians', NULL, '1998.76', 'This richly decorated brooch, wrought in silver, is an exceptional example of a type of brooch made in the Roman border province of Pannonia, on the Danube River. These objects are called "wing brooches" because of the winglike extensions that flank the knob at the bend of the bow. On this work, the knob is decorated with a zigzag pattern, and the two wings are adorned with two small knobs. A punchwork design extends from the knob along the length of the bow. As is typical of the few other surviving examples of this quality, the large, trapezoidal catch plate is covered with gold foil, except where it is pierced with elaborate patterns. Twisted gold wire laid down in wavy lines and scroll-and-heart motifs decorate the foil. Four carnelians frame the two intricate openwork patterns near the tip of the catch plate—one of linked circles and one of linked hearts. Rounded and rosette-shaped silver studs also ornament the surface. Except for minor losses to the gold foil, the brooch is complete and in excellent condition. On the basis of burial and pictorial evidence, wing brooches like this one were worn by women in pairs, on the shoulder, with the intricately pierced catch plates protruding above their robes, creating a relatively delicate, patterned effect.', '100–200', 100, 200, NULL, NULL, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Roman. "Wing Brooch". 100–200. Silver, gold, and four carnelians. Metropolitan Museum of Art, New York, NY, 1998.76.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/469961/945877/main-image'
-FROM objects o WHERE o.inventory_number = '1998.76'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/469961/945877/main-image');
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_256773.jpg'
+FROM objects o WHERE o.inventory_number = '256773'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
 INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'Roman'
-WHERE o.inventory_number = '1998.76' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/469961/945877/main-image'
+WHERE o.inventory_number = '256773'
 ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('bow') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'bow'
-WHERE o.inventory_number = '1998.76' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/469961/945877/main-image'
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '256773'
 ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('work') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('slave') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'work'
-WHERE o.inventory_number = '1998.76' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/469961/945877/main-image'
+JOIN tags t ON t.tag_name = 'slave'
+WHERE o.inventory_number = '256773'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO sources (citation_text)
-SELECT 'Central Vietnam. "Footed Dish with Equestrian Hunting Scene". ca. 8th century. Copper alloy. Metropolitan Museum of Art, New York, NY, 1999.261.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Central Vietnam. "Footed Dish with Equestrian Hunting Scene". ca. 8th century. Copper alloy. Metropolitan Museum of Art, New York, NY, 1999.261.');
-
--- Footed Dish with Equestrian Hunting Scene (https://www.metmuseum.org/art/collection/search/50780)
--- matched worker terms: bow, product, scene
+-- Sea Lion Hunt Bottle (https://www.metmuseum.org/art/collection/search/310521)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Metalwork', 'Copper alloy', NULL, '1999.261', 'This remarkable bronze presentation dish can be attributed to the Cham territories of Vietnam. It has an elaborately decorated cavetto with three equestrian riders wielding a bow, a lance, and a sword, respectively, while hunting in a forested landscape populated by elephants, buffalo, and lions. It probably served as a presentation dish in a court. No precedent for this object was known until the recent discovery of a second dish, in a hoard excavated in Lam Dong Province, southern Vietnam. Both dishes are likely the products of court workshops associated with a Cham kingdom in the late first millennium. cat. no. 3', 'ca. 8th century', 701, 800, 3.8, 28.1, NULL, 'cm')
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Central Vietnam. "Footed Dish with Equestrian Hunting Scene". ca. 8th century. Copper alloy. Metropolitan Museum of Art, New York, NY, 1999.261.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/50780/1337804/main-image'
-FROM objects o WHERE o.inventory_number = '1999.261'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/50780/1337804/main-image');
-INSERT INTO tags (tag_name) VALUES ('Central Vietnam') ON CONFLICT (tag_name) DO NOTHING;
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_310521.jpg'
+FROM objects o WHERE o.inventory_number = '310521'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Central Vietnam'
-WHERE o.inventory_number = '1999.261' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/50780/1337804/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('bow') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'bow'
-WHERE o.inventory_number = '1999.261' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/50780/1337804/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('product') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'product'
-WHERE o.inventory_number = '1999.261' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/50780/1337804/main-image'
+JOIN tags t ON t.tag_name = 'Moche'
+WHERE o.inventory_number = '310521'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '1999.261' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/50780/1337804/main-image'
+WHERE o.inventory_number = '310521'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO sources (citation_text)
-SELECT 'Pakistan, Khyber-Pakhtunkhwa province, possibly Takht-i-bahi monastery, ancient region of Gandhara. "Buddha". 3rd century. Schist. Metropolitan Museum of Art, New York, NY, 2014.188.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Pakistan, Khyber-Pakhtunkhwa province, possibly Takht-i-bahi monastery, ancient region of Gandhara. "Buddha". 3rd century. Schist. Metropolitan Museum of Art, New York, NY, 2014.188.');
-
--- Buddha (https://www.metmuseum.org/art/collection/search/646117)
--- matched worker terms: product, sculptor
+-- Sarcophagus with a Greek Physician (https://www.metmuseum.org/art/collection/search/468268)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: physician
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Sculpture', 'Schist', NULL, '2014.188', 'The subtly carved face, finely proportioned body, and cascading drapery of this Buddha indicate that it was the product of a master sculptor. The Buddha’s frontal disposition and downcast eyes suggest that it stood in a raised niche for veneration. Typical of early Gandharan representations of the Buddha, he likely held his (now lost) right hand in the gesture of calm protection (abhayamudra). The sophisticated naturalism of this figure had a short lifespan, which by the late third century had given over to more abstracted and idealized representations. The quality schist and the highly finished surface are characteristics of the finest sculptures produced in central Gandhara under the patronage of the Buddhist communities of the region, which prospered because of their control of strategic passes that connected South Asia to West Asia and China.', '3rd century', 201, 300, 92.7, 27.9, 14.0, 'cm')
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Pakistan, Khyber-Pakhtunkhwa province, possibly Takht-i-bahi monastery, ancient region of Gandhara. "Buddha". 3rd century. Schist. Metropolitan Museum of Art, New York, NY, 2014.188.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/646117/1362845/main-image'
-FROM objects o WHERE o.inventory_number = '2014.188'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/646117/1362845/main-image');
-INSERT INTO tags (tag_name) VALUES ('Pakistan, Khyber-Pakhtunkhwa province, possibly Takht-i-bahi monastery, ancient region of Gandhara') ON CONFLICT (tag_name) DO NOTHING;
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_468268.jpg'
+FROM objects o WHERE o.inventory_number = '468268'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Pakistan, Khyber-Pakhtunkhwa province, possibly Takht-i-bahi monastery, ancient region of Gandhara'
-WHERE o.inventory_number = '2014.188' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/646117/1362845/main-image'
+JOIN tags t ON t.tag_name = 'Roman'
+WHERE o.inventory_number = '468268'
 ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('product') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('physician') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'product'
-WHERE o.inventory_number = '2014.188' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/646117/1362845/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('sculptor') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'sculptor'
-WHERE o.inventory_number = '2014.188' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/646117/1362845/main-image'
+JOIN tags t ON t.tag_name = 'physician'
+WHERE o.inventory_number = '468268'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO sources (citation_text)
-SELECT 'Parthian. "Figure of a reclining woman". ca. 2nd century BCE–2nd century CE. Alabaster (gypsum). Metropolitan Museum of Art, New York, NY, 86.16.3.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Parthian. "Figure of a reclining woman". ca. 2nd century BCE–2nd century CE. Alabaster (gypsum). Metropolitan Museum of Art, New York, NY, 86.16.3.');
-
--- Figure of a reclining woman (https://www.metmuseum.org/art/collection/search/322114)
--- matched worker terms: drill
+-- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241511)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Figure of a reclining woman', 'Alabaster (gypsum)', NULL, '86.16.3', 'This alabaster figurine is of a nude woman reclining on her left side. Her left arm, which would have supported her body, is missing. The right arm is extended along her side, with the tips of her fingers resting lightly on her thigh. Faint bands at the woman''s neck indicate creases; the subtle folds of flesh along the right side of the torso emphasize the full curves of her figure. Reclining figures are common among Greek terracottas, and the appearance of the posture in Mesopotamian sculpture may reflect the influence of Greek terracotta manufacturing centers along the eastern Mediterranean. The majority of Greek terracottas of this type are male, however, as are reclining figures depicted in Greco-Roman funerary reliefs. In Mesopotamia, the opposite is true: whether the figurine is fashioned of alabaster or terracotta, the subject is usually a woman. While the treatment of the body and graceful pose of the present sculpture undeniably betray Hellenistic influence, the creases at the neck, the drilled navel, and the voluptuous form are elements of an established local tradition.', 'ca. 2nd century BCE–2nd century CE', -200, 200, NULL, NULL, NULL, 'cm')
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Parthian. "Figure of a reclining woman". ca. 2nd century BCE–2nd century CE. Alabaster (gypsum). Metropolitan Museum of Art, New York, NY, 86.16.3.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322114/1825368/main-image'
-FROM objects o WHERE o.inventory_number = '86.16.3'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322114/1825368/main-image');
-INSERT INTO tags (tag_name) VALUES ('Parthian') ON CONFLICT (tag_name) DO NOTHING;
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241511.jpg'
+FROM objects o WHERE o.inventory_number = '241511'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'Parthian'
-WHERE o.inventory_number = '86.16.3' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322114/1825368/main-image'
+JOIN tags t ON t.tag_name = 'Roman'
+WHERE o.inventory_number = '241511'
 ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('drill') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'drill'
-WHERE o.inventory_number = '86.16.3' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322114/1825368/main-image'
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '241511'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'mold'
+WHERE o.inventory_number = '241511'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO sources (citation_text)
-SELECT '"Funerary relief". ca. 2nd–3rd century CE. Limestone. Metropolitan Museum of Art, New York, NY, 02.29.1.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = '"Funerary relief". ca. 2nd–3rd century CE. Limestone. Metropolitan Museum of Art, New York, NY, 02.29.1.');
-
--- Funerary relief (https://www.metmuseum.org/art/collection/search/322375)
--- matched worker terms: caravan, scene
+-- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241789)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Funerary relief', 'Limestone', NULL, '02.29.1', 'Inscription: (On left of reclining male figure) 1 Zabdibol, 2 son of Mokimu, 3 son of Nurbel, 4 son of Zabda, 5 [so]n of ‘Abday, 6 (son of) [Zabdi]bol. (By girl on right) 1 Tadmur, 2 his daughter. (By head of boy) 1 Mokimu, 2 his son. (By girl on left) 1 ‘Alayyat, 2 his daughter. Transliteration: 1 zbdbwl 2 br mqymw 3 br nwrbl 4 br zbdʾ 5 [b]r ʿbdy 6 [zbd]bwl 1 tdmwr 2 brth 1 mqymw 2 brh 1 ʿlyt 2 brth This sculpture in high relief shows full-length figures of a man, his son, and two daughters. It is a gravestone depicting a banquet scene that probably sealed the opening of a family burial niche in Palmyra. The man is reclining on a richly decorated couch, holding a palm spray or cluster of dates in his right hand and a cup in his left. The two daughters wear veils, necklaces, and earrings. The son wears a necklace and holds grapes in his right hand and a bird in his left. It bears a Palmyrene Aramaic inscription giving the names of each of the deceased and five generations of their paternal ancestors. By the mid-first century A.D., Palmyra — or "place of the palms"—was a wealthy and impressive city located along the caravan routes that linked the Parthian Near East with Roman-controlled Mediterranean ports. During the period of great prosperity that followed, the citizens of Palmyra adopted customs and modes of dress from both the Iranian Parthian world to the east and the Greco-Roman west. This blend of eastern and western elements is also present in Palmyrene art. In this sculpture, the care lavished on details of dress and jewelry recalls the Parthian approach to figural representation while the postures and the distinct sense of volume conveyed by the carving in high relief are Greco-Roman in style. Large-scale funerary structures were common in Palmyra. Vaults, some of which were belowground, had interior walls that were constructed to form burial compartments in which the deceased, extended full length, were placed. Sculpted limestone reliefs depicting the deceased and often carrying an Aramaic inscription giving the subject’s name and genealogy represented the "personality" or "soul" of the person. These were constructed as markers for eternity much like modern gravestones and mausoleums. Adapted from, Art of the Ancient Near East: A Resource for Educators (2010)', 'ca. 2nd–3rd century CE', 201, 300, NULL, NULL, NULL, 'cm')
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = '"Funerary relief". ca. 2nd–3rd century CE. Limestone. Metropolitan Museum of Art, New York, NY, 02.29.1.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322375/1673880/main-image'
-FROM objects o WHERE o.inventory_number = '02.29.1'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322375/1673880/main-image');
-INSERT INTO tags (tag_name) VALUES ('caravan') ON CONFLICT (tag_name) DO NOTHING;
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241789.jpg'
+FROM objects o WHERE o.inventory_number = '241789'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'caravan'
-WHERE o.inventory_number = '02.29.1' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322375/1673880/main-image'
+JOIN tags t ON t.tag_name = 'Roman, Cypriot'
+WHERE o.inventory_number = '241789'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '241789'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'mold'
+WHERE o.inventory_number = '241789'
+ON CONFLICT DO NOTHING;
+
+-- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241790)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: mold
+INSERT INTO objects (object_type, material, findspot, inventory_number, description,
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+ON CONFLICT (inventory_number) DO NOTHING;
+INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241790.jpg'
+FROM objects o WHERE o.inventory_number = '241790'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Roman, Cypriot'
+WHERE o.inventory_number = '241790'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '241790'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'mold'
+WHERE o.inventory_number = '241790'
+ON CONFLICT DO NOTHING;
+
+-- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241791)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: mold
+INSERT INTO objects (object_type, material, findspot, inventory_number, description,
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+ON CONFLICT (inventory_number) DO NOTHING;
+INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241791.jpg'
+FROM objects o WHERE o.inventory_number = '241791'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Roman, Cypriot'
+WHERE o.inventory_number = '241791'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '241791'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'mold'
+WHERE o.inventory_number = '241791'
+ON CONFLICT DO NOTHING;
+
+-- Terracotta oil lamp (https://www.metmuseum.org/art/collection/search/241793)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: mold
+INSERT INTO objects (object_type, material, findspot, inventory_number, description,
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+ON CONFLICT (inventory_number) DO NOTHING;
+INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241793.jpg'
+FROM objects o WHERE o.inventory_number = '241793'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Roman, Cypriot') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Roman, Cypriot'
+WHERE o.inventory_number = '241793'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Imperial') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Late Imperial'
+WHERE o.inventory_number = '241793'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('mold') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'mold'
+WHERE o.inventory_number = '241793'
+ON CONFLICT DO NOTHING;
+
+-- Bottle with Runners (https://www.metmuseum.org/art/collection/search/308507)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: craftsman
+INSERT INTO objects (object_type, material, findspot, inventory_number, description,
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+ON CONFLICT (inventory_number) DO NOTHING;
+INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_308507.jpg'
+FROM objects o WHERE o.inventory_number = '308507'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Moche') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Moche'
+WHERE o.inventory_number = '308507'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('craftsman') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'craftsman'
+WHERE o.inventory_number = '308507'
+ON CONFLICT DO NOTHING;
+
+-- Pulque Maker (https://www.metmuseum.org/art/collection/search/318960)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: maker
+INSERT INTO objects (object_type, material, findspot, inventory_number, description,
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+ON CONFLICT (inventory_number) DO NOTHING;
+INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_318960.jpg'
+FROM objects o WHERE o.inventory_number = '318960'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Jalisco') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Jalisco'
+WHERE o.inventory_number = '318960'
+ON CONFLICT DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('maker') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'maker'
+WHERE o.inventory_number = '318960'
+ON CONFLICT DO NOTHING;
+
+-- Hemispherical bowl with scenes of wine making (https://www.metmuseum.org/art/collection/search/326008)
+-- WARNING: could not parse date ''; placeholder range used
+-- matched worker terms: scene
+INSERT INTO objects (object_type, material, findspot, inventory_number, description,
+                     date_display, date_start, date_end, height, width, depth, unit, review_status)
+VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+ON CONFLICT (inventory_number) DO NOTHING;
+INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
+SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_326008.jpg'
+FROM objects o WHERE o.inventory_number = '326008'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id);
+INSERT INTO tags (tag_name) VALUES ('Sasanian') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name = 'Sasanian'
+WHERE o.inventory_number = '326008'
 ON CONFLICT DO NOTHING;
 INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
 INSERT INTO image_tags (image_id, tag_id)
 SELECT i.id, t.id FROM images i
 JOIN objects o ON o.id = i.object_id
 JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '02.29.1' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322375/1673880/main-image'
+WHERE o.inventory_number = '326008'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO sources (citation_text)
-SELECT '"Belt clasp". ca. 1st–2nd century CE. Bronze. Metropolitan Museum of Art, New York, NY, 21.166.5.'
-WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = '"Belt clasp". ca. 1st–2nd century CE. Bronze. Metropolitan Museum of Art, New York, NY, 21.166.5.');
-
--- Belt clasp (https://www.metmuseum.org/art/collection/search/322499)
--- matched worker terms: product, scene, tool
-INSERT INTO objects (object_type, material, findspot, inventory_number, description,
-                     date_display, date_start, date_end, height, width, depth, unit)
-VALUES ('Belt clasp', 'Bronze', NULL, '21.166.5', 'In the late second millennium B.C., the tradition of lively animal-ornamented bronzes begins in the Caucasus region. Stylized animals with small waists, arched necks and backs are seen on numerous bronze tools including axes and pins, and are found in Georgia, Armenia, Azerbaijan, and the Northern Caucasus by the beginning of the Late Bronze and Early Iron ages. Cast-bronze belt clasps similar to this one have been excavated in the Republic of Georgia and are a distinctive product of that region in the first few centuries A.D. This square example features a highly stylized stag, with exaggerated haunches marked by incised concentric circles. The animal is attacked both from below and in the face by birds. The S-shaped spirals complete the central openwork design, with a stylized horned animal head above the back of the stag. A herringbone-patterned border frames the scene with raised rounded knobs at the corners. The function of this object as a belt clasp is surmised from the loop and short tongue at the back.', 'ca. 1st–2nd century CE', 101, 200, NULL, NULL, NULL, 'cm')
-ON CONFLICT (inventory_number) DO NOTHING;
-INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
-SELECT o.id, (SELECT id FROM sources WHERE citation_text = '"Belt clasp". ca. 1st–2nd century CE. Bronze. Metropolitan Museum of Art, New York, NY, 21.166.5.'), 'Photograph', 'Primary', 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322499/711816/main-image'
-FROM objects o WHERE o.inventory_number = '21.166.5'
-  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322499/711816/main-image');
-INSERT INTO tags (tag_name) VALUES ('product') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'product'
-WHERE o.inventory_number = '21.166.5' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322499/711816/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('scene') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'scene'
-WHERE o.inventory_number = '21.166.5' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322499/711816/main-image'
-ON CONFLICT DO NOTHING;
-INSERT INTO tags (tag_name) VALUES ('tool') ON CONFLICT (tag_name) DO NOTHING;
-INSERT INTO image_tags (image_id, tag_id)
-SELECT i.id, t.id FROM images i
-JOIN objects o ON o.id = i.object_id
-JOIN tags t ON t.tag_name = 'tool'
-WHERE o.inventory_number = '21.166.5' AND i.file_url = 'https://collectionapi.metmuseum.org/api/collection/v1/iiif/322499/711816/main-image'
-ON CONFLICT DO NOTHING;
+UPDATE objects SET review_status = 'accepted' WHERE review_status LIKE 'pending%';
 
 COMMIT;
+

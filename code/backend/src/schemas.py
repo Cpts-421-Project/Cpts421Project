@@ -1,9 +1,12 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+import re
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Any, List, Optional, Literal
 
 class UserLogin(BaseModel):
     username: str
     password: str
+    honeypot: Optional[str] = None
+    website: Optional[str] = None
 
 class ImageCreate(BaseModel):
     file_url: str
@@ -21,7 +24,6 @@ class ObjectBase(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     description: Optional[str] = None
-    review_status: Optional[str] = "pending"
 
 class ObjectCreate(ObjectBase):
     images: List[ImageCreate] = []
@@ -35,6 +37,25 @@ class ImageResponse(BaseModel):
     view_type: Optional[str]
     file_url: str
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("file_url", mode="before")
+    @classmethod
+    def normalize_file_url(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            v_lower = v.lower()
+            if "metmuseum" in v_lower or "collectionapi" in v_lower:
+                match = re.search(r"/iiif/([^/]+)/", v)
+                if match:
+                    safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+                    return f"/api/images/met_{safe_inv}.jpg"
+                return "/api/images/met_default.jpg"
+            if "britishmuseum" in v_lower:
+                match = re.search(r"/object/([^/]+)", v)
+                if match:
+                    safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+                    return f"/api/images/bm_{safe_inv}.jpg"
+                return "/api/images/bm_default.jpg"
+        return v
 
 class SourceResponse(BaseModel):
     id: int
@@ -50,9 +71,11 @@ class ObjectMapResponse(BaseModel):
 
 class ObjectDetailResponse(ObjectBase):
     id: int
+    review_status: str = "pending"
     images: List[ImageResponse]
-    bibliography: List[str] 
+    bibliography: List[str]
+    tags: List[str] = []
     model_config = ConfigDict(from_attributes=True)
 
 class ReviewUpdate(BaseModel):
-    status: str
+    status: Literal["accepted", "rejected", "pending"]
