@@ -22,4 +22,4 @@ USER app
 EXPOSE 8000
 
 # Bind to :: (IPv6 wildcard + dual-stack IPv4) for Railway Private Networking
-CMD ["sh", "-c", "alembic upgrade head && python seed_db.py && uvicorn src.main:app --host '::' --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && python seed_db.py && uvicorn src.main:app --host ${UVICORN_HOST:-::} --port ${PORT:-8000}"]

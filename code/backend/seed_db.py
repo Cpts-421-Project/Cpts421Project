@@ -66,6 +66,17 @@ def get_default_admins() -> List[Dict[str, str]]:
             )
         else:
             asaf_pw = os.environ.get("DEFAULT_ADMIN_PASSWORD", "DevAdminPass!2026")
+    
+    keagen_pw = os.environ.get("ADMIN_KEAGEN_PASSWORD") or os.environ.get("ADMIN_PASSWORD_3")
+    if not keagen_pw:
+        if is_production:
+            keagen_pw = secrets.token_urlsafe(18)
+            logger.warning(
+                "No password in env for keagen. Generated temporary random admin password: %s",
+                keagen_pw
+            )
+        else:
+            keagen_pw = os.environ.get("DEFAULT_ADMIN_PASSWORD", "DevAdminPass!2026")
 
     return [
         {
@@ -78,6 +89,10 @@ def get_default_admins() -> List[Dict[str, str]]:
             "username": "asafKedar",
             "password": asaf_pw,
         },
+        {
+            "email": "keagen@tarmori.com",
+            "username": "keagen",
+            "password": keagen_pw,}
     ]
 
 

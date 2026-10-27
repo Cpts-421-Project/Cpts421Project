@@ -13,6 +13,8 @@ const ArtifactCard = ({ artifact }) => {
                     <img
                         src={thumbnail}
                         alt={artifact.object_type}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-48 object-cover group-hover:opacity-90 transition-opacity"
                         referrerPolicy="no-referrer"
                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x200?text=Error+Loading+Image' }}

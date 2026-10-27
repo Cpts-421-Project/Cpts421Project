@@ -21,6 +21,15 @@ from .auth import verify_password, create_access_token, get_current_user, get_cu
 from .models import User
 from .exceptions import BaseAppException
 from .logger import app_logger
+from .bot_defense import (
+    extract_client_ip,
+    is_malicious_user_agent,
+    is_empty_user_agent,
+    bot_jail,
+    login_rate_limiter,
+    EXPLOIT_PROBE_PATHS,
+)
+from .services.bulk_import_service import import_objects_from_excel
 
 from contextlib import asynccontextmanager
 
@@ -79,7 +88,7 @@ async def logging_middleware(request: Request, call_next):
 
 # Rate limiter middleware
 RATE_LIMIT_WINDOW = 60  # seconds
-RATE_LIMIT_MAX = 120    # max requests per window per IP
+RATE_LIMIT_MAX = 3000    # max requests per window per IP
 MAX_RATE_LIMIT_STORE = 10000  # Cap maximum tracked IPs to prevent memory exhaustion DoS
 _rate_limit_store: dict = {}
 _last_rate_limit_cleanup = 0.0
@@ -429,6 +438,24 @@ async def search_objects(
         limit=limit,
     )
 
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+@app.post("/objects/bulk-import")
+async def bulk_import_objects(
+    file: UploadFile = File(...),
+    dry_run: bool = Form(True),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    if not current_user.is_admin:
+        raise BaseAppException("Admin access required.", 403)
+    if not file.filename.lower().endswith(".xlsx"):
+        raise BaseAppException("Please upload an .xlsx file.", 400)
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise BaseAppException("File too large (5 MB max).", 400)
+    return await run_in_threadpool(import_objects_from_excel, db, data, dry_run)
+
 
 @app.get("/objects/map", response_model=List[ObjectMapResponse])
 async def get_objects_map(db: Session = Depends(get_db)):
@@ -446,6 +473,99 @@ async def get_tags(db: Session = Depends(get_db)):
 async def get_object_detail(object_id: int, db: Session = Depends(get_db)):
     service = ObjectService(db)
     return await run_in_threadpool(service.get_by_id, object_id)
+
+
+@app.get("/images/{key:path}")
+@app.get("/api/images/{key:path}")
+async def serve_image(key: str):
+    """
+    Streams artifact images directly from our S3/MinIO bucket.
+    If the image has not yet been synced to S3, falls back to the bundled local
+    image assets and auto-caches it to the bucket.
+    Enforces path traversal protection and cache headers.
+    """
+    if "\x00" in key or key.startswith("~"):
+        raise HTTPException(status_code=400, detail="Invalid image path")
+
+    clean_key = key.lstrip("/").replace("\\", "/")
+    if ".." in clean_key or clean_key.startswith("/") or clean_key.startswith("~"):
+        raise HTTPException(status_code=400, detail="Invalid image path")
+
+    posix_path = PurePosixPath(clean_key)
+    if ".." in posix_path.parts or posix_path.is_absolute():
+        raise HTTPException(status_code=400, detail="Invalid image path")
+
+    bucket = config.MINIO_BUCKET or "uploads"
+    s3_key = clean_key
+    if s3_key.startswith(f"{bucket}/"):
+        s3_key = s3_key[len(bucket) + 1:]
+
+    # 1. Attempt to stream from S3 / MinIO
+    try:
+        s3 = get_s3_client()
+        response = await run_in_threadpool(s3.get_object, Bucket=bucket, Key=s3_key)
+        content_type = response.get("ContentType", "image/jpeg")
+        return StreamingResponse(
+            response["Body"],
+            media_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                "X-Content-Type-Options": "nosniff",
+            }
+        )
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code not in ("NoSuchKey", "404", "AccessDenied", "NoSuchBucket"):
+            app_logger.warning("S3 ClientError while serving %s: %s", s3_key, e)
+    except Exception as exc:
+        app_logger.warning("Error fetching %s from S3: %s", s3_key, exc)
+
+    # 2. Fallback to bundled local images (e.g. met_241792.jpg)
+    filename = Path(s3_key).name
+    candidate_dirs = [
+        Path(__file__).resolve().parent.parent / "data" / "images",
+        Path(__file__).resolve().parent.parent.parent.parent / "data" / "reduced_dataset" / "images",
+        Path("/app/data/images"),
+        Path("data/images"),
+    ]
+
+    for candidate_dir in candidate_dirs:
+        local_file = candidate_dir / filename
+        if local_file.is_file():
+            try:
+                with open(local_file, "rb") as f:
+                    content = f.read()
+                try:
+                    _, detected_mime = validate_magic_bytes(content)
+                except Exception:
+                    detected_mime = "image/jpeg"
+
+                # Asynchronously cache into S3 bucket
+                try:
+                    s3 = get_s3_client()
+                    await run_in_threadpool(
+                        s3.put_object,
+                        Bucket=bucket,
+                        Key=s3_key,
+                        Body=content,
+                        ContentType=detected_mime
+                    )
+                    app_logger.info("Auto-cached local image %s into S3 bucket %s", s3_key, bucket)
+                except Exception as cache_err:
+                    app_logger.debug("Failed auto-caching %s to S3: %s", s3_key, cache_err)
+
+                return Response(
+                    content=content,
+                    media_type=detected_mime,
+                    headers={
+                        "Cache-Control": "public, max-age=86400",
+                        "X-Content-Type-Options": "nosniff",
+                    }
+                )
+            except Exception as read_err:
+                app_logger.error("Failed reading local fallback image %s: %s", local_file, read_err)
+
+    raise HTTPException(status_code=404, detail=f"Image '{clean_key}' not found")
 
 
 if __name__ == "__main__":

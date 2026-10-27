@@ -84,6 +84,3 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     is_admin BOOLEAN DEFAULT FALSE
 );
-
-INSERT INTO users (id,email, username, password_hash, is_admin) VALUES
-('1', 'keagen@tarmori.com', 'keagen', '$2b$12$alS70RgfjdoBzBwwc4CQn.lqm2MYSK7KhJn5EeuFhkhAJveQhB3hS', TRUE);
