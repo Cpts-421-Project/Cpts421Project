@@ -70,16 +70,23 @@ class ObjectRepository:
         date_end: Optional[int] = None,
         search: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        object_ids: Optional[List[int]] = None,
         tag_mode: str = "any",
         sort_by: str = "title",
         sort_order: str = "asc",
         skip: int = 0,
         limit: int = 100,
     ) -> List[Object]:
+        if object_ids is not None and len(object_ids) == 0:
+            return []
+
         query = self.db.query(Object).options(
             joinedload(Object.images).joinedload(Image.source),
             joinedload(Object.images).joinedload(Image.tags),
         ).filter(Object.review_status == 'accepted')
+
+        if object_ids is not None:
+            query = query.filter(Object.id.in_(object_ids))
 
         # General text search across core metadata, scholarly fields, and tags
         if search and search.strip():
@@ -177,15 +184,20 @@ class ObjectRepository:
 
 
     def get_map_data(self) -> List[dict]:
-        # Return lightweight data
-        objects = self.db.query(Object.id, Object.object_type, Object.latitude, Object.longitude).filter(Object.review_status == 'accepted').all()
+        # Return lightweight data with findspot for map cluster labels
+        objects = (
+            self.db.query(Object.id, Object.object_type, Object.findspot, Object.latitude, Object.longitude)
+            .filter(Object.review_status == 'accepted')
+            .all()
+        )
         return [
             {
-                "id": obj.id, 
-                "name": obj.object_type, 
-                "latitude": obj.latitude, 
-                "longitude": obj.longitude
-            } 
+                "id": obj.id,
+                "name": obj.object_type,
+                "findspot": obj.findspot,
+                "latitude": obj.latitude,
+                "longitude": obj.longitude,
+            }
             for obj in objects
         ]
 

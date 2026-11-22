@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.main import app
+from src.main import app, _rate_limit_store
 from src.database import get_db
 from src.models import Base, Object, Image, Source, Tag, User
 from src.bot_defense import reset_bot_defense_state
@@ -45,6 +45,7 @@ def override_get_db():
 def setup_database():
     """Create isolated schema, seed admin user and existing objects for dedup testing."""
     reset_bot_defense_state()
+    _rate_limit_store.clear()
     app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=test_engine)
 
@@ -568,7 +569,47 @@ class TestPersistentDiscoveryKeywords:
         assert client.post("/admin/discovery/keywords", json={"keyword": "x" * 81}).status_code == 422
 
         # Act & Assert: exceeding MAX_SAVED_KEYWORDS -> 400 ValidationError
-        monkeypatch.setattr(museum_discovery_service, "MAX_SAVED_KEYWORDS", 8)
+        cap = len(museum_discovery_service.DEFAULT_KEYWORDS)
+        monkeypatch.setattr(museum_discovery_service, "MAX_SAVED_KEYWORDS", cap)
         cap_res = client.post("/admin/discovery/keywords", json={"keyword": "mosaic"})
         assert cap_res.status_code == 400
-        assert "Maximum of 8" in cap_res.json()["detail"]
+        assert f"Maximum of {cap}" in cap_res.json()["detail"]
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_keywords_defaultsIncludeAllDatacollectionKeywordsFileTerms(self, mock_get, client):
+        # Arrange: authenticate admin and read raw datacollection/keywords file
+        _login_admin(client)
+        from pathlib import Path
+        from src.services import museum_discovery_service
+
+        keywords_file = Path(__file__).resolve().parents[1] / "datacollection" / "keywords"
+        raw_lines = keywords_file.read_text(encoding="utf-8").splitlines()
+        file_terms = [line.lstrip(",").strip() for line in raw_lines if line.lstrip(",").strip()]
+        assert len(file_terms) == 60
+
+        # Act
+        saved = client.get("/admin/discovery/keywords").json()
+        museums = client.get("/admin/discovery/museums").json()
+
+        # Assert: all 60 file terms + 2 curated extra defaults = 62 unique terms without leading commas
+        assert len(saved) == 62
+        assert len({k.lower() for k in saved}) == 62
+        assert all(not k.startswith(",") for k in saved)
+        saved_lower = {k.lower() for k in saved}
+        for term in file_terms:
+            assert term.lower() in saved_lower
+        assert "glass" in saved_lower
+        assert "workshop" in saved_lower
+        assert len(museum_discovery_service.DEFAULT_KEYWORDS) == 62
+        assert all(m["default_keywords"] == saved for m in museums)
+
+        # Assert search endpoint accepts all 62 keywords at once without 422
+        mock_get.return_value = _mock_response({"data": []})
+        search_res = client.post("/admin/discovery/search", json={
+            "museums": ["cma"],
+            "keywords": saved,
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+        assert search_res.status_code == 200

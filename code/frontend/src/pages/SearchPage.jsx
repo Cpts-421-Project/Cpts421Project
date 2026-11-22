@@ -22,6 +22,14 @@ const SearchPage = () => {
                 .map((t) => t.trim())
                 .filter(Boolean)
         )];
+        const rawIds = searchParams.getAll('ids');
+        const initialIds = [...new Set(
+            rawIds
+                .flatMap((v) => v.split(','))
+                .map((v) => parseInt(v.trim(), 10))
+                .filter((n) => Number.isInteger(n) && n > 0)
+        )];
+        const initialMapLabel = searchParams.get('map_label') || '';
         const start = searchParams.get('date_start');
         const end = searchParams.get('date_end');
         const parsedStart = hasValue(start) ? parseInt(start, 10) : null;
@@ -30,6 +38,8 @@ const SearchPage = () => {
         return {
             search: initialSearch,
             selectedTags: initialTags,
+            selectedIds: initialIds,
+            mapClusterLabel: initialMapLabel,
             startDate: Number.isNaN(parsedStart) ? null : parsedStart,
             endDate: Number.isNaN(parsedEnd) ? null : parsedEnd,
             sortBy: searchParams.get('sort_by') || 'title',
@@ -46,6 +56,12 @@ const SearchPage = () => {
         if (filters.selectedTags && filters.selectedTags.length > 0) {
             filters.selectedTags.forEach((t) => params.append('tag', t));
         }
+        if (filters.selectedIds && filters.selectedIds.length > 0) {
+            params.set('ids', filters.selectedIds.join(','));
+            if (filters.mapClusterLabel) {
+                params.set('map_label', filters.mapClusterLabel);
+            }
+        }
         if (hasValue(filters.startDate)) params.set('date_start', filters.startDate.toString());
         if (hasValue(filters.endDate)) params.set('date_end', filters.endDate.toString());
         if (filters.sortBy && filters.sortBy !== 'title') params.set('sort_by', filters.sortBy);
@@ -61,11 +77,21 @@ const SearchPage = () => {
         }));
     };
 
+    const handleClearMapSelection = () => {
+        setFilters((prev) => ({
+            ...prev,
+            selectedIds: [],
+            mapClusterLabel: '',
+        }));
+    };
+
     const handleClearAll = () => {
         setFilters((prev) => ({
             ...prev,
             search: '',
             selectedTags: [],
+            selectedIds: [],
+            mapClusterLabel: '',
             startDate: null,
             endDate: null,
         }));
@@ -82,9 +108,11 @@ const SearchPage = () => {
 
     const hasStartDate = hasValue(filters.startDate);
     const hasEndDate = hasValue(filters.endDate);
+    const hasMapCluster = Boolean(filters.selectedIds && filters.selectedIds.length > 0);
     const hasActiveFilters = Boolean(
         filters.search ||
         (filters.selectedTags && filters.selectedTags.length > 0) ||
+        hasMapCluster ||
         hasStartDate ||
         hasEndDate
     );
@@ -135,8 +163,24 @@ const SearchPage = () => {
                                     Search: "{filters.search}"
                                     <button
                                         type="button"
+                                        aria-label="Remove search filter"
                                         onClick={() => setFilters((prev) => ({ ...prev, search: '' }))}
                                         className="hover:text-blue-900 focus:outline-none"
+                                    >
+                                        &times;
+                                    </button>
+                                </span>
+                            )}
+
+                            {hasMapCluster && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-900 border border-emerald-200">
+                                    Map Cluster: {filters.mapClusterLabel || 'Selected Area'} ({filters.selectedIds.length}{' '}
+                                    {filters.selectedIds.length === 1 ? 'artifact' : 'artifacts'})
+                                    <button
+                                        type="button"
+                                        aria-label="Remove map cluster filter"
+                                        onClick={handleClearMapSelection}
+                                        className="hover:text-emerald-950 focus:outline-none"
                                     >
                                         &times;
                                     </button>
@@ -151,6 +195,7 @@ const SearchPage = () => {
                                     Tag: {tag}
                                     <button
                                         type="button"
+                                        aria-label={`Remove tag ${tag} filter`}
                                         onClick={() => handleRemoveTag(tag)}
                                         className="hover:text-indigo-900 focus:outline-none"
                                     >
@@ -164,6 +209,7 @@ const SearchPage = () => {
                                     Years: {hasStartDate ? filters.startDate : 'Any'} – {hasEndDate ? filters.endDate : 'Any'}
                                     <button
                                         type="button"
+                                        aria-label="Remove year range filter"
                                         onClick={() => setFilters((prev) => ({ ...prev, startDate: null, endDate: null }))}
                                         className="hover:text-amber-900 focus:outline-none"
                                     >

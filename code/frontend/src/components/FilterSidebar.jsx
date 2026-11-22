@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Link, useInRouterContext } from 'react-router-dom';
 import useTags from '../hooks/useTags';
 
 const hasNumericFilter = (val) => val !== null && val !== undefined && val !== '';
 
 const FilterSidebar = ({ filters, onFilterChange }) => {
+    const inRouter = useInRouterContext();
     const { tags, loading: tagsLoading, error: tagsError } = useTags();
     const [localStartDate, setLocalStartDate] = useState(filters.startDate ?? '');
     const [localEndDate, setLocalEndDate] = useState(filters.endDate ?? '');
@@ -54,6 +56,8 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
         onFilterChange({
             ...filters,
             selectedTags: [],
+            selectedIds: [],
+            mapClusterLabel: '',
             startDate: null,
             endDate: null,
             search: '',
@@ -62,8 +66,10 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
 
     const hasStart = hasNumericFilter(filters.startDate);
     const hasEnd = hasNumericFilter(filters.endDate);
+    const hasMapSelection = Boolean(filters.selectedIds && filters.selectedIds.length > 0);
     const hasActiveFilters = Boolean(
         (filters.selectedTags && filters.selectedTags.length > 0) ||
+        hasMapSelection ||
         hasStart ||
         hasEnd ||
         filters.search
@@ -87,6 +93,54 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
                     </button>
                 )}
             </div>
+
+            {hasMapSelection && (
+                <div className="mb-5 p-3 rounded-lg bg-emerald-50 border border-emerald-200 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                        <div>
+                            <h3 className="text-xs font-semibold text-emerald-900 uppercase tracking-wide">
+                                Map Selection
+                            </h3>
+                            <p className="text-sm font-medium text-emerald-950 mt-0.5">
+                                {filters.mapClusterLabel || 'Selected Area'}
+                            </p>
+                            <p className="text-xs text-emerald-800">
+                                {filters.selectedIds.length}{' '}
+                                {filters.selectedIds.length === 1 ? 'artifact' : 'artifacts'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="Clear map selection filter"
+                            onClick={() =>
+                                onFilterChange({
+                                    ...filters,
+                                    selectedIds: [],
+                                    mapClusterLabel: '',
+                                })
+                            }
+                            className="text-xs font-medium text-emerald-800 hover:text-emerald-950 underline"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    {inRouter ? (
+                        <Link
+                            to="/map"
+                            className="inline-block text-xs font-medium text-emerald-700 hover:text-emerald-900 underline"
+                        >
+                            Back to Map
+                        </Link>
+                    ) : (
+                        <a
+                            href="/map"
+                            className="inline-block text-xs font-medium text-emerald-700 hover:text-emerald-900 underline"
+                        >
+                            Back to Map
+                        </a>
+                    )}
+                </div>
+            )}
 
             {/* Date Range Section */}
             <div className="mb-6">

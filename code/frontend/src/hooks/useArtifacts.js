@@ -22,6 +22,9 @@ const useArtifacts = (filters) => {
                 if (filters.selectedTags && filters.selectedTags.length > 0) {
                     params.tags = filters.selectedTags;
                 }
+                if (filters.selectedIds && filters.selectedIds.length > 0) {
+                    params.ids = filters.selectedIds.join(',');
+                }
                 if (filters.startDate !== null && filters.startDate !== undefined && filters.startDate !== '') {
                     params.date_start = filters.startDate;
                 }

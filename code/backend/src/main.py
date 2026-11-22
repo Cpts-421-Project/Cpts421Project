@@ -467,12 +467,50 @@ async def review_object(object_id: int, review_data: ReviewUpdate, db: Session =
 
 
 # Existing Endpoints
+MAX_FILTER_IDS = 500
+
+
+def _parse_object_id_filters(ids_params: Optional[List[str]]) -> Optional[List[int]]:
+    """Parse repeated or comma-separated positive artifact IDs with upper bound enforcement."""
+    if not ids_params:
+        return None
+    seen = set()
+    parsed: List[int] = []
+    for raw in ids_params:
+        for token in str(raw).split(","):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+            try:
+                val = int(cleaned)
+            except ValueError:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Invalid artifact ID filter; expected positive integers.",
+                )
+            if val <= 0:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Invalid artifact ID filter; expected positive integers.",
+                )
+            if val not in seen:
+                seen.add(val)
+                parsed.append(val)
+                if len(parsed) > MAX_FILTER_IDS:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Too many artifact IDs requested (maximum {MAX_FILTER_IDS}).",
+                    )
+    return parsed or None
+
+
 @app.get("/objects/search", response_model=List[ObjectDetailResponse])
 async def search_objects(
     search: Optional[str] = Query(None, description="General search query across name, description, material, findspot, inventory number, tags"),
     q: Optional[str] = Query(None, description="Alias for search query"),
     tags: Optional[List[str]] = Query(None, description="Filter by tag names (matches objects containing any of the selected tags)"),
     tag: Optional[str] = Query(None, description="Single tag or comma-separated tags filter"),
+    ids: Optional[List[str]] = Query(None, description="Filter to specific artifact IDs (repeated or comma-separated)"),
     tag_mode: str = Query("any", pattern="^(any|all)$", description="Match 'any' (OR) or 'all' (AND) selected tags"),
     material: Optional[str] = Query(None, max_length=255),
     year: Optional[int] = Query(None, description="Fuzzy date search year"),
@@ -493,6 +531,8 @@ async def search_objects(
     if tag:
         parsed_tags.extend([item.strip() for item in tag.split(",") if item.strip()])
 
+    parsed_ids = _parse_object_id_filters(ids)
+
     service = ObjectService(db)
     return await run_in_threadpool(
         service.search,
@@ -502,6 +542,7 @@ async def search_objects(
         date_end=date_end,
         search=query_term,
         tags=parsed_tags if parsed_tags else None,
+        object_ids=parsed_ids,
         tag_mode=tag_mode,
         sort_by=sort_by,
         sort_order=sort_order,

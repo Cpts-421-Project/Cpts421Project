@@ -15,3 +15,45 @@ dialog::backdrop {
 dialog.image-lightbox[open] {
   display: flex;
 }
+
+/* Fused Map Cluster Markers & High-Contrast Keyboard Focus */
+.map-cluster-icon {
+  background: transparent;
+  border: none;
+}
+
+.map-cluster-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #ffffff;
+  background-color: #1d4ed8;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.28), 0 4px 10px rgba(15, 23, 42, 0.3);
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.map-cluster-badge--md {
+  background-color: #1e40af;
+}
+
+.map-cluster-badge--lg {
+  background-color: #3730a3;
+  font-size: 0.9375rem;
+}
+
+.leaflet-marker-icon.map-cluster-icon:hover .map-cluster-badge {
+  transform: scale(1.08);
+  background-color: #1e3a8a;
+}
+
+.leaflet-marker-icon:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 3px;
+  border-radius: 9999px;
+}

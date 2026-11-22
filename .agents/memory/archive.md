@@ -1,4 +1,4 @@
-# Historical Execution Ledger (Cycles 4–28 Archive)
+# Historical Execution Ledger (Cycles 4–30 Archive)
 
 > **Connected Hub:** [MEMORY.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/MEMORY.md) | **Domain Nodes:** [architecture_and_infra.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/architecture_and_infra.md), [security_and_defense.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/security_and_defense.md), [data_and_catalog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/data_and_catalog.md), [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md)
 
@@ -6,7 +6,14 @@ This archive preserves the full chronological execution history compacted out of
 
 ---
 
-## Cycles 21–28: Security Hardening, Memory Architecture & Catalog Alignment
+## Cycles 21–30: Security Hardening, Memory Architecture, Discovery & Catalog Backfill
+
+- **Cycle 30 (Authoritative Missing-Metadata Backfill Without Fabrication):**
+  - Backfilled verified fields in [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) using `COALESCE`/placeholder guards across all 61 objects (`61/61` material, real dates, `date_basis`, `dimensions_display`; `39` Met `external_url`s & `source_identifier`s; verified BM epigraphy/`publications`; Vatican `60788` Morey & Ferrari / Catacomb of San Saturnino dims & material; `63/63` `image_sequence`); fixed Met `Weight` (`kg`) & depth fallback in [museum_discovery_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/services/museum_discovery_service.py), prioritized backend SQL in [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/seed_db.py), and added completeness tests in [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_seed_db.py).
+
+- **Cycle 29 (Admin Predefined Museum Discovery & Duplicate-Safe Import):**
+  - Expanded SSRF allowlists ([url_validator.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/url_validator.py)) and built [museum_discovery_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/services/museum_discovery_service.py) (`met` v1.1, `cma`, `aic`, `vam` adapters, `ExistingArtifactIndex` deduplication, full `2_excel` field population, S3 caching, pending staging) + `/admin/discovery/{museums,search,import}` in [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/main.py).
+  - Added `/admin/discover` ([DiscoveryPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/pages/DiscoveryPage.jsx), [Layout.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/components/Layout.jsx), [App.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/App.jsx)) with editable keywords, date range (`0–899 CE` default), candidate preview cards, and Review Queue import; added [test_museum_discovery.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_museum_discovery.py) & [DiscoveryPage.test.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/test/DiscoveryPage.test.jsx).
 
 - **Cycle 28 (2_excel Alignment, Sorting, Alphabetical Tags, 0–899 CE Focus & Zoomable Lightbox):**
   - Extended `Object` & `Image` schema (`f2b3c4d5e6f7`), exposed `width`/`height`/`depth`/`unit`, multi-image `db_identifier`, `assembled_caption`, and `ObjectUpdate.images = None` (`exclude_unset=True`).

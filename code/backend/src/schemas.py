@@ -104,6 +104,7 @@ class SourceResponse(BaseModel):
 class ObjectMapResponse(BaseModel):
     id: int
     name: str  # Mapping from object_type
+    findspot: Optional[str] = None
     latitude: Optional[float]
     longitude: Optional[float]
     model_config = ConfigDict(from_attributes=True)
@@ -164,7 +165,7 @@ def _normalize_keyword(raw: Any) -> str:
 
 class DiscoverySearchRequest(BaseModel):
     museums: List[MuseumKey] = Field(min_length=1, max_length=4)
-    keywords: List[str] = Field(min_length=1, max_length=50)
+    keywords: List[str] = Field(min_length=1, max_length=200)
     date_start: int = Field(0, ge=-5000, le=2026)
     date_end: int = Field(899, ge=-5000, le=2026)
     limit_per_museum: int = Field(10, ge=1, le=25)

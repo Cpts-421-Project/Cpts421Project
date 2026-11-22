@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 import pytest
-from src.main import app
+from src.main import app, _rate_limit_store
 from src.database import get_db
 from src.models import Base, Object, Image, Source, Tag, User
 from src.bot_defense import reset_bot_defense_state
@@ -47,6 +47,7 @@ def override_get_db():
 def setup_database():
     """Create fresh tables and seed data for each test, then tear down."""
     reset_bot_defense_state()
+    _rate_limit_store.clear()
     app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=test_engine)
 
@@ -898,7 +899,79 @@ class TestTwoExcelSchemaAlignment:
         obj_cols_reup = {c["name"] for c in inspector_reup.get_columns("objects")}
         assert "present_location" in obj_cols_reup
         assert "discovery_keywords" in inspector_reup.get_table_names()
+
+        from sqlalchemy import text
+        with mig_engine.connect() as conn:
+            seeded_kws = {
+                row[0]
+                for row in conn.execute(text("SELECT keyword FROM discovery_keywords")).fetchall()
+            }
+        assert len(seeded_kws) == 62
+        assert {"ancient worker", "vitrearii", "Pygmalion"}.issubset(seeded_kws)
+
         mig_engine.dispose()
+
+
+class TestMapAndIdFiltering:
+    """Normal, Edge, and Extraordinary tests for map findspot & /objects/search ?ids filtering."""
+
+    def test_getObjectsMap_returnsFindspotAlongsideCoordinates(self, client):
+        # Act
+        res = client.get("/objects/map")
+
+        # Assert
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data) == 2
+        by_id = {item["id"]: item for item in data}
+        assert by_id[1]["findspot"] == "Rome"
+        assert by_id[2]["findspot"] == "Alexandria"
+
+    def test_searchObjects_withIdsParam_returnsOnlyMatchingAcceptedObjects(self, client):
+        # Arrange: seed an extra pending object (id=3) that must not be exposed by ?ids=
+        db = TestingSessionLocal()
+        try:
+            pending_obj = Object(
+                object_type="Pending Lamp",
+                date_display="c. 200 CE",
+                date_start=200,
+                date_end=200,
+                inventory_number="INV-PEND",
+                review_status="pending",
+            )
+            db.add(pending_obj)
+            db.commit()
+            pending_id = pending_obj.id
+        finally:
+            db.close()
+
+        # Act: query comma-separated & repeated IDs including pending ID
+        res_comma = client.get(f"/objects/search?ids=1,{pending_id}")
+        res_repeated = client.get("/objects/search?ids=1&ids=2")
+
+        # Assert
+        assert res_comma.status_code == 200
+        assert [obj["id"] for obj in res_comma.json()] == [1]
+
+        assert res_repeated.status_code == 200
+        assert {obj["id"] for obj in res_repeated.json()} == {1, 2}
+
+    def test_searchObjects_withIdsCombinedWithTag_intersectsFilters(self, client):
+        # Act
+        res = client.get("/objects/search?ids=1,2&tag=Roman")
+
+        # Assert
+        assert res.status_code == 200
+        assert [obj["id"] for obj in res.json()] == [1]
+
+    def test_searchObjects_withInvalidOrExcessiveIds_returns422(self, client):
+        # Act & Assert: non-numeric, zero, negative, and >500 IDs rejected
+        assert client.get("/objects/search?ids=abc").status_code == 422
+        assert client.get("/objects/search?ids=0").status_code == 422
+        assert client.get("/objects/search?ids=-5").status_code == 422
+        too_many = ",".join(str(i) for i in range(1, 502))
+        assert client.get(f"/objects/search?ids={too_many}").status_code == 422
+
 
 
 
