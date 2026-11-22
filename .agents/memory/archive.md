@@ -1,4 +1,4 @@
-# Historical Execution Ledger (Cycles 4–33 Archive)
+# Historical Execution Ledger (Cycles 4–34 Archive)
 
 > **Connected Hub:** [MEMORY.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/MEMORY.md) | **Domain Nodes:** [architecture_and_infra.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/architecture_and_infra.md), [security_and_defense.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/security_and_defense.md), [data_and_catalog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/data_and_catalog.md), [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md)
 
@@ -6,7 +6,11 @@ This archive preserves the full chronological execution history compacted out of
 
 ---
 
-## Cycles 21–33: Security Hardening, Memory Architecture, Discovery & Catalog Backfill
+## Cycles 21–34: Security Hardening, Memory Architecture, Discovery & Catalog Backfill
+
+- **Cycle 34 (Real-Time Discovery Progress Streaming & Accessible Search Loading Indicators):**
+  - Refactored `MuseumDiscoveryService` (`prepare_discovery` + `discover_with_index`) with per-museum/keyword/detail `progress_callback` and `cancel_event`, added NDJSON `POST /admin/discovery/search/stream` ([main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/main.py)), and added unbuffered `location = /api/admin/discovery/search/stream` ([nginx.conf.template](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/nginx.conf.template)).
+  - Built [discoveryStream.js](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/utils/discoveryStream.js), native CSS `<progress>` bar/spinner styles ([index.css](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/index.css) w/ forced-colors & reduced-motion fallbacks), and live dashboard (`Live Discovery Progress`, elapsed timer, cancel abort, per-museum pipeline cards, activity feed) in [DiscoveryPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/pages/DiscoveryPage.jsx), plus `AbortController` + skeleton/spinner feedback in [useArtifacts.js](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/hooks/useArtifacts.js), [ArtifactGrid.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/components/ArtifactGrid.jsx), and [SearchPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/pages/SearchPage.jsx).
 
 - **Cycle 33 (Seed All `datacollection/keywords` Terms into Museum Discovery Search):**
   - Expanded `DEFAULT_KEYWORDS` ([museum_discovery_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/services/museum_discovery_service.py) & [DiscoveryPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/pages/DiscoveryPage.jsx)) to all **62** unique terms combining the 8 curated defaults + 60 `,`-stripped terms from `datacollection/keywords`, bumped `DiscoverySearchRequest.keywords` `max_length` to `200` ([schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/schemas.py)), and added Alembic revision `b2c3d4e5f6a9_seed_datacollection_discovery_keywords.py`.

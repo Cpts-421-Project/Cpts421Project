@@ -441,4 +441,167 @@ describe('ReviewPage', () => {
     expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue('Plain Shard')).toBeInTheDocument();
   });
+
+  it('normal_scrollContainerUsesBlockFlowAndDisplaysAdditionalRecordedFacts', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({
+      data: [
+        {
+          id: 401,
+          object_type: 'Mould-blown Vessel',
+          inventory_number: 'MET-401',
+          material: 'Glass',
+          findspot: 'Sidon',
+          present_location: 'Metropolitan Museum of Art',
+          production_location: 'Levantine Workshop',
+          object_group: 'Sidonian mold-blown group',
+          date_display: '1st century CE',
+          date_start: 1,
+          date_end: 99,
+          date_basis: 'Stratigraphic context & workshop signature',
+          dimensions_display: 'H. 14.2 cm; Diam. 7.8 cm',
+          weight: '118 g',
+          completeness: 'Intact',
+          inscription_present: true,
+          inscription_1: 'ENNION EPOIEI',
+          latitude: 33.5571,
+          longitude: 35.3729,
+          assembled_caption:
+            'Mould-blown Vessel, Inscribed: ENNION EPOIEI, Sidon, 1st century CE, Metropolitan Museum of Art',
+          tags: ['Glass', 'Sidon'],
+          publications: 'Israeli 2003, no. 14.',
+          bibliography: ['Israeli, Yael. Ancient Glass in the Israel Museum. 2003.'],
+          external_url: 'https://www.metmuseum.org/art/collection/search/241792',
+          images: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <ReviewPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Mould-blown Vessel');
+
+    // Assert 1: <main> is a block scroll container (min-h-0 overflow-y-auto without flex-col)
+    const mainEl = screen.getByRole('main');
+    expect(mainEl).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto');
+    expect(mainEl).not.toHaveClass('flex-col');
+
+    // Assert 2: Additional Recorded Facts renders all scholarly & provenance fields + safe link
+    const factsHeading = screen.getByRole('heading', { name: 'Additional Recorded Facts' });
+    expect(factsHeading).toBeInTheDocument();
+    expect(screen.getByText(/Inscribed: ENNION EPOIEI/)).toBeInTheDocument();
+    expect(screen.getByText('Levantine Workshop')).toBeInTheDocument();
+    expect(screen.getByText('Sidonian mold-blown group')).toBeInTheDocument();
+    expect(screen.getByText('Stratigraphic context & workshop signature')).toBeInTheDocument();
+    expect(screen.getByText('H. 14.2 cm; Diam. 7.8 cm')).toBeInTheDocument();
+    expect(screen.getByText('118 g')).toBeInTheDocument();
+    expect(screen.getByText('Intact')).toBeInTheDocument();
+    expect(screen.getByText('ENNION EPOIEI')).toBeInTheDocument();
+    expect(screen.getByText('33.5571, 35.3729')).toBeInTheDocument();
+    expect(screen.getByText('Israeli 2003, no. 14.')).toBeInTheDocument();
+    expect(screen.getByText('Israeli, Yael. Ancient Glass in the Israel Museum. 2003.')).toBeInTheDocument();
+    expect(screen.getByText('Glass')).toBeInTheDocument();
+    expect(screen.getByText('Sidon')).toBeInTheDocument();
+
+    const sourceLink = screen.getByRole('link', { name: /View Source Museum Record/i });
+    expect(sourceLink).toHaveAttribute('href', 'https://www.metmuseum.org/art/collection/search/241792');
+    expect(sourceLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('edge_omitsEmptyFactsSectionPreservesZeroCoordinatesAndResetsScrollOnItemSwitch', async () => {
+    // Arrange
+    const scrollToSpy = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(() => {});
+    api.get.mockResolvedValueOnce({
+      data: [
+        {
+          id: 501,
+          object_type: 'Equatorial Marker Shard',
+          inventory_number: 'EQ-0',
+          date_display: '200 CE',
+          date_start: 200,
+          date_end: 200,
+          latitude: 0,
+          longitude: 0,
+          images: [],
+        },
+        {
+          id: 502,
+          object_type: 'Minimal Second Artifact',
+          inventory_number: 'MIN-502',
+          date_display: '300 CE',
+          date_start: 300,
+          date_end: 300,
+          images: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <ReviewPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Equatorial Marker Shard');
+    expect(screen.getByRole('heading', { name: 'Additional Recorded Facts' })).toBeInTheDocument();
+    expect(screen.getByText('0, 0')).toBeInTheDocument();
+
+    scrollToSpy.mockClear();
+
+    // Act: Skip to second item with no optional facts
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    await screen.findByDisplayValue('Minimal Second Artifact');
+
+    // Assert: Scrolls main back to top and hides empty facts section
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 });
+    expect(screen.queryByRole('heading', { name: 'Additional Recorded Facts' })).not.toBeInTheDocument();
+    scrollToSpy.mockRestore();
+  });
+
+  it('extraordinary_rejectsUnsafeNonHttpsExternalUrlsInFactsSection', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({
+      data: [
+        {
+          id: 601,
+          object_type: 'Javascript Protocol Item',
+          inventory_number: 'BAD-1',
+          date_display: '100 CE',
+          date_start: 100,
+          date_end: 100,
+          external_url: 'javascript:alert(1)',
+          images: [],
+        },
+        {
+          id: 602,
+          object_type: 'Plain Http Item',
+          inventory_number: 'BAD-2',
+          date_display: '100 CE',
+          date_start: 100,
+          date_end: 100,
+          external_url: 'http://example.com/item',
+          images: [],
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <ReviewPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('Javascript Protocol Item');
+    expect(screen.queryByRole('link', { name: /View Source Museum Record/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Additional Recorded Facts' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    await screen.findByDisplayValue('Plain Http Item');
+    expect(screen.queryByRole('link', { name: /View Source Museum Record/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Additional Recorded Facts' })).not.toBeInTheDocument();
+  });
 });
