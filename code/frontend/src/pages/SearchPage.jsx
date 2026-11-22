@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import FilterSidebar from '../components/FilterSidebar';
 import ArtifactGrid from '../components/ArtifactGrid';
 import useArtifacts from '../hooks/useArtifacts';
@@ -7,7 +7,13 @@ import useArtifacts from '../hooks/useArtifacts';
 const hasValue = (val) => val !== null && val !== undefined && val !== '';
 
 const SearchPage = () => {
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
+    const [statusNotice, setStatusNotice] = useState(() =>
+        location.state?.deletedArtifactTitle
+            ? `Deleted artifact "${location.state.deletedArtifactTitle}".`
+            : ''
+    );
 
     // Initialize filters from URL parameters if present
     const [filters, setFilters] = useState(() => {
@@ -123,6 +129,24 @@ const SearchPage = () => {
 
             <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
                 <div className="max-w-7xl mx-auto space-y-6">
+                    {statusNotice && (
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 flex items-center justify-between gap-4"
+                        >
+                            <span>{statusNotice}</span>
+                            <button
+                                type="button"
+                                onClick={() => setStatusNotice('')}
+                                aria-label="Dismiss notification"
+                                className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 underline"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    )}
+
                     {/* Search Input Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                         <div className="w-full md:w-2/3 relative">

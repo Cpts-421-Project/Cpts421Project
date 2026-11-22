@@ -395,7 +395,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.11.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.11'
@@ -465,7 +465,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.12.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.12'
@@ -521,7 +521,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.9.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.9'
@@ -577,7 +577,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_36.5.jpg'
 FROM objects o WHERE o.inventory_number = '36.5'
@@ -633,7 +633,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.10.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.10'
@@ -689,7 +689,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.5.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.5'
@@ -745,7 +745,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.3.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.3'
@@ -801,7 +801,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.7.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.7'
@@ -857,7 +857,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_20.3.1.jpg'
 FROM objects o WHERE o.inventory_number = '20.3.1'
@@ -913,7 +913,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_30.4.103.jpg'
 FROM objects o WHERE o.inventory_number = '30.4.103'
@@ -962,7 +962,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_44.4.88.jpg'
 FROM objects o WHERE o.inventory_number = '44.4.88'
@@ -997,7 +997,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_30.4.77.jpg'
 FROM objects o WHERE o.inventory_number = '30.4.77'
@@ -1046,7 +1046,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_30.4.89.jpg'
 FROM objects o WHERE o.inventory_number = '30.4.89'
@@ -1095,7 +1095,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_30.4.90.jpg'
 FROM objects o WHERE o.inventory_number = '30.4.90'
@@ -1158,7 +1158,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_35.101.1.jpg'
 FROM objects o WHERE o.inventory_number = '35.101.1'
@@ -1214,7 +1214,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_31.6.22.jpg'
 FROM objects o WHERE o.inventory_number = '31.6.22'
@@ -1270,7 +1270,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_31.6.11.jpg'
 FROM objects o WHERE o.inventory_number = '31.6.11'
@@ -1305,7 +1305,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_30.4.2.jpg'
 FROM objects o WHERE o.inventory_number = '30.4.2'
@@ -1361,7 +1361,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_1972.11.1.jpg'
 FROM objects o WHERE o.inventory_number = '1972.11.1'
@@ -1403,7 +1403,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_18.145.10.jpg'
 FROM objects o WHERE o.inventory_number = '18.145.10'
@@ -1445,7 +1445,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_31.11.10.jpg'
 FROM objects o WHERE o.inventory_number = '31.11.10'
@@ -1501,7 +1501,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_06.1021.77.jpg'
 FROM objects o WHERE o.inventory_number = '06.1021.77'
@@ -1564,7 +1564,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_25.78.63.jpg'
 FROM objects o WHERE o.inventory_number = '25.78.63'
@@ -1613,7 +1613,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_74.51.2110.jpg'
 FROM objects o WHERE o.inventory_number = '74.51.2110'
@@ -1655,7 +1655,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_74.51.2109.jpg'
 FROM objects o WHERE o.inventory_number = '74.51.2109'
@@ -1690,7 +1690,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_47.49.jpg'
 FROM objects o WHERE o.inventory_number = '47.49'
@@ -1732,7 +1732,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection: Ancient Civilizations and Labor.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection.'), 'Photograph', 'Front', '/api/images/met_59.41.1.jpg'
 FROM objects o WHERE o.inventory_number = '59.41.1'
@@ -1759,7 +1759,7 @@ JOIN tags t ON t.tag_name = 'Kings'
 WHERE o.inventory_number = '59.41.1'
 ON CONFLICT DO NOTHING;
 
-UPDATE objects SET review_status = 'accepted' WHERE review_status LIKE 'pending%';
+UPDATE objects SET review_status = 'accepted' WHERE review_status = 'pending_date_check';
 
 
 INSERT INTO sources (citation_text)
@@ -1782,7 +1782,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_EA37976.jpg'
@@ -1862,7 +1862,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_EA37978.jpg'
@@ -1942,7 +1942,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_EA37977.jpg'
@@ -2015,7 +2015,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_EA37982.jpg'
@@ -2088,7 +2088,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_EA37979.jpg'
@@ -2161,7 +2161,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_EA36422.jpg'
@@ -2234,7 +2234,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1837_0609_42.jpg'
@@ -2314,7 +2314,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1847_1125_18.jpg'
@@ -2394,7 +2394,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1887_0801_61.jpg'
@@ -2474,7 +2474,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1852_0901_13.jpg'
@@ -2547,7 +2547,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1805_0703_183.jpg'
@@ -2620,7 +2620,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1954_1214_1.jpg'
@@ -2700,7 +2700,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1850_0304_32.jpg'
@@ -2773,7 +2773,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1968_0626_1.jpg'
@@ -2846,7 +2846,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1989_0602_74.jpg'
@@ -2926,7 +2926,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1989_0130_4.jpg'
@@ -3006,7 +3006,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1851_0902_6.jpg'
@@ -3086,7 +3086,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1851_0902_5.jpg'
@@ -3159,7 +3159,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1851_0902_4.jpg'
@@ -3232,7 +3232,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1851_0902_3.jpg'
@@ -3312,7 +3312,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     height = EXCLUDED.height,
     width = EXCLUDED.width,
     depth = EXCLUDED.depth,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'The British Museum. “Collection Online: Ancient Civilizations, Trades, and Labor.” London: The British Museum. https://www.britishmuseum.org/collection.'), 'Photograph', 'Front', '/api/images/bm_1851_0902_2.jpg'
@@ -3428,7 +3428,7 @@ ON CONFLICT (inventory_number) DO UPDATE SET
     date_basis = EXCLUDED.date_basis,
     completeness = EXCLUDED.completeness,
     publications = EXCLUDED.publications,
-    review_status = EXCLUDED.review_status;
+    review_status = COALESCE(objects.review_status, EXCLUDED.review_status);
 
 INSERT INTO images (object_id, source_id, image_type, view_type, image_sequence, source_identifier, file_url)
 SELECT o.id,

@@ -809,3 +809,194 @@ class TestDiscoveryProgressStreaming:
         assert len(events) == 1
         assert events[0]["type"] == "error"
         assert "boom" in events[0]["message"]
+
+
+class TestReviewQueueImageFallbackAndRecovery:
+    """Tests for discovery import fallback URL preservation and pending queue image recovery."""
+
+    @patch("src.services.museum_discovery_service.download_and_store_image", return_value=None)
+    def test_import_whenBucketCachingFails_preservesValidatedUrlsInPendingQueue(self, _mock_store, client):
+        # Arrange
+        _login_admin(client)
+        cma_img = "https://openaccess-cdn.clevelandart.org/1985.12/web.jpg"
+        met_img = "https://images.metmuseum.org/CRDImages/md/original/DP123.jpg"
+
+        candidates = [
+            {
+                "museum_id": "cma",
+                "museum_name": "Cleveland Museum of Art",
+                "source_record_id": "199001",
+                "object_type": "Blown Glass Unguentarium",
+                "present_location": "The Cleveland Museum of Art, Cleveland",
+                "inventory_number": "1985.12",
+                "date_display": "2nd–3rd century CE",
+                "date_start": 100,
+                "date_end": 299,
+                "external_url": "https://clevelandart.org/art/1985.12",
+                "images": [{"file_url": cma_img, "image_sequence": 1, "source_identifier": "CMA 1985.12"}],
+            },
+            {
+                "museum_id": "met",
+                "museum_name": "The Metropolitan Museum of Art",
+                "source_record_id": "555001",
+                "object_type": "Gold-Glass Fragment",
+                "present_location": "The Metropolitan Museum of Art, New York",
+                "inventory_number": "17.194.100",
+                "date_display": "4th century CE",
+                "date_start": 300,
+                "date_end": 399,
+                "external_url": "https://www.metmuseum.org/art/collection/search/555001",
+                "images": [{"file_url": met_img, "image_sequence": 1, "source_identifier": "Met Object ID 555001"}],
+            },
+        ]
+
+        # Act
+        imp_res = client.post("/admin/discovery/import", json={"candidates": candidates})
+        assert imp_res.status_code == 200
+        assert imp_res.json()["imported_count"] == 2
+
+        pending_res = client.get("/objects/pending")
+        assert pending_res.status_code == 200
+        by_inv = {item["inventory_number"]: item for item in pending_res.json()}
+
+        # Assert: neither URL was wiped to "" nor mangled to a non-existent /api/images/met_*.jpg
+        assert by_inv["1985.12"]["images"][0]["file_url"] == cma_img
+        assert by_inv["17.194.100"]["images"][0]["file_url"] == met_img
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    @patch("src.services.museum_discovery_service.download_and_store_image")
+    def test_recoverObjectImages_normalPendingVamAndMet_recoversAndCachesOrFallsBack(self, mock_store, mock_get, client):
+        # Arrange: seed pending V&A (empty file_url) and pending Met (empty file_url)
+        _login_admin(client)
+        db = TestingSessionLocal()
+        try:
+            vam_obj = Object(
+                object_type="Facet-cut Glass Cup",
+                present_location="Victoria and Albert Museum, London",
+                date_display="6th century CE",
+                date_start=500,
+                date_end=599,
+                inventory_number="C.58-1963",
+                external_url="https://collections.vam.ac.uk/item/O5328",
+                review_status="pending",
+            )
+            met_obj = Object(
+                object_type="Gold-Glass Roundel",
+                present_location="The Metropolitan Museum of Art, New York",
+                date_display="4th century CE",
+                date_start=300,
+                date_end=399,
+                inventory_number="17.194.100",
+                external_url="https://www.metmuseum.org/art/collection/search/555001",
+                review_status="pending",
+            )
+            db.add_all([vam_obj, met_obj])
+            db.flush()
+            db.add_all([
+                Image(
+                    object_id=vam_obj.id,
+                    image_type="Colour photo",
+                    view_type="Front",
+                    image_sequence=1,
+                    source_identifier="V&A O5328 / 2006AF6997",
+                    file_url="",
+                ),
+                Image(
+                    object_id=met_obj.id,
+                    image_type="Colour photo",
+                    view_type="Front",
+                    image_sequence=1,
+                    source_identifier="Met Object ID 555001",
+                    file_url="",
+                ),
+            ])
+            db.commit()
+            vam_id = vam_obj.id
+            met_id = met_obj.id
+        finally:
+            db.close()
+
+        # Act 1: V&A recovers directly from source_identifier; if bucket fails, keeps Framemark HTTPS URL
+        mock_store.return_value = None
+        vam_res = client.post(f"/objects/{vam_id}/recover-images")
+        assert vam_res.status_code == 200
+        assert (
+            vam_res.json()["images"][0]["file_url"]
+            == "https://framemark.vam.ac.uk/collections/2006AF6997/full/!800,800/0/default.jpg"
+        )
+
+        # Act 2: Met queries collectionapi and caches to /api/images/... when bucket succeeds
+        mock_get.return_value = _mock_response({
+            "objectID": 555001,
+            "primaryImage": "https://images.metmuseum.org/CRDImages/md/original/DP123.jpg",
+        })
+        mock_store.return_value = "/api/images/met_17_194_100_abc.jpg"
+
+        met_res = client.post(f"/objects/{met_id}/recover-images")
+        assert met_res.status_code == 200
+        assert met_res.json()["images"][0]["file_url"] == "/api/images/met_17_194_100_abc.jpg"
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_recoverObjectImages_edgeAlreadyHasValidUrl_isIdempotentNoOp(self, mock_get, client):
+        # Arrange
+        _login_admin(client)
+        db = TestingSessionLocal()
+        try:
+            obj = Object(
+                object_type="Already Imaged Lamp",
+                date_display="200 CE",
+                date_start=200,
+                date_end=200,
+                inventory_number="OK-1",
+                external_url="https://www.metmuseum.org/art/collection/search/555001",
+                review_status="pending",
+            )
+            db.add(obj)
+            db.flush()
+            db.add(Image(object_id=obj.id, image_sequence=1, file_url="/api/images/existing.jpg"))
+            db.commit()
+            obj_id = obj.id
+        finally:
+            db.close()
+
+        # Act
+        res = client.post(f"/objects/{obj_id}/recover-images")
+
+        # Assert
+        assert res.status_code == 200
+        assert res.json()["images"][0]["file_url"] == "/api/images/existing.jpg"
+        mock_get.assert_not_called()
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_recoverObjectImages_extraordinaryAuthNotFoundAndUpstreamTimeout(self, mock_get, client):
+        # Act 1: unauthenticated -> 401
+        assert client.post("/objects/1/recover-images").status_code == 401
+
+        # Act 2: authenticated missing object -> 404
+        _login_admin(client)
+        assert client.post("/objects/999999/recover-images").status_code == 404
+
+        # Act 3: upstream museum timeout degrades gracefully without HTTP 500
+        db = TestingSessionLocal()
+        try:
+            obj = Object(
+                object_type="Timeout Test Object",
+                date_display="300 CE",
+                date_start=300,
+                date_end=300,
+                inventory_number="TO-1",
+                external_url="https://www.metmuseum.org/art/collection/search/555999",
+                review_status="pending",
+            )
+            db.add(obj)
+            db.flush()
+            db.add(Image(object_id=obj.id, image_sequence=1, source_identifier="Met Object ID 555999", file_url=""))
+            db.commit()
+            obj_id = obj.id
+        finally:
+            db.close()
+
+        mock_get.side_effect = requests.Timeout("Met API timeout")
+        res = client.post(f"/objects/{obj_id}/recover-images")
+        assert res.status_code == 200
+        assert res.json()["images"][0]["file_url"] == ""

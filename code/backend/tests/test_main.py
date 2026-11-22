@@ -973,6 +973,153 @@ class TestMapAndIdFiltering:
         assert client.get(f"/objects/search?ids={too_many}").status_code == 422
 
 
+class TestDeleteObject:
+    """Admin deletion tests covering Normal, Edge, and Extraordinary cases."""
+
+    def test_deleteObject_asAdminWithImagesAndTags_returns204AndRemovesRecord(self, client):
+        # Arrange: login as admin; object 1 has Image + Roman Tag + Source
+        from src.models import image_tags
+
+        login_res = client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+        assert login_res.status_code == 200
+
+        # Act
+        del_res = client.delete("/objects/1", headers={"Content-Type": "application/json"})
+
+        # Assert: HTTP 204 with empty body
+        assert del_res.status_code == 204
+        assert del_res.content == b""
+
+        # Subsequent reads confirm removal across detail, search, and map
+        assert client.get("/objects/1").status_code == 404
+        search_ids = [o["id"] for o in client.get("/objects/search").json()]
+        assert 1 not in search_ids
+        map_ids = [o["id"] for o in client.get("/objects/map").json()]
+        assert 1 not in map_ids
+
+        # Image and image_tags cascade-deleted, while shared Source and Tag rows remain intact
+        db = TestingSessionLocal()
+        try:
+            assert db.query(Object).filter(Object.id == 1).first() is None
+            assert db.query(Image).filter(Image.object_id == 1).count() == 0
+            assert db.query(image_tags).count() == 1  # only object 2's tag link remains
+            assert db.query(Source).count() >= 1
+            assert db.query(Tag).filter(Tag.tag_name == "Roman").first() is not None
+        finally:
+            db.close()
+
+    def test_deleteObject_withoutImages_returns204(self, client):
+        # Arrange: create an object without images
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+        create_res = client.post(
+            "/objects",
+            json={
+                "object_type": "Imageless Fragment",
+                "date_display": "c. 200 CE",
+                "date_start": 200,
+                "date_end": 200,
+                "images": [],
+            },
+        )
+        assert create_res.status_code == 200
+        obj_id = create_res.json()["id"]
+
+        # Act
+        del_res = client.delete(f"/objects/{obj_id}")
+
+        # Assert
+        assert del_res.status_code == 204
+        assert del_res.content == b""
+        assert client.get(f"/objects/{obj_id}").status_code == 404
+
+    def test_deleteObject_alreadyDeletedOrZeroOrNonExistent_returns404(self, client):
+        # Arrange
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+        assert client.delete("/objects/1").status_code == 204
+
+        # Act & Assert: repeated delete, ID 0, and non-existent ID all return 404
+        assert client.delete("/objects/1").status_code == 404
+        assert client.delete("/objects/0").status_code == 404
+        assert client.delete("/objects/99999").status_code == 404
+
+    def test_deleteObject_unauthenticated_returns401(self, client):
+        # Act
+        res = client.delete("/objects/1")
+
+        # Assert
+        assert res.status_code == 401
+        assert client.get("/objects/1").status_code == 200
+
+    def test_deleteObject_nonAdminUser_returns403(self, client):
+        # Arrange: seed non-admin user and login
+        import bcrypt
+
+        db = TestingSessionLocal()
+        try:
+            hashed = bcrypt.hashpw("UserPass!2026".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            db.add(User(email="viewer@example.com", username="viewer", password_hash=hashed, is_admin=False))
+            db.commit()
+        finally:
+            db.close()
+
+        login_res = client.post("/auth/login", json={"username": "viewer", "password": "UserPass!2026"})
+        assert login_res.status_code == 200
+        assert login_res.json()["is_admin"] is False
+
+        # Act
+        del_res = client.delete("/objects/1")
+
+        # Assert
+        assert del_res.status_code == 403
+        assert client.get("/objects/1").status_code == 200
+
+    def test_deleteObject_nonIntegerId_returns422(self, client):
+        # Arrange
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+
+        # Act
+        res = client.delete("/objects/abc")
+
+        # Assert
+        assert res.status_code == 422
+
+    def test_deleteObject_missingUserAgent_rejectedWith400(self, client):
+        # Arrange
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+
+        # Act
+        res = client.delete("/objects/1", headers={"User-Agent": ""})
+
+        # Assert
+        assert res.status_code == 400
+        assert "User-Agent header is required" in res.json()["detail"]
+
+    def test_deleteObject_databaseError_rollsBackAndReturns500(self, client):
+        # Arrange
+        from sqlalchemy.exc import SQLAlchemyError
+        from src.repositories.object_repository import ObjectRepository
+
+        mock_db = MagicMock()
+        mock_obj = Object(id=1, object_type="Vase", date_display="c. 300 AD", date_start=250, date_end=350)
+        repo = ObjectRepository(mock_db)
+
+        with patch.object(repo, "get_by_id", return_value=mock_obj):
+            mock_db.commit.side_effect = SQLAlchemyError("commit failed")
+            with pytest.raises(SQLAlchemyError):
+                repo.delete_object(1)
+
+        mock_db.delete.assert_called_once_with(mock_obj)
+        mock_db.rollback.assert_called_once()
+
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+        with patch("src.repositories.object_repository.ObjectRepository.delete_object", side_effect=SQLAlchemyError("DB error")):
+            res = client.delete("/objects/1")
+
+        # Assert
+        assert res.status_code == 500
+        assert "database error" in res.json()["detail"].lower()
+
+
 
 
 

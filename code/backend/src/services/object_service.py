@@ -4,6 +4,7 @@ Sits between API routes (controllers) and the repository layer.
 Owns the bibliography aggregation logic that was previously duplicated in 3 places.
 """
 import re
+from pathlib import Path
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,7 +12,7 @@ from ..repositories.object_repository import ObjectRepository
 from ..models import Object
 from ..logger import app_logger
 from ..exceptions import EntityNotFoundError, BaseAppException
-from .s3_service import ensure_stored_in_bucket
+from .s3_service import ensure_stored_in_bucket, normalize_bucket_url_to_proxy
 
 
 def build_bibliography(obj: Object) -> List[str]:
@@ -99,24 +100,47 @@ def build_assembled_caption(obj: Object) -> str:
     return ", ".join(parts)
 
 
+def _has_local_seed_image(filename: str) -> bool:
+    candidate_dirs = (
+        Path(__file__).resolve().parent.parent.parent / "data" / "images",
+        Path(__file__).resolve().parent.parent.parent.parent.parent / "data" / "reduced_dataset" / "images",
+        Path("/app/data/images"),
+        Path("data/images"),
+    )
+    return any((candidate_dir / filename).is_file() for candidate_dir in candidate_dirs)
+
+
 def _normalize_image_url(url: Optional[str], inventory_number: Optional[str] = None) -> Optional[str]:
     """
-    Normalizes any external Met Museum image URL to our internal bucket proxy endpoint.
-    Guarantees no external Met URLs are returned to the frontend.
+    Normalizes bucket URLs and legacy external Met/BM URLs to our internal bucket proxy endpoint,
+    while preserving allowlisted external museum URLs when no bundled local asset exists.
     """
     if not url or not isinstance(url, str):
         return url
 
+    url = normalize_bucket_url_to_proxy(url)
+    if not isinstance(url, str) or url.startswith("/api/images/"):
+        return url
+
     url_lower = url.lower()
     if "metmuseum.org" in url_lower or "collectionapi" in url_lower:
+        is_legacy_met = (
+            "collectionapi" in url_lower
+            or "/iiif/" in url_lower
+            or "www.metmuseum.org" in url_lower
+        )
         if inventory_number:
             safe_inv = "".join(c if c.isalnum() else "_" for c in str(inventory_number))
-            return f"/api/images/met_{safe_inv}.jpg"
-        match = re.search(r"/iiif/([^/]+)/", url)
-        if match:
-            safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
-            return f"/api/images/met_{safe_inv}.jpg"
-        return "/api/images/met_default.jpg"
+            local_name = f"met_{safe_inv}.jpg"
+            if is_legacy_met or _has_local_seed_image(local_name):
+                return f"/api/images/{local_name}"
+        elif is_legacy_met:
+            match = re.search(r"/iiif/([^/]+)/", url)
+            if match:
+                safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))
+                return f"/api/images/met_{safe_inv}.jpg"
+            return "/api/images/met_default.jpg"
+        return url
 
     if "britishmuseum.org" in url_lower:
         if inventory_number:

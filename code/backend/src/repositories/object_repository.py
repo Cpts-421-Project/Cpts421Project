@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_, func, case
+from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 from ..models import Object, Image, Source, Tag
 from ..schemas import ObjectDetailResponse, ObjectMapResponse
@@ -209,7 +210,8 @@ class ObjectRepository:
     def get_pending_objects(self) -> List[Object]:
         """Fetch all objects awaiting admin review."""
         return self.db.query(Object).options(
-            joinedload(Object.images).joinedload(Image.source)
+            joinedload(Object.images).joinedload(Image.source),
+            joinedload(Object.images).joinedload(Image.tags),
         ).filter(Object.review_status == 'pending').order_by(Object.id.asc()).limit(50).all()
 
     def _get_or_create_source_id(self, citation_text: str) -> int:
@@ -268,6 +270,10 @@ class ObjectRepository:
         if not db_obj:
             return False
         # image deletion cascades via relation
-        self.db.delete(db_obj)
-        self.db.commit()
-        return True
+        try:
+            self.db.delete(db_obj)
+            self.db.commit()
+            return True
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise

@@ -16,10 +16,10 @@ import requests
 from bs4 import BeautifulSoup
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ..config import config
-from ..exceptions import ValidationError
+from ..exceptions import EntityNotFoundError, ValidationError
 from ..logger import app_logger
 from ..models import DiscoveryKeyword, Image, Object, Source, Tag
 from ..schemas import (
@@ -29,7 +29,7 @@ from ..schemas import (
     MuseumKey,
 )
 from ..url_validator import ALLOWED_API_DOMAINS, is_safe_image_url, validate_url
-from .object_service import build_assembled_caption
+from .object_service import ObjectService, build_assembled_caption
 from .s3_service import download_and_store_image
 
 MAX_SAVED_KEYWORDS = 200
@@ -1830,19 +1830,23 @@ class MuseumDiscoveryService:
                     primary_img_record: Optional[Image] = None
                     for seq, img_in in enumerate(cand.images[:3], start=1):
                         stored_url = ""
-                        if img_in.file_url and storage_configured:
-                            cached = download_and_store_image(
-                                img_in.file_url,
-                                object_identifier=cand.inventory_number or db_obj.id,
-                                prefix=cand.museum_id,
-                            )
-                            if cached:
-                                stored_url = cached
-                            else:
-                                app_logger.warning(
-                                    "Could not cache image into bucket for %s; storing empty placeholder URL",
-                                    cand.inventory_number or db_obj.id,
+                        if img_in.file_url:
+                            if storage_configured:
+                                cached = download_and_store_image(
+                                    img_in.file_url,
+                                    object_identifier=cand.inventory_number or db_obj.id,
+                                    prefix=cand.museum_id,
                                 )
+                                if cached:
+                                    stored_url = cached
+                                elif is_safe_image_url(img_in.file_url):
+                                    app_logger.warning(
+                                        "Could not cache image into bucket for %s; preserving validated museum image URL",
+                                        cand.inventory_number or db_obj.id,
+                                    )
+                                    stored_url = img_in.file_url
+                            elif is_safe_image_url(img_in.file_url):
+                                stored_url = img_in.file_url
 
                         source_id = None
                         if img_in.source_citation and img_in.source_citation.strip():
@@ -1907,3 +1911,220 @@ class MuseumDiscoveryService:
             "skipped_inventory_numbers": skipped_inventory_numbers,
             "errors": errors,
         }
+
+    @staticmethod
+    def _filter_unique_safe_urls(urls: List[Optional[str]], limit: int = 3) -> List[str]:
+        seen: Set[str] = set()
+        result: List[str] = []
+        for url in urls:
+            if not url or not isinstance(url, str):
+                continue
+            cleaned = url.strip()
+            if cleaned and cleaned not in seen and is_safe_image_url(cleaned):
+                seen.add(cleaned)
+                result.append(cleaned)
+                if len(result) >= limit:
+                    break
+        return result
+
+    def _infer_recovery_urls(self, obj: Object, sorted_images: List[Image]) -> Tuple[List[str], str]:
+        """Infer SSRF-validated museum image URLs from existing provenance on an object."""
+        ext_url = (obj.external_url or "").strip()
+        source_ids = [
+            (img.source_identifier or "").strip()
+            for img in sorted_images
+            if (img.source_identifier or "").strip()
+        ]
+
+        # 1. Victoria & Albert Museum (source_identifier carries Framemark image ID, or API lookup)
+        vam_urls: List[Optional[str]] = []
+        for src_id in source_ids:
+            m = re.search(r"V&A\s+\S+\s*/\s*([A-Za-z0-9_-]+)", src_id)
+            if m:
+                vam_urls.append(
+                    f"https://framemark.vam.ac.uk/collections/{m.group(1)}/full/!800,800/0/default.jpg"
+                )
+        filtered_vam = self._filter_unique_safe_urls(vam_urls)
+        if filtered_vam:
+            return filtered_vam, "vam"
+
+        vam_ext_match = re.search(r"collections\.vam\.ac\.uk/item/([A-Za-z0-9_-]+)", ext_url, re.IGNORECASE)
+        if vam_ext_match:
+            sn = vam_ext_match.group(1)
+            try:
+                detail = _request_json("GET", f"https://api.vam.ac.uk/v2/museumobject/{sn}", timeout=8, allow_404=True)
+                rec = (detail or {}).get("record") or {}
+                api_vam_urls = [
+                    f"https://framemark.vam.ac.uk/collections/{img_id}/full/!800,800/0/default.jpg"
+                    for img_id in (rec.get("images") or [])[:3]
+                    if img_id
+                ]
+                filtered = self._filter_unique_safe_urls(api_vam_urls)
+                if filtered:
+                    return filtered, "vam"
+            except Exception as exc:
+                app_logger.warning("Failed V&A image recovery for object %s: %s", obj.id, exc)
+
+        # 2. The Metropolitan Museum of Art
+        met_oid: Optional[str] = None
+        for src_id in source_ids:
+            m = re.search(r"Met Object ID\s+(\d+)", src_id, re.IGNORECASE)
+            if m:
+                met_oid = m.group(1)
+                break
+        if not met_oid:
+            m = re.search(r"metmuseum\.org/art/collection/search/(\d+)", ext_url, re.IGNORECASE)
+            if m:
+                met_oid = m.group(1)
+        if met_oid:
+            try:
+                obj_data = _request_json(
+                    "GET",
+                    f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{met_oid}",
+                    timeout=8,
+                    allow_404=True,
+                )
+                if obj_data:
+                    raw_met = [obj_data.get("primaryImage") or obj_data.get("primaryImageSmall")]
+                    raw_met.extend((obj_data.get("additionalImages") or [])[:2])
+                    filtered = self._filter_unique_safe_urls(raw_met)
+                    if filtered:
+                        return filtered, "met"
+            except Exception as exc:
+                app_logger.warning("Failed Met image recovery for object %s: %s", obj.id, exc)
+
+        # 3. Art Institute of Chicago
+        aic_match = re.search(r"artic\.edu/artworks/(\d+)", ext_url, re.IGNORECASE)
+        if aic_match:
+            rec_id = aic_match.group(1)
+            try:
+                detail = _request_json(
+                    "GET",
+                    f"https://api.artic.edu/api/v1/artworks/{rec_id}",
+                    params={"fields": "image_id,alt_image_ids"},
+                    timeout=8,
+                    allow_404=True,
+                )
+                if detail:
+                    iiif_base = ((detail.get("config") or {}).get("iiif_url") or "https://www.artic.edu/iiif/2").rstrip("/")
+                    item = detail.get("data") or {}
+                    img_ids: List[str] = []
+                    if item.get("image_id"):
+                        img_ids.append(str(item["image_id"]))
+                    for alt_id in item.get("alt_image_ids") or []:
+                        if len(img_ids) >= 3:
+                            break
+                        if alt_id and str(alt_id) not in img_ids:
+                            img_ids.append(str(alt_id))
+                    raw_aic = [f"{iiif_base}/{iid}/full/843,/0/default.jpg" for iid in img_ids]
+                    filtered = self._filter_unique_safe_urls(raw_aic)
+                    if filtered:
+                        return filtered, "aic"
+            except Exception as exc:
+                app_logger.warning("Failed AIC image recovery for object %s: %s", obj.id, exc)
+
+        # 4. Cleveland Museum of Art
+        cma_accession: Optional[str] = None
+        cma_url_match = re.search(r"clevelandart\.org/art/([^/?#]+)", ext_url, re.IGNORECASE)
+        if cma_url_match:
+            cma_accession = cma_url_match.group(1)
+        if not cma_accession:
+            for src_id in source_ids:
+                m = re.search(r"CMA\s+([^\s(]+)", src_id, re.IGNORECASE)
+                if m:
+                    cma_accession = m.group(1)
+                    break
+        if not cma_accession and obj.present_location and "cleveland" in obj.present_location.lower() and obj.inventory_number:
+            cma_accession = obj.inventory_number.strip()
+
+        if cma_accession:
+            try:
+                detail = _request_json(
+                    "GET",
+                    f"https://openaccess-api.clevelandart.org/api/artworks/{cma_accession}",
+                    timeout=8,
+                    allow_404=True,
+                )
+                if detail:
+                    item = detail.get("data") if isinstance(detail.get("data"), dict) else detail
+                    if isinstance(item, dict):
+                        raw_cma = [((item.get("images") or {}).get("web") or {}).get("url")]
+                        for alt in (item.get("alternate_images") or [])[:2]:
+                            if isinstance(alt, dict):
+                                raw_cma.append((alt.get("web") or {}).get("url"))
+                        filtered = self._filter_unique_safe_urls(raw_cma)
+                        if filtered:
+                            return filtered, "cma"
+            except Exception as exc:
+                app_logger.warning("Failed CMA image recovery for object %s: %s", obj.id, exc)
+
+        return [], "obj"
+
+    def recover_object_images(self, object_id: int) -> dict:
+        """
+        Recover missing image URLs for an existing object from its museum provenance,
+        caching into S3 when available or falling back to validated allowlisted HTTPS URLs.
+        """
+        obj = (
+            self.db.query(Object)
+            .options(
+                joinedload(Object.images).joinedload(Image.source),
+                joinedload(Object.images).joinedload(Image.tags),
+            )
+            .filter(Object.id == object_id)
+            .first()
+        )
+        if not obj:
+            raise EntityNotFoundError("Object", object_id)
+
+        sorted_images = sorted(
+            obj.images or [],
+            key=lambda img: (
+                img.image_sequence is None,
+                img.image_sequence or 0,
+                img.id or 0,
+            ),
+        )
+        missing_images = [img for img in sorted_images if not (img.file_url or "").strip()]
+        if sorted_images and not missing_images:
+            return ObjectService(self.db).get_by_id(object_id)
+
+        recovered_urls, prefix = self._infer_recovery_urls(obj, sorted_images)
+        if recovered_urls:
+            storage_configured = bool(config.MINIO_ENDPOINT and config.MINIO_ACCESS_KEY)
+            final_urls: List[str] = []
+            for url in recovered_urls[:3]:
+                resolved_url = url
+                if storage_configured:
+                    cached = download_and_store_image(
+                        url,
+                        object_identifier=obj.inventory_number or obj.id,
+                        prefix=prefix,
+                    )
+                    if cached:
+                        resolved_url = cached
+                    else:
+                        app_logger.warning(
+                            "Could not cache recovered image into bucket for object %s; preserving validated museum URL",
+                            obj.id,
+                        )
+                final_urls.append(resolved_url)
+
+            if missing_images:
+                for img, rec_url in zip(missing_images, final_urls):
+                    img.file_url = rec_url
+            elif not sorted_images:
+                for seq, rec_url in enumerate(final_urls, start=1):
+                    self.db.add(
+                        Image(
+                            object_id=obj.id,
+                            image_type="Colour photo",
+                            view_type="Front" if seq == 1 else f"View {seq}",
+                            image_sequence=seq,
+                            file_url=rec_url,
+                        )
+                    )
+            self.db.commit()
+            self.db.expire_all()
+
+        return ObjectService(self.db).get_by_id(object_id)

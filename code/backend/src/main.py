@@ -551,6 +551,16 @@ async def review_object(object_id: int, review_data: ReviewUpdate, db: Session =
     return result
 
 
+@app.post("/objects/{object_id}/recover-images", response_model=ObjectDetailResponse)
+async def recover_object_images(
+    object_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.recover_object_images, object_id)
+
+
 # Existing Endpoints
 MAX_FILTER_IDS = 500
 
@@ -682,10 +692,26 @@ async def serve_image(key: str):
     # 1. Attempt to stream from S3 / MinIO
     try:
         s3 = get_s3_client()
-        response = await run_in_threadpool(s3.get_object, Bucket=bucket, Key=s3_key)
-        content_type = response.get("ContentType", "image/jpeg")
+        s3_response = await run_in_threadpool(s3.get_object, Bucket=bucket, Key=s3_key)
+        content_type = s3_response.get("ContentType", "image/jpeg")
+        body = s3_response["Body"]
+
+        def _stream_s3_body():
+            try:
+                if hasattr(body, "iter_chunks"):
+                    for chunk in body.iter_chunks(chunk_size=65536):
+                        if chunk:
+                            yield chunk
+                else:
+                    for chunk in body:
+                        if chunk:
+                            yield chunk
+            finally:
+                if hasattr(body, "close"):
+                    body.close()
+
         return StreamingResponse(
-            response["Body"],
+            _stream_s3_body(),
             media_type=content_type,
             headers={
                 "Cache-Control": "public, max-age=86400",
@@ -694,8 +720,8 @@ async def serve_image(key: str):
         )
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
-        if error_code not in ("NoSuchKey", "404", "AccessDenied", "NoSuchBucket"):
-            app_logger.warning("S3 ClientError while serving %s: %s", s3_key, e)
+        if error_code not in ("NoSuchKey", "404"):
+            app_logger.warning("S3 ClientError while serving %s (%s): %s", s3_key, error_code, e)
     except Exception as exc:
         app_logger.warning("Error fetching %s from S3: %s", s3_key, exc)
 

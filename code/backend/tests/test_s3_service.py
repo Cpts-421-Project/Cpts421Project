@@ -15,7 +15,9 @@ from src.exceptions import StorageError, ValidationError
 from src.models import Base, Object, Image, Tag, Source
 from src.services.object_service import ObjectService
 from src.services.s3_service import (
+    get_s3_client,
     is_bucket_url,
+    normalize_bucket_url_to_proxy,
     validate_magic_bytes,
     upload_bytes_to_minio,
     download_and_store_image,
@@ -273,6 +275,113 @@ class TestDownloadAndStoreImage:
 
         # Assert: Graceful degradation, returns original URL
         assert result == ext_url
+
+    @patch("src.services.s3_service.upload_bytes_to_minio")
+    @patch("src.services.s3_service.requests.get")
+    def test_downloadAndStore_metOriginalOversized_retriesWebLargeAndCaches(self, mock_get, mock_upload):
+        # Arrange: /original/ exceeds MAX_FILE_SIZE_BYTES, /web-large/ returns valid JPEG
+        oversized_resp = MagicMock()
+        oversized_resp.url = "https://images.metmuseum.org/CRDImages/gr/original/DP123.jpg"
+        oversized_resp.iter_content.return_value = [b"\xff\xd8\xff" + b"\x00" * (MAX_FILE_SIZE_BYTES + 1)]
+
+        valid_resp = MagicMock()
+        valid_resp.url = "https://images.metmuseum.org/CRDImages/gr/web-large/DP123.jpg"
+        valid_resp.iter_content.return_value = [b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01"]
+
+        mock_get.side_effect = [oversized_resp, valid_resp]
+        mock_upload.return_value = "/api/images/met_123.jpg"
+
+        # Act
+        result = download_and_store_image(
+            "https://images.metmuseum.org/CRDImages/gr/original/DP123.jpg",
+            object_identifier="123",
+            prefix="met",
+        )
+
+        # Assert
+        assert result == "/api/images/met_123.jpg"
+        assert mock_get.call_count == 2
+        assert "/web-large/" in mock_get.call_args_list[1].args[0]
+        oversized_resp.close.assert_called_once()
+        valid_resp.close.assert_called_once()
+        mock_upload.assert_called_once()
+
+    @patch("src.services.s3_service.upload_bytes_to_minio")
+    @patch("src.services.s3_service.requests.get")
+    def test_downloadAndStore_extraordinaryRedirectToDisallowedDomain_returnsNone(self, mock_get, mock_upload):
+        # Arrange: Remote endpoint redirects to cloud metadata IP
+        redirect_resp = MagicMock()
+        redirect_resp.url = "http://169.254.169.254/latest/meta-data/"
+        redirect_resp.iter_content.return_value = [b"\xff\xd8\xff\xe0\x00\x10JFIF"]
+        mock_get.return_value = redirect_resp
+
+        # Act
+        result = download_and_store_image("https://images.metmuseum.org/CRDImages/gr/web-large/DP123.jpg")
+
+        # Assert
+        assert result is None
+        redirect_resp.close.assert_called_once()
+        mock_upload.assert_not_called()
+
+
+# =====================================================================
+# 4b. S3 Client Checksum & Bucket Proxy URL Normalization Tests
+# =====================================================================
+
+class TestS3ClientAndProxyNormalization:
+    """Tests for Tigris-compatible checksum config and proxy URL normalization."""
+
+    @patch("src.services.s3_service.boto3.client")
+    def test_getS3Client_normal_configuresWhenRequiredChecksums(self, mock_boto_client):
+        # Arrange
+        import src.services.s3_service as s3_mod
+        s3_mod.s3_client = None
+        mock_boto_client.return_value = MagicMock()
+
+        try:
+            # Act
+            get_s3_client()
+
+            # Assert
+            _, kwargs = mock_boto_client.call_args
+            cfg = kwargs["config"]
+            assert cfg.signature_version == "s3v4"
+            assert cfg.s3 == {"addressing_style": "path"}
+            assert cfg.request_checksum_calculation == "when_required"
+            assert cfg.response_checksum_validation == "when_required"
+        finally:
+            s3_mod.s3_client = None
+
+    @patch("src.services.s3_service.get_s3_client")
+    def test_uploadBytes_withHttpPublicUrl_alwaysReturnsProxyPath(self, mock_client_getter, monkeypatch):
+        # Arrange
+        mock_client = MagicMock()
+        mock_client_getter.return_value = mock_client
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 20
+
+        for public_url in ("http://localhost:9000", "https://t3.storageapi.dev"):
+            monkeypatch.setattr(config, "MINIO_PUBLIC_URL", public_url)
+            # Act
+            url = upload_bytes_to_minio(jpeg_bytes, file_name="test_lamp.jpg")
+            # Assert
+            assert url == "/api/images/test_lamp.jpg"
+
+    def test_normalizeBucketUrlToProxy_normalEdgeAndExtraordinaryCases(self):
+        # Arrange & Act & Assert — Normal direct bucket URLs & /images/ paths
+        assert normalize_bucket_url_to_proxy("http://localhost:9000/uploads/a.jpg") == "/api/images/a.jpg"
+        assert normalize_bucket_url_to_proxy("http://minio:9000/uploads/a.jpg") == "/api/images/a.jpg"
+        assert normalize_bucket_url_to_proxy("https://t3.storageapi.dev/uploads/a.jpg") == "/api/images/a.jpg"
+        assert normalize_bucket_url_to_proxy("/images/a.jpg") == "/api/images/a.jpg"
+
+        # Edge cases: already normalized, empty, external allowlisted CDN
+        assert normalize_bucket_url_to_proxy("/api/images/a.jpg") == "/api/images/a.jpg"
+        assert normalize_bucket_url_to_proxy("") == ""
+        ext = "https://openaccess-cdn.clevelandart.org/x/web.jpg"
+        assert normalize_bucket_url_to_proxy(ext) == ext
+
+        # Extraordinary: path traversal in bucket URL must not rewrite to traversal path
+        traversal = "http://localhost:9000/uploads/../../etc/passwd"
+        assert normalize_bucket_url_to_proxy(traversal) == traversal
 
 
 # =====================================================================

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import useObject from '../hooks/useObject';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import ImageLightbox from '../components/ImageLightbox';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const formatMeasurement = (val, unit) => {
     if (val === null || val === undefined || val === '') return 'N/A';
@@ -24,19 +25,68 @@ const ObjectPage = () => {
 
     const [activeImageIdx, setActiveImageIdx] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
+    const [deleteSessionExpired, setDeleteSessionExpired] = useState(false);
 
     useEffect(() => {
         setActiveImageIdx(0);
         setLightboxOpen(false);
+        setDeleteDialogOpen(false);
+        setDeleting(false);
+        setDeleteError('');
+        setDeleteSessionExpired(false);
     }, [id]);
 
-    const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this artifact?')) return;
+    const handleOpenDeleteDialog = () => {
+        setDeleteError('');
+        setDeleteSessionExpired(false);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (deleting) return;
+        const targetId = object?.id ?? id;
+        if (targetId === undefined || targetId === null || targetId === '') {
+            setDeleteDialogOpen(false);
+            setDeleteError('Unable to delete artifact: missing artifact identifier.');
+            return;
+        }
+
+        setDeleting(true);
+        setDeleteError('');
+        setDeleteSessionExpired(false);
+
         try {
-            await api.delete(`/objects/${id}`);
-            navigate('/search');
+            const response = await api.delete(`/objects/${targetId}`);
+            if (
+                response &&
+                response.status !== undefined &&
+                response.status !== 204 &&
+                (response.status < 200 || response.status >= 300)
+            ) {
+                throw new Error(`Unexpected response status: ${response.status}`);
+            }
+            setDeleteDialogOpen(false);
+            navigate('/search', {
+                replace: true,
+                state: { deletedArtifactTitle: object?.object_type || 'Artifact' },
+            });
         } catch (err) {
-            alert('Failed to delete object: ' + (err.response?.data?.detail || err.message));
+            const statusCode = err?.response?.status;
+            const detail = err?.response?.data?.detail || err?.message || 'Unable to delete artifact.';
+            setDeleteDialogOpen(false);
+            if (statusCode === 401) {
+                setDeleteSessionExpired(true);
+                setDeleteError('Your admin session has expired. Please log in again and retry deleting this artifact.');
+            } else if (statusCode === 403) {
+                setDeleteError('You do not have administrator privileges to delete this artifact.');
+            } else {
+                setDeleteError(`Failed to delete artifact: ${detail}`);
+            }
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -75,10 +125,12 @@ const ObjectPage = () => {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={handleDelete}
-                                    className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                                    onClick={handleOpenDeleteDialog}
+                                    disabled={deleting}
+                                    aria-haspopup="dialog"
+                                    className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
                                 >
-                                    Delete
+                                    {deleting ? 'Deleting...' : 'Delete'}
                                 </button>
                             </>
                         )}
@@ -91,6 +143,33 @@ const ObjectPage = () => {
                         </button>
                     </div>
                 </div>
+
+                {deleteError && (
+                    <div
+                        role="alert"
+                        className="mx-6 mt-4 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 flex flex-wrap items-center justify-between gap-3"
+                    >
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span>{deleteError}</span>
+                            {deleteSessionExpired && (
+                                <Link to="/login" className="font-semibold underline text-red-900 hover:text-red-950">
+                                    Log in
+                                </Link>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setDeleteError('');
+                                setDeleteSessionExpired(false);
+                            }}
+                            aria-label="Dismiss error"
+                            className="text-xs font-semibold text-red-800 hover:text-red-950 underline"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                )}
 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Images & Image Provenance Section */}
@@ -412,6 +491,24 @@ const ObjectPage = () => {
                 onClose={() => setLightboxOpen(false)}
                 onSelectIndex={setActiveImageIdx}
             />
+
+            {isAdmin && (
+                <ConfirmDialog
+                    isOpen={deleteDialogOpen}
+                    title="Delete Artifact"
+                    message={`Are you sure you want to permanently delete "${object.object_type}"? This action cannot be undone.`}
+                    confirmLabel="Delete Artifact"
+                    cancelLabel="Cancel"
+                    submittingLabel="Deleting..."
+                    isSubmitting={deleting}
+                    onConfirm={handleConfirmDelete}
+                    onCancel={() => {
+                        if (!deleting) {
+                            setDeleteDialogOpen(false);
+                        }
+                    }}
+                />
+            )}
         </main>
     );
 };

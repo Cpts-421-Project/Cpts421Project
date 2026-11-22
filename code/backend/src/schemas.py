@@ -2,6 +2,7 @@ import re
 from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Any, List, Optional, Literal
+from .services.s3_service import normalize_bucket_url_to_proxy
 from .url_validator import is_safe_image_url
 
 class UserLogin(BaseModel):
@@ -81,8 +82,13 @@ class ImageResponse(BaseModel):
     @classmethod
     def normalize_file_url(cls, v: Any) -> Any:
         if isinstance(v, str):
+            v = normalize_bucket_url_to_proxy(v)
+            if v.startswith("/api/images/"):
+                return v
             v_lower = v.lower()
-            if "metmuseum" in v_lower or "collectionapi" in v_lower:
+            if "collectionapi" in v_lower or (
+                "metmuseum" in v_lower and ("/iiif/" in v_lower or "www.metmuseum.org" in v_lower)
+            ):
                 match = re.search(r"/iiif/([^/]+)/", v)
                 if match:
                     safe_inv = "".join(c if c.isalnum() else "_" for c in match.group(1))

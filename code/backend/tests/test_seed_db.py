@@ -425,3 +425,80 @@ def test_executeSqlFile_preservesAdminCustomMetadataOnReseed(sqlite_test_engine)
         assert row["publications"] == "Custom Study 2026"
 
 
+def test_executeSqlFile_preservesPendingAndRejectedReviewQueueItemsOnReseed(sqlite_test_engine):
+    # Arrange: run initial production seed
+    from sqlalchemy import text
+
+    engine = sqlite_test_engine
+    sql_path = find_default_sql_file()
+    execute_sql_file(engine, sql_path)
+
+    with engine.begin() as conn:
+        # Discovered pending item, rejected item, legacy pending_date_check item, and admin-demoted seed items
+        conn.execute(
+            text(
+                """
+                INSERT INTO objects (object_type, inventory_number, date_display, date_start, date_end, review_status)
+                VALUES
+                    ('Discovered Glass Cup', 'CMA-9999', '300 CE', 300, 300, 'pending'),
+                    ('Rejected Shard', 'REJ-9999', '250 CE', 250, 250, 'rejected'),
+                    ('Legacy Scraper Lamp', 'LEGACY-9999', '200 CE', 200, 200, 'pending_date_check')
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE objects SET review_status = 'pending' WHERE inventory_number IN ('20.3.11', '60788')"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE objects SET review_status = 'rejected' WHERE inventory_number = 'EA37976'"
+            )
+        )
+
+    # Act: simulate system update / container restart re-running filtered_small.sql
+    execute_sql_file(engine, sql_path)
+
+    # Assert: pending & rejected items stay in their review states; only legacy pending_date_check upgrades
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT inventory_number, review_status
+                FROM objects
+                WHERE inventory_number IN ('CMA-9999', 'REJ-9999', 'LEGACY-9999', '20.3.11', 'EA37976', '60788')
+                """
+            )
+        ).mappings().all()
+        status_by_inv = {r["inventory_number"]: r["review_status"] for r in rows}
+
+        assert status_by_inv["CMA-9999"] == "pending"
+        assert status_by_inv["REJ-9999"] == "rejected"
+        assert status_by_inv["20.3.11"] == "pending"
+        assert status_by_inv["60788"] == "pending"
+        assert status_by_inv["EA37976"] == "rejected"
+        assert status_by_inv["LEGACY-9999"] == "accepted"
+
+
+def test_seedSqlFiles_neverUseWildcardPendingAutoAccept():
+    # Arrange
+    repo_root = BACKEND_DIR.parent.parent
+    sql_files = [
+        BACKEND_DIR / "data" / "filtered_small.sql",
+        BACKEND_DIR / "data" / "met_ancient_workers.sql",
+        BACKEND_DIR / "data" / "bm_ancient_workers.sql",
+        repo_root / "data" / "reduced_dataset" / "filtered_small.sql",
+    ]
+
+    # Act & Assert
+    for sql_file in sql_files:
+        content = sql_file.read_text(encoding="utf-8")
+        lowered = content.lower()
+        assert "like 'pending%'" not in lowered, f"Wildcard pending auto-accept found in {sql_file}"
+        assert "review_status = excluded.review_status" not in lowered, (
+            f"Unconditional review_status overwrite found in {sql_file}"
+        )
+
+
+
