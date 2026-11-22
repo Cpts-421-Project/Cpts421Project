@@ -16,6 +16,7 @@ const Layout = () => {
                         {isAdmin && (
                             <>
                                 <Link to="/objects/new" className="text-blue-600 hover:text-blue-800 font-medium ml-4">+ Add Artifact</Link>
+                                <Link to="/admin/discover" className="text-emerald-600 hover:text-emerald-800 font-medium ml-4">Discover Artifacts</Link>
                                 <Link to="/admin/review" className="text-purple-600 hover:text-purple-800 font-medium ml-4">Review Queue</Link>
                             </>
                         )}

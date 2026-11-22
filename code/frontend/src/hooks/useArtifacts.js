@@ -9,8 +9,12 @@ const useArtifacts = (filters) => {
     useEffect(() => {
         const fetchArtifacts = async () => {
             setLoading(true);
+            setError(null);
             try {
-                const params = {};
+                const params = {
+                    sort_by: filters.sortBy || 'title',
+                    sort_order: filters.sortOrder || 'asc',
+                };
 
                 if (filters.search && filters.search.trim()) {
                     params.search = filters.search.trim();

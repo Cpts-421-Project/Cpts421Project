@@ -1,39 +1,49 @@
 import { useState, useEffect } from 'react';
 import useTags from '../hooks/useTags';
 
+const hasNumericFilter = (val) => val !== null && val !== undefined && val !== '';
+
 const FilterSidebar = ({ filters, onFilterChange }) => {
     const { tags, loading: tagsLoading, error: tagsError } = useTags();
-    const [localStartDate, setLocalStartDate] = useState(filters.startDate || '');
-    const [localEndDate, setLocalEndDate] = useState(filters.endDate || '');
+    const [localStartDate, setLocalStartDate] = useState(filters.startDate ?? '');
+    const [localEndDate, setLocalEndDate] = useState(filters.endDate ?? '');
     const [tagSearch, setTagSearch] = useState('');
 
-    // Keep local inputs in sync when filters are reset from parent
+    // Keep local inputs in sync when filters are reset or preset from parent (preserving 0 CE)
     useEffect(() => {
-        setLocalStartDate(filters.startDate || '');
-        setLocalEndDate(filters.endDate || '');
+        setLocalStartDate(filters.startDate ?? '');
+        setLocalEndDate(filters.endDate ?? '');
     }, [filters.startDate, filters.endDate]);
 
     // Handle tag selection
     const handleTagChange = (tag) => {
         const currentTags = filters.selectedTags || [];
-        let newTags;
-        if (currentTags.includes(tag)) {
-            newTags = currentTags.filter(t => t !== tag);
-        } else {
-            newTags = [...currentTags, tag];
-        }
+        const newTags = currentTags.includes(tag)
+            ? currentTags.filter((t) => t !== tag)
+            : [...currentTags, tag];
         onFilterChange({ ...filters, selectedTags: newTags });
     };
 
-    // Handle date changes
+    // Handle date changes without dropping 0 CE
     const handleDateChange = (type, value) => {
         if (type === 'startDate') setLocalStartDate(value);
         if (type === 'endDate') setLocalEndDate(value);
 
+        const parsed = value !== '' ? parseInt(value, 10) : null;
         onFilterChange({
             ...filters,
-            [type]: value ? parseInt(value, 10) : null
+            [type]: Number.isNaN(parsed) ? null : parsed,
         });
+    };
+
+    const isFocusPeriodActive = filters.startDate === 0 && filters.endDate === 899;
+
+    const handleToggleFocusPeriod = () => {
+        if (isFocusPeriodActive) {
+            onFilterChange({ ...filters, startDate: null, endDate: null });
+        } else {
+            onFilterChange({ ...filters, startDate: 0, endDate: 899 });
+        }
     };
 
     // Reset all sidebar filters
@@ -46,18 +56,20 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
             selectedTags: [],
             startDate: null,
             endDate: null,
-            search: ''
+            search: '',
         });
     };
 
+    const hasStart = hasNumericFilter(filters.startDate);
+    const hasEnd = hasNumericFilter(filters.endDate);
     const hasActiveFilters = Boolean(
         (filters.selectedTags && filters.selectedTags.length > 0) ||
-        filters.startDate ||
-        filters.endDate ||
+        hasStart ||
+        hasEnd ||
         filters.search
     );
 
-    const filteredTags = tags.filter(t => 
+    const filteredTags = tags.filter((t) =>
         t.toLowerCase().includes(tagSearch.trim().toLowerCase())
     );
 
@@ -67,6 +79,7 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
                 <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
                 {hasActiveFilters && (
                     <button
+                        type="button"
                         onClick={handleClearAll}
                         className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
                     >
@@ -79,8 +92,9 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
             <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="text-sm font-medium text-gray-700">Time Period (Year)</h3>
-                    {(filters.startDate || filters.endDate) && (
+                    {(hasStart || hasEnd) && (
                         <button
+                            type="button"
                             onClick={() => {
                                 setLocalStartDate('');
                                 setLocalEndDate('');
@@ -92,22 +106,41 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
                         </button>
                     )}
                 </div>
+
+                <button
+                    type="button"
+                    onClick={handleToggleFocusPeriod}
+                    aria-pressed={isFocusPeriodActive}
+                    className={`mb-2 w-full px-2.5 py-1.5 text-xs font-medium rounded border transition-colors text-left ${
+                        isFocusPeriodActive
+                            ? 'bg-blue-50 border-blue-400 text-blue-800'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                    {isFocusPeriodActive ? '✓ 0–899 CE Focus Active' : 'Filter to 0–899 CE Focus'}
+                </button>
+
                 <div className="flex flex-col gap-2">
                     <input
                         type="number"
-                        placeholder="Start Year (e.g. 200)"
+                        aria-label="Start Year"
+                        placeholder="Start Year (e.g. 0)"
                         value={localStartDate}
                         onChange={(e) => handleDateChange('startDate', e.target.value)}
                         className="p-2 border border-gray-300 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                     <input
                         type="number"
-                        placeholder="End Year (e.g. 800)"
+                        aria-label="End Year"
+                        placeholder="End Year (e.g. 899)"
                         value={localEndDate}
                         onChange={(e) => handleDateChange('endDate', e.target.value)}
                         className="p-2 border border-gray-300 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                 </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                    Primary focus: 0–899 CE (negative = BCE)
+                </p>
             </div>
 
             {/* Tags Section */}
@@ -118,6 +151,7 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
                     </h3>
                     {filters.selectedTags?.length > 0 && (
                         <button
+                            type="button"
                             onClick={() => onFilterChange({ ...filters, selectedTags: [] })}
                             className="text-xs text-gray-500 hover:text-gray-700"
                         >
@@ -142,7 +176,7 @@ const FilterSidebar = ({ filters, onFilterChange }) => {
                     <p className="text-sm text-red-500">Error loading tags.</p>
                 ) : (
                     <div className="space-y-1 max-h-80 overflow-y-auto">
-                        {filteredTags.map(tag => (
+                        {filteredTags.map((tag) => (
                             <label key={tag} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
                                 <input
                                     type="checkbox"

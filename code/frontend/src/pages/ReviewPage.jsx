@@ -46,13 +46,14 @@ const ReviewPage = () => {
                 object_type: obj.object_type || '',
                 material: obj.material || '',
                 findspot: obj.findspot || '',
+                present_location: obj.present_location || '',
                 date_display: obj.date_display || '',
-                date_start: obj.date_start || 0,
-                date_end: obj.date_end || 0,
+                date_start: obj.date_start ?? 0,
+                date_end: obj.date_end ?? 0,
                 inventory_number: obj.inventory_number || '',
                 description: obj.description || '',
-                latitude: obj.latitude || '',
-                longitude: obj.longitude || ''
+                latitude: obj.latitude ?? '',
+                longitude: obj.longitude ?? ''
             });
         } else {
             setFormData(null);
@@ -70,12 +71,15 @@ const ReviewPage = () => {
                 setCurrentIndex(prev => prev + 1);
             } else {
                 // First save any local edits to the backend
+                const parsedStart = parseInt(formData.date_start, 10);
+                const parsedEnd = parseInt(formData.date_end, 10);
                 const payload = {
                     ...formData,
-                    date_start: parseInt(formData.date_start, 10) || 0,
-                    date_end: parseInt(formData.date_end, 10) || 0,
-                    latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-                    longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+                    present_location: formData.present_location?.trim() || null,
+                    date_start: Number.isNaN(parsedStart) ? 0 : parsedStart,
+                    date_end: Number.isNaN(parsedEnd) ? 0 : parsedEnd,
+                    latitude: formData.latitude !== '' && formData.latitude !== null ? parseFloat(formData.latitude) : null,
+                    longitude: formData.longitude !== '' && formData.longitude !== null ? parseFloat(formData.longitude) : null,
                 };
                 
                 await api.put(`/objects/${currentObj.id}`, payload);
@@ -229,6 +233,10 @@ const ReviewPage = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Findspot</label>
                                     <input type="text" name="findspot" value={formData.findspot} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">Present Location (Collection)</label>
+                                    <input type="text" name="present_location" value={formData.present_location} onChange={handleChange} className="mt-1 w-full p-2 border rounded" />
                                 </div>
 
                                 <div>

@@ -1,29 +1,52 @@
 import { Link } from 'react-router-dom';
 
 const ArtifactCard = ({ artifact }) => {
-    // Assuming artifact.images is an array and we take the first one as thumbnail
-    const thumbnail = artifact.images && artifact.images.length > 0
-        ? artifact.images[0].file_url
-        : 'https://via.placeholder.com/300x200?text=No+Image';
+    const firstValidImage = artifact.images?.find(
+        (img) => img?.file_url && img.file_url.trim() !== ''
+    );
+    const thumbnail = firstValidImage
+        ? firstValidImage.file_url
+        : '/placeholder-artifact.svg';
+    const geoLocation = artifact.findspot || artifact.production_location;
 
     return (
         <Link to={`/objects/${artifact.id}`} className="block group">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                <div className="aspect-w-3 aspect-h-2">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-full flex flex-col">
+                <div className="aspect-w-3 aspect-h-2 bg-gray-100">
                     <img
                         src={thumbnail}
                         alt={artifact.object_type}
                         className="w-full h-48 object-cover group-hover:opacity-90 transition-opacity"
                         referrerPolicy="no-referrer"
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x200?text=Error+Loading+Image' }}
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/placeholder-artifact.svg';
+                        }}
                     />
                 </div>
-                <div className="p-4">
-                    <h3 className="font-semibold text-lg text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{artifact.object_type}</h3>
+                <div className="p-4 flex-1 flex flex-col">
+                    <h3 className="font-semibold text-base text-gray-900 mb-1 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        {artifact.object_type}
+                    </h3>
                     <p className="text-sm text-gray-500 mb-2">{artifact.date_display}</p>
+                    {geoLocation && (
+                        <p className="text-xs text-gray-600 truncate mb-1" title={geoLocation}>
+                            <span className="font-medium text-gray-700">Location:</span> {geoLocation}
+                        </p>
+                    )}
+                    {artifact.present_location && (
+                        <p className="text-xs text-gray-500 truncate mb-1" title={artifact.present_location}>
+                            <span className="font-medium text-gray-600">Collection:</span> {artifact.present_location}
+                        </p>
+                    )}
+                    {artifact.material && (
+                        <p className="text-xs text-gray-500 truncate mb-2" title={artifact.material}>
+                            <span className="font-medium text-gray-600">Medium:</span> {artifact.material}
+                        </p>
+                    )}
                     {artifact.tags && artifact.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                            {artifact.tags.slice(0, 3).map(tag => (
+                        <div className="flex flex-wrap gap-1 mt-auto pt-2">
+                            {artifact.tags.slice(0, 3).map((tag) => (
                                 <span
                                     key={tag}
                                     className="inline-block px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-100"
@@ -51,7 +74,7 @@ const ArtifactGrid = ({ artifacts, loading, error }) => {
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4">
-            {artifacts.map(artifact => (
+            {artifacts.map((artifact) => (
                 <ArtifactCard key={artifact.id} artifact={artifact} />
             ))}
         </div>

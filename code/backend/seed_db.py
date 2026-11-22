@@ -119,11 +119,11 @@ def resolve_database_url(cli_url: Optional[str] = None) -> str:
 
 
 def find_default_sql_file() -> Path:
-    """Find default filtered_small.sql path relative to repo or backend."""
+    """Find default filtered_small.sql path relative to backend or repo."""
     candidates = [
-        Path(__file__).resolve().parent.parent.parent / "data" / "reduced_dataset" / "filtered_small.sql",
         Path(__file__).resolve().parent / "data" / "filtered_small.sql",
         Path("/app/data/filtered_small.sql"),
+        Path(__file__).resolve().parent.parent.parent / "data" / "reduced_dataset" / "filtered_small.sql",
         Path("data/reduced_dataset/filtered_small.sql"),
     ]
     for candidate in candidates:

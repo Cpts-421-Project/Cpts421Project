@@ -1,4 +1,4 @@
-# Historical Execution Ledger (Cycles 4–24 Archive)
+# Historical Execution Ledger (Cycles 4–27 Archive)
 
 > **Connected Hub:** [MEMORY.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/MEMORY.md) | **Domain Nodes:** [architecture_and_infra.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/architecture_and_infra.md), [security_and_defense.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/security_and_defense.md), [data_and_catalog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/data_and_catalog.md), [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md)
 
@@ -6,7 +6,19 @@ This archive preserves the full chronological execution history compacted out of
 
 ---
 
-## Cycles 21–24: Security Hardening & Anti-Bot Defense
+## Cycles 21–27: Security Hardening, Memory Architecture & Curated Catalog
+
+- **Cycle 27 (Self-Correcting, Connected Memory System):**
+  - Split `MEMORY.md` into hub + 5 deep nodes (`.agents/memory/`), added [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md) (`INV-*`), built [memory_manager.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/scripts/memory_manager.py) and [test_memory_integrity.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_memory_integrity.py), and updated [memory-backlog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/rules/memory-backlog.md).
+  - Merged PR [#45](https://github.com/Cpts-421-Project/Cpts421Project/pull/45) (`c35dc83`).
+
+- **Cycle 26 (British Museum Ancient Workers Dataset):**
+  - Curated 21 BM artifacts into [bm_ancient_workers.json](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/bm_ancient_workers.json) and [bm_ancient_workers.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/bm_ancient_workers.sql) with magic-byte-verified images (`bm_<inv>.jpg`), merged into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) (39 → 60), and added BM URL normalization in [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/schemas.py) and [object_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/services/object_service.py).
+  - Merged PR [#44](https://github.com/Cpts-421-Project/Cpts421Project/pull/44) into `main` at `32463be`.
+
+- **Cycle 25 (Met Museum Ancient Workers Dataset):**
+  - Curated 27 Met artifacts (Egypt, Greece, Rome, Mesopotamia) into [met_ancient_workers.json](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/met_ancient_workers.json) and [met_ancient_workers.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/met_ancient_workers.sql), and merged them into [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) (12 → 39).
+  - Merged PR [#43](https://github.com/Cpts-421-Project/Cpts421Project/pull/43) into `main` at `541c2d3`.
 
 - **Cycle 24 (Comprehensive Multi-Layer Anti-Bot & Abuse Defense Implementation):**
   - Implemented [bot_defense.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/bot_defense.py) with `BotJail` (1-hour IP ban, bounded store of 5,000 IPs, TTL eviction), `LoginRateLimiter` (10 req/60s per IP, 15-min lockout after 5 consecutive failures), scanner User-Agent regex (`BAD_BOT_PATTERN`), and `extract_client_ip` (`X-Real-IP`).

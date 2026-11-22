@@ -81,6 +81,28 @@ describe('ArtifactGrid', () => {
       expect(screen.getByText('Roman')).toBeInTheDocument();
       expect(screen.getByText('Pottery')).toBeInTheDocument();
     });
+
+    it('rendersGeographicLocationAndCollection_whenProvided', () => {
+      const artifacts = [
+        {
+          id: 5,
+          object_type: 'Roundel with gold-glass',
+          date_display: 'c. 4th century CE',
+          findspot: 'Rome',
+          present_location: 'Museo Biblioteca Apostolica Vaticana, Vatican City',
+          material: 'Gold-glass',
+          images: [],
+        },
+      ];
+
+      renderWithRouter(
+        <ArtifactGrid artifacts={artifacts} loading={false} error={null} />
+      );
+
+      expect(screen.getByText('Rome')).toBeInTheDocument();
+      expect(screen.getByText('Museo Biblioteca Apostolica Vaticana, Vatican City')).toBeInTheDocument();
+      expect(screen.getByText('Gold-glass')).toBeInTheDocument();
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -107,6 +129,24 @@ describe('ArtifactGrid', () => {
 
       const img = screen.getByAltText('Tile');
       expect(img.src).toContain('placeholder');
+    });
+
+    it('rendersFallbackImage_whenImageUrlIsEmptyString', () => {
+      const artifacts = [
+        {
+          id: 61,
+          object_type: 'Gold-glass Fragment',
+          date_display: 'c. 4th century CE',
+          images: [{ file_url: '' }],
+        },
+      ];
+
+      renderWithRouter(
+        <ArtifactGrid artifacts={artifacts} loading={false} error={null} />
+      );
+
+      const img = screen.getByAltText('Gold-glass Fragment');
+      expect(img.src).toContain('placeholder-artifact.svg');
     });
 
     it('rendersSingleArtifact_whenOnlyOneItem', () => {

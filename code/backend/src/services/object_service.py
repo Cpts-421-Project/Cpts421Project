@@ -16,25 +16,87 @@ from .s3_service import ensure_stored_in_bucket
 
 def build_bibliography(obj: Object) -> List[str]:
     """
-    Extracts unique citation texts from an object's source-linked images.
-    This was previously duplicated in main.py search_objects, get_object_detail,
-    and partially in object_repository.get_by_id.
+    Extracts unique citation texts from an object's source-linked images in deterministic image order.
     """
-    citations = set()
-    for img in obj.images:
-        if img.source:
-            citations.add(img.source.citation_text)
-    return list(citations)
+    citations = []
+    seen = set()
+    sorted_images = sorted(
+        getattr(obj, "images", []) or [],
+        key=lambda img: (
+            getattr(img, "image_sequence", None) is None,
+            getattr(img, "image_sequence", None) or 0,
+            getattr(img, "id", None) or 0,
+        ),
+    )
+    for img in sorted_images:
+        if getattr(img, "source", None) and img.source.citation_text:
+            text = img.source.citation_text.strip()
+            if text and text not in seen:
+                seen.add(text)
+                citations.append(text)
+    return citations
 
 
 def extract_tags(obj: Object) -> List[str]:
-    """Extracts unique tag names associated with an object's images."""
+    """Extracts unique tag names associated with an object's images, sorted alphabetically."""
     tags = set()
     for img in getattr(obj, "images", []):
         for t in getattr(img, "tags", []):
             if hasattr(t, "tag_name") and t.tag_name:
                 tags.add(t.tag_name)
-    return sorted(list(tags))
+    return sorted(tags, key=lambda t: (t.lower(), t))
+
+
+def build_assembled_caption(obj: Object) -> str:
+    """
+    Assembles a standard scholarly caption from 2_excel fields:
+    [Description], [Object type], [Inscription], [Findspot], [Date],
+    [Present Location], [Present Location Inventory Number].
+    Returns custom `caption` override when present.
+    """
+    explicit = (getattr(obj, "caption", None) or "").strip()
+    if explicit:
+        return explicit
+
+    parts: List[str] = []
+    desc = (getattr(obj, "description", None) or "").strip()
+    if desc and len(desc) <= 140:
+        parts.append(desc)
+
+    obj_type = (getattr(obj, "object_type", None) or "").strip()
+    if obj_type:
+        parts.append(obj_type)
+
+    inscr_items = [
+        (getattr(obj, "inscription_1", None) or "").strip(),
+        (getattr(obj, "inscription_2", None) or "").strip(),
+    ]
+    inscr_items = [item for item in inscr_items if item]
+    if inscr_items:
+        parts.append(f"Inscribed: {' / '.join(inscr_items)}")
+    elif getattr(obj, "inscription_present", None) is True:
+        parts.append("Inscribed")
+
+    findspot = (getattr(obj, "findspot", None) or "").strip()
+    if findspot:
+        parts.append(findspot)
+
+    date_display = (getattr(obj, "date_display", None) or "").strip()
+    if date_display and date_display.lower() != "unknown":
+        parts.append(date_display)
+
+    present_location = (getattr(obj, "present_location", None) or "").strip()
+    if present_location:
+        parts.append(present_location)
+
+    inv = (getattr(obj, "inventory_number", None) or "").strip()
+    if inv:
+        if inv.lower().startswith(("inv", "bm", "ea", "wa")):
+            parts.append(inv)
+        else:
+            parts.append(f"inv. {inv}")
+
+    return ", ".join(parts)
 
 
 def _normalize_image_url(url: Optional[str], inventory_number: Optional[str] = None) -> Optional[str]:
@@ -70,18 +132,37 @@ def _normalize_image_url(url: Optional[str], inventory_number: Optional[str] = N
 
 
 def _enrich_object_dict(obj: Object) -> dict:
-    """Converts an ORM Object to a dict enriched with bibliography and tags data."""
+    """Converts an ORM Object to a dict enriched with bibliography, caption, image metadata, and tags."""
     obj_dict = obj.__dict__.copy()
     obj_dict['bibliography'] = build_bibliography(obj)
+    obj_dict['assembled_caption'] = build_assembled_caption(obj)
 
     inv_num = getattr(obj, "inventory_number", None)
-    for img in getattr(obj, "images", []):
-        if hasattr(img, "file_url") and img.file_url:
-            img.file_url = _normalize_image_url(img.file_url, inv_num)
-        elif isinstance(img, dict) and "file_url" in img:
-            img["file_url"] = _normalize_image_url(img["file_url"], inv_num)
+    obj_id = getattr(obj, "id", None)
+    sorted_images = sorted(
+        getattr(obj, "images", []) or [],
+        key=lambda img: (
+            getattr(img, "image_sequence", None) is None,
+            getattr(img, "image_sequence", None) or 0,
+            getattr(img, "id", None) or 0,
+        ),
+    )
 
-    obj_dict['images'] = obj.images
+    for idx, img in enumerate(sorted_images, start=1):
+        if isinstance(img, dict):
+            seq = img.get("image_sequence") if img.get("image_sequence") is not None else idx
+            raw_url = img.get("file_url") or ""
+            img["file_url"] = _normalize_image_url(raw_url, inv_num) if raw_url else ""
+            img["db_identifier"] = f"{obj_id}.{seq}" if obj_id is not None else str(seq)
+        else:
+            seq = img.image_sequence if getattr(img, "image_sequence", None) is not None else idx
+            raw_url = getattr(img, "file_url", None) or ""
+            source_obj = getattr(img, "source", None)
+            img.file_url = _normalize_image_url(raw_url, inv_num) if raw_url else ""
+            img.db_identifier = f"{obj_id}.{seq}" if obj_id is not None else str(seq)
+            img.source_citation = source_obj.citation_text if source_obj else None
+
+    obj_dict['images'] = sorted_images
     obj_dict['tags'] = extract_tags(obj)
     return obj_dict
 
@@ -101,6 +182,8 @@ class ObjectService:
         search: Optional[str] = None,
         tags: Optional[List[str]] = None,
         tag_mode: str = "any",
+        sort_by: str = "title",
+        sort_order: str = "asc",
         skip: int = 0,
         limit: int = 100,
     ) -> List[dict]:
@@ -114,6 +197,8 @@ class ObjectService:
                 search=search,
                 tags=tags,
                 tag_mode=tag_mode,
+                sort_by=sort_by,
+                sort_order=sort_order,
                 skip=skip,
                 limit=limit
             )

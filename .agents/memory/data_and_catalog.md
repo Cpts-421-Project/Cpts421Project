@@ -4,8 +4,8 @@
 
 ---
 
-## 1. Curated Ancient Workers Artifact Catalog (60 Total Artifacts)
-The project bundles 60 public-domain museum artifacts with pre-verified local image assets (`code/backend/data/images/`), eliminating runtime external network dependencies:
+## 1. Curated Ancient Workers Artifact Catalog (61 Total Artifacts)
+The project bundles 61 catalog entries (60 Met/BM artifacts with bundled local image assets in `code/backend/data/images/` plus the 0–899 CE Vatican gold-glass roundel from `2_excel` with 3 multi-source image records ready for upload):
 1. **Baseline Metropolitan Museum Dataset (12 Artifacts):**
    - Bundled in [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) and [data/reduced_dataset/filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/data/reduced_dataset/filtered_small.sql) (`met_<inventory_number>.jpg`).
 2. **Curated Metropolitan Museum Ancient Workers Dataset (27 Artifacts):**
@@ -20,12 +20,15 @@ The project bundles 60 public-domain museum artifacts with pre-verified local im
    - **Greece:** Antimenes Painter olive harvest amphora, potter's wheel eye-kylix, Pasiades signed alabastron, bronze ploughman with oxen, grave stele of shoemaker Xanthippos.
    - **Rome & Roman Britain:** Funerary relief of freedmen blacksmith/carpenter tools, Carthage merchant sailor *corbita* relief, bronze surgical instrument set, Vindolanda ink leaf-tablet 343.
    - **Mesopotamia (Late Uruk & Neo-Assyrian):** Proto-cuneiform laborer barley/beer ration tablet (`BM 140855`), and 5-panel Sennacherib Nineveh palace wall relief series depicting work gangs hauling a 30-ton *lamassu*.
+4. **Client `2_excel` Vatican Gold-Glass Record (1 Artifact, 0–899 CE) & Cycle 30 Verified Metadata Backfill:**
+   - Added Vatican Library gold-glass roundel (`60788`, c. 4th century CE, `300–399 CE`, `Glass, gold leaf (gold-glass)`, `Diam. 16.0 cm (160 mm)`, `Catacomb of San Saturnino (Via Salaria), Rome`, `Museo Biblioteca Apostolica Vaticana, Vatican City`) with 3 distinct `images` rows (`image_sequence` `1..3`) and `publications` (`production_location`, `weight`, and unverified fields kept `NULL`).
+   - Idempotently enriched all 61 artifacts in [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) via `COALESCE` / placeholder-only guards (`date_display = 'Unknown'`): **61/61** `material`, `present_location`, real dates (`0` `'Unknown'`), `date_basis`, `height`, `unit`, and `dimensions_display`; **54/61** `findspot` & coordinates; **51/61** `object_group`; **39/61** Met `external_url`s; **27/61** `production_location`; **16/61** `inscription_present` (with verified verbatim transcriptions for `468268`, `1887,0801.61`, `1805,0703.183`, `1954,1214.1`, `1989,0602.74`); **9/61** `publications`; **7/61** Met `weight` (`kg`); and **63/63** `image_sequence` (**62/63** `source_identifier`).
 
 ---
 
 ## 2. Idempotent Deployment Seeding Pipeline ([seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/seed_db.py))
 Executed automatically on container boot (`alembic upgrade head && python seed_db.py`):
-1. **`execute_sql_file`:** Parses and runs [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) idempotently using `ON CONFLICT DO NOTHING` and `WHERE NOT EXISTS` guards.
+1. **`execute_sql_file`:** `find_default_sql_file()` prioritizes the canonical 61-artifact [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) and runs it idempotently using `ON CONFLICT`, `WHERE NOT EXISTS`, and `COALESCE` guards (preserving any admin edits on existing records).
 2. **`update_legacy_image_urls`:** Rewrites any legacy external Met Museum (`collectionapi.metmuseum.org` / `images.metmuseum.org`) or British Museum URLs in PostgreSQL `images.file_url` to `/api/images/met_<inv>.jpg` or `/api/images/bm_<inv>.jpg`.
 3. **`migrate_external_images_to_bucket`:** Uploads bundled local image files (`code/backend/data/images/`) to the configured S3/Tigris/MinIO bucket first (zero external network traffic), falling back to SSRF-validated streaming download only if a local bundle asset does not exist.
 4. **`seed_admin_users`:** Upserts admin accounts from `get_default_admins()` with bcrypt-hashed passwords sourced from environment variables or CSPRNG tokens.
@@ -49,5 +52,12 @@ To guarantee no external third-party URLs leak to browser `<img>` tags:
 - [ingestion_utils.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/datacollection/ingestion_utils.py): Shared metadata parsing, coordinate normalization, and tag extraction helpers.
 - [cache_utils.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/datacollection/cache_utils.py) & [s3_utils.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/datacollection/s3_utils.py): Delegate S3 caching and bucket uploads directly to [s3_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/services/s3_service.py).
 - [url_validator.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/datacollection/url_validator.py): Re-exports SSRF validation from [src/url_validator.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/url_validator.py).
-- **Tests:** [test_ingestion.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_ingestion.py), [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_seed_db.py).
+- **Tests:** [test_ingestion.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_ingestion.py), [test_seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_seed_db.py), [test_museum_discovery.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_museum_discovery.py).
+
+---
+
+## 5. Admin Predefined Museum Discovery & Import ([museum_discovery_service.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/services/museum_discovery_service.py))
+- **Predefined Open-Access Museums:** `met` (Met API `v1.1/search` + `v1/objects`), `cma` (Cleveland Museum of Art Open Access API), `aic` (Art Institute of Chicago v1 + IIIF), and `vam` (Victoria and Albert Museum API v2 + Framemark IIIF), defaulting to `0–899 CE` and curated worker/craft keywords.
+- **Deduplication (`ExistingArtifactIndex`):** Checks normalized `inventory_number`, `source_record_id`, `external_url`, and fallback `(object_type, present_location, date_display)` across both DB records and within-batch cross-keyword/cross-museum hits.
+- **Full Field Population & Safe Staging:** Populates all `2_excel` fields (`present_location`, `production_location`, structured cm dimensions including Met `Thickness`/`Length` depth fallback and `kg` `weight`, HTML-stripped descriptions, inscriptions, publications, inferred coordinates, multi-image Chicago citations, `assembled_caption`), caches images into S3 (`""` fallback if storage fails, preserving `INV-SEC-01`), and inserts records with `review_status="pending"` inside per-item savepoints.
 

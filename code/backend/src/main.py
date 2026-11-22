@@ -1,7 +1,7 @@
 import time
 import uuid
 from pathlib import Path, PurePosixPath
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import timedelta
 
 from fastapi import FastAPI, HTTPException, Query, Depends, Request, Response, UploadFile, File, status
@@ -14,8 +14,21 @@ from sqlalchemy.orm import Session
 from botocore.exceptions import ClientError
 from .config import config
 from .database import get_db, get_engine, Base
-from .schemas import ObjectDetailResponse, ObjectMapResponse, UserLogin, ObjectCreate, ObjectUpdate, ReviewUpdate
+from .schemas import (
+    ObjectDetailResponse,
+    ObjectMapResponse,
+    UserLogin,
+    ObjectCreate,
+    ObjectUpdate,
+    ReviewUpdate,
+    PredefinedMuseumResponse,
+    DiscoverySearchRequest,
+    DiscoverySearchResponse,
+    DiscoveryImportRequest,
+    DiscoveryImportResponse,
+)
 from .services.object_service import ObjectService
+from .services.museum_discovery_service import MuseumDiscoveryService
 from .services.s3_service import upload_file_to_minio, get_s3_client, validate_magic_bytes
 from .auth import verify_password, create_access_token, get_current_user, get_current_admin_user, ACCESS_TOKEN_EXPIRE_MINUTES
 from .models import User
@@ -364,7 +377,7 @@ async def create_object(object_data: ObjectCreate, db: Session = Depends(get_db)
 @app.put("/objects/{object_id}", response_model=ObjectDetailResponse)
 async def update_object(object_id: int, object_data: ObjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = ObjectService(db)
-    return await run_in_threadpool(service.update_object, object_id, object_data.model_dump())
+    return await run_in_threadpool(service.update_object, object_id, object_data.model_dump(exclude_unset=True))
 
 
 @app.delete("/objects/{object_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -378,6 +391,32 @@ async def delete_object(object_id: int, db: Session = Depends(get_db), current_u
 async def get_pending_objects(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = ObjectService(db)
     return await run_in_threadpool(service.get_pending_objects)
+
+
+@app.get("/admin/discovery/museums", response_model=List[PredefinedMuseumResponse])
+async def get_discovery_museums(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.list_museums)
+
+
+@app.post("/admin/discovery/search", response_model=DiscoverySearchResponse)
+async def search_discovery_museums(
+    search_request: DiscoverySearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.discover, search_request)
+
+
+@app.post("/admin/discovery/import", response_model=DiscoveryImportResponse)
+async def import_discovered_artifacts(
+    import_request: DiscoveryImportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.import_candidates, import_request.candidates)
 
 
 @app.patch("/objects/{object_id}/review", response_model=ObjectDetailResponse)
@@ -410,6 +449,8 @@ async def search_objects(
     year: Optional[int] = Query(None, description="Fuzzy date search year"),
     date_start: Optional[int] = None,
     date_end: Optional[int] = None,
+    sort_by: Literal["title", "date", "location", "material"] = Query("title", description="Sort results by title, date, location, or material"),
+    sort_order: Literal["asc", "desc"] = Query("asc", description="Sort direction: asc or desc"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
@@ -433,6 +474,8 @@ async def search_objects(
         search=query_term,
         tags=parsed_tags if parsed_tags else None,
         tag_mode=tag_mode,
+        sort_by=sort_by,
+        sort_order=sort_order,
         skip=skip,
         limit=limit,
     )

@@ -12,7 +12,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Metropolitan Muse
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', 'Terracotta', NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', '3rd–4th century CE', 250, 399, 2.70, NULL, 8.26, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241792.jpg'
@@ -45,7 +45,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: slave
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Marble funerary inscription', 'Marble', NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'early 3rd century CE', 200, 225, 22.23, 27.62, 2.93, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_256773.jpg'
@@ -78,7 +78,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Sea Lion Hunt Bottle', 'Ceramic', 'Peru', '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', '6th–7th century', 500, 699, 22.86, 13.34, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_310521.jpg'
@@ -104,7 +104,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: physician
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Sarcophagus with a Greek Physician', 'Marble', 'Ostia, Rome', '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'early 300s', 300, 325, 55.20, 59.10, 215.60, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_468268.jpg'
@@ -130,7 +130,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', 'Terracotta', NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', '4th–5th century CE', 300, 499, 3.30, NULL, 7.80, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241511.jpg'
@@ -163,7 +163,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', 'Terracotta', NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', '3rd–4th century CE', 250, 399, 3.81, NULL, 8.26, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241789.jpg'
@@ -196,7 +196,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', 'Terracotta', NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', '4th–5th century CE', 300, 499, 3.18, NULL, 7.94, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241790.jpg'
@@ -229,7 +229,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', 'Terracotta', NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', '3rd–4th century CE', 250, 399, 3.18, NULL, 7.94, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241791.jpg'
@@ -262,7 +262,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', 'Terracotta', NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', '3rd–4th century CE', 250, 399, 3.18, NULL, 7.62, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241793.jpg'
@@ -295,7 +295,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: craftsman
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Bottle with Runners', 'Ceramic, slip', 'Peru', '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', '3rd–5th century', 200, 500, 29.53, 16.51, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_308507.jpg'
@@ -321,7 +321,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: maker
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Pulque Maker', 'Ceramic', 'Mesoamerica, Mexico', '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', '100 BCE–300 CE', -75, 325, 53.98, 36.83, 27.78, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_318960.jpg'
@@ -347,7 +347,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Hemispherical bowl with scenes of wine making', 'Silver, mercury gilding', 'Iran', '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'ca. 6th–7th century CE', 500, 700, 4.80, 13.80, 13.80, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_326008.jpg'
@@ -3369,5 +3369,882 @@ JOIN tags t ON t.tag_name = 'Nineveh'
 WHERE o.inventory_number = '1851,0902.2'
 ON CONFLICT DO NOTHING;
 
-COMMIT;
+-- =================================================================================
+-- 2_excel Entry (0-899 CE): Gold-glass roundel with Six Craftworkers (Vatican)
+-- =================================================================================
+INSERT INTO sources (citation_text)
+SELECT 'Kisa, Anton. Das Glas im Altertume. Three vols. Verlag von Karl W. Hiersemann, 1908.'
+WHERE NOT EXISTS (
+    SELECT 1 FROM sources WHERE citation_text = 'Kisa, Anton. Das Glas im Altertume. Three vols. Verlag von Karl W. Hiersemann, 1908.'
+);
 
+INSERT INTO sources (citation_text)
+SELECT 'Morey, Charles Rufus, and Guy Ferrari. The Gold-Glass Collection of the Vatican Library. Catalogo Del Museo Sacro Della Biblioteca Apostolica Vaticana, 4. Biblioteca Apostolica Vaticana, 1959.'
+WHERE NOT EXISTS (
+    SELECT 1 FROM sources WHERE citation_text = 'Morey, Charles Rufus, and Guy Ferrari. The Gold-Glass Collection of the Vatican Library. Catalogo Del Museo Sacro Della Biblioteca Apostolica Vaticana, 4. Biblioteca Apostolica Vaticana, 1959.'
+);
+
+INSERT INTO sources (citation_text)
+SELECT 'Hallie Meredith personal photo'
+WHERE NOT EXISTS (
+    SELECT 1 FROM sources WHERE citation_text = 'Hallie Meredith personal photo'
+);
+
+INSERT INTO objects (
+    object_type, material, findspot, present_location, production_location,
+    latitude, longitude, inventory_number, description,
+    date_display, date_start, date_end, date_basis,
+    completeness, object_group, publications, review_status
+)
+VALUES (
+    'Roundel with gold-glass, fragment from a vessel',
+    NULL,
+    'Rome',
+    'Museo Biblioteca Apostolica Vaticana, Vatican City',
+    NULL,
+    41.9028,
+    12.4964,
+    '60788',
+    'Six Craftworkers (and a patron?)',
+    'c. 4th century CE',
+    300,
+    399,
+    'Not yet ascertained (= ?), see Kisa 1908',
+    'Fragmentary, broken at the edges',
+    NULL,
+    'Kisa 1908; Morey and Ferrari 1959, no. 96; Ulrich 2008, 35-61; Meredith 2023b, fig. 3; Meredith 2023c, fig. 9.',
+    'accepted'
+)
+ON CONFLICT (inventory_number) DO UPDATE SET
+    object_type = EXCLUDED.object_type,
+    findspot = EXCLUDED.findspot,
+    present_location = EXCLUDED.present_location,
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude,
+    description = EXCLUDED.description,
+    date_display = EXCLUDED.date_display,
+    date_start = EXCLUDED.date_start,
+    date_end = EXCLUDED.date_end,
+    date_basis = EXCLUDED.date_basis,
+    completeness = EXCLUDED.completeness,
+    publications = EXCLUDED.publications,
+    review_status = EXCLUDED.review_status;
+
+INSERT INTO images (object_id, source_id, image_type, view_type, image_sequence, source_identifier, file_url)
+SELECT o.id,
+       (SELECT id FROM sources WHERE citation_text = 'Kisa, Anton. Das Glas im Altertume. Three vols. Verlag von Karl W. Hiersemann, 1908.'),
+       'Line drawing',
+       'Full',
+       1,
+       'Kisa 1908, vol. III, fig. 357',
+       ''
+FROM objects o WHERE o.inventory_number = '60788'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.image_sequence = 1);
+
+INSERT INTO images (object_id, source_id, image_type, view_type, image_sequence, source_identifier, file_url)
+SELECT o.id,
+       (SELECT id FROM sources WHERE citation_text = 'Morey, Charles Rufus, and Guy Ferrari. The Gold-Glass Collection of the Vatican Library. Catalogo Del Museo Sacro Della Biblioteca Apostolica Vaticana, 4. Biblioteca Apostolica Vaticana, 1959.'),
+       'b+w photo',
+       'Full',
+       2,
+       'Morey and Ferrari 1959, no. 96',
+       ''
+FROM objects o WHERE o.inventory_number = '60788'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.image_sequence = 2);
+
+INSERT INTO images (object_id, source_id, image_type, view_type, image_sequence, source_identifier, file_url)
+SELECT o.id,
+       (SELECT id FROM sources WHERE citation_text = 'Hallie Meredith personal photo'),
+       'Colour photo',
+       'Full',
+       3,
+       NULL,
+       ''
+FROM objects o WHERE o.inventory_number = '60788'
+  AND NOT EXISTS (SELECT 1 FROM images i WHERE i.object_id = o.id AND i.image_sequence = 3);
+
+INSERT INTO tags (tag_name) VALUES ('Roman') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Late Antique') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Gold-glass') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Craftworkers') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Rome') ON CONFLICT (tag_name) DO NOTHING;
+INSERT INTO tags (tag_name) VALUES ('Ancient Workers') ON CONFLICT (tag_name) DO NOTHING;
+
+INSERT INTO image_tags (image_id, tag_id)
+SELECT i.id, t.id FROM images i
+JOIN objects o ON o.id = i.object_id
+JOIN tags t ON t.tag_name IN ('Roman', 'Late Antique', 'Gold-glass', 'Craftworkers', 'Rome', 'Ancient Workers')
+WHERE o.inventory_number = '60788' AND i.image_sequence = 1
+ON CONFLICT DO NOTHING;
+
+-- =================================================================================
+-- Idempotent Backfills: Present Location, Production Location & Map Coordinates
+-- =================================================================================
+UPDATE objects
+SET present_location = 'The Metropolitan Museum of Art, New York'
+WHERE present_location IS NULL
+  AND EXISTS (
+      SELECT 1 FROM images i
+      JOIN sources s ON s.id = i.source_id
+      WHERE i.object_id = objects.id
+        AND s.citation_text LIKE 'Metropolitan Museum of Art.%'
+  );
+
+UPDATE objects
+SET present_location = 'The British Museum, London'
+WHERE present_location IS NULL
+  AND EXISTS (
+      SELECT 1 FROM images i
+      JOIN sources s ON s.id = i.source_id
+      WHERE i.object_id = objects.id
+        AND s.citation_text LIKE 'The British Museum.%'
+  );
+
+UPDATE objects
+SET production_location = 'Athens, Greece'
+WHERE inventory_number IN ('1837,0609.42', '1887,0801.61')
+  AND production_location IS NULL;
+
+-- =================================================================================
+-- Cycle 30 Verified Metadata Backfill (Authoritative Museum APIs & Publications)
+-- Uses COALESCE / exact placeholder guards so existing admin edits are preserved.
+-- =================================================================================
+
+-- 1. Ensure all single-image entries have image_sequence = 1 for <id>.<seq> numbering
+UPDATE images SET image_sequence = 1 WHERE image_sequence IS NULL;
+
+-- 2. Metropolitan Museum of Art (39 artifacts verified via live Collection API)
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 250 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 399 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '3rd–4th century CE' ELSE date_display END,
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman, Cypriot'),
+    height = COALESCE(height, 2.70),
+    depth = COALESCE(depth, 8.26),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H.: 1 1/16 x 3 1/4 in. (2.7 x 8.3 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241792')
+WHERE inventory_number = '241792';
+UPDATE images SET source_identifier = 'Met 74.51.2239 (Object ID 241792)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '241792');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 200 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 225 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN 'early 3rd century CE' ELSE date_display END,
+    material = COALESCE(material, 'Marble'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman'),
+    height = COALESCE(height, 22.23),
+    width = COALESCE(width, 27.62),
+    depth = COALESCE(depth, 2.93),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Height: 8 3/4 in (22.2 cm); Width: 10 7/8 in. (27.6 cm); Depth: 1 1/8 in. (2.9 cm); Weight: 11 lb. (5 kg)'),
+    weight = COALESCE(weight, '4.99 kg'),
+    object_group = COALESCE(object_group, 'Greek and Roman Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/256773'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = '256773';
+UPDATE images SET source_identifier = 'Met X.248.3 (Object ID 256773)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '256773');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 500 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 699 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '6th–7th century' ELSE date_display END,
+    findspot = COALESCE(findspot, 'Peru'),
+    material = COALESCE(material, 'Ceramic'),
+    production_location = COALESCE(production_location, 'Peru'),
+    date_basis = COALESCE(date_basis, 'Moche'),
+    height = COALESCE(height, 22.86),
+    width = COALESCE(width, 13.34),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 9 × Diam. 5 1/4 in. (22.9 × 13.3 cm)'),
+    object_group = COALESCE(object_group, 'The Michael C. Rockefeller Wing'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/310521')
+WHERE inventory_number = '310521';
+UPDATE images SET source_identifier = 'Met 1978.412.69 (Object ID 310521)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '310521');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 300 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 325 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN 'early 300s' ELSE date_display END,
+    findspot = COALESCE(findspot, 'Ostia, Rome'),
+    material = COALESCE(material, 'Marble'),
+    date_basis = COALESCE(date_basis, 'Roman'),
+    height = COALESCE(height, 55.20),
+    width = COALESCE(width, 59.10),
+    depth = COALESCE(depth, 215.60),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, '21 3/4 x 23 1/4 x 84 7/8 in. (55.2 x 59.1 x 215.6 cm)'),
+    object_group = COALESCE(object_group, 'Medieval Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/468268'),
+    inscription_present = COALESCE(inscription_present, TRUE),
+    inscription_1 = COALESCE(inscription_1, 'εἰ δ'' ἐπιτολμήσει τις τούτῳ συνθαπτέμεν ἄλλον, θήσει τῷ φίσκῳ τρὶς δύο χειλιάδας. τόσσας καὶ Πόρτῳ καταθήσεται. ἀλλὰ καὶ αὐτῆς τεῖσοι ἀτασθαλίης βλαψιτάφου κόλασιν.'),
+    publications = COALESCE(publications, 'IG XIV 943')
+WHERE inventory_number = '468268';
+UPDATE images SET source_identifier = 'Met 48.76.1 (Object ID 468268)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '468268');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 300 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 499 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '4th–5th century CE' ELSE date_display END,
+    material = COALESCE(material, 'Terracotta'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman'),
+    height = COALESCE(height, 3.30),
+    depth = COALESCE(depth, 7.80),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 1 5/16 x 3 1/16 in. (3.3 x 7.8 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241511')
+WHERE inventory_number = '241511';
+UPDATE images SET source_identifier = 'Met 74.51.1957 (Object ID 241511)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '241511');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 250 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 399 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '3rd–4th century CE' ELSE date_display END,
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman, Cypriot'),
+    height = COALESCE(height, 3.81),
+    depth = COALESCE(depth, 8.26),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 1 1/2 x 3 1/4 in. (3.8 x 8.3 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241789')
+WHERE inventory_number = '241789';
+UPDATE images SET source_identifier = 'Met 74.51.2236 (Object ID 241789)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '241789');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 300 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 499 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '4th–5th century CE' ELSE date_display END,
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman, Cypriot'),
+    height = COALESCE(height, 3.18),
+    depth = COALESCE(depth, 7.94),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 1 1/4 x 3 1/8 in. (3.2 x 7.9 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241790')
+WHERE inventory_number = '241790';
+UPDATE images SET source_identifier = 'Met 74.51.2237 (Object ID 241790)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '241790');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 250 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 399 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '3rd–4th century CE' ELSE date_display END,
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman, Cypriot'),
+    height = COALESCE(height, 3.18),
+    depth = COALESCE(depth, 7.94),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 1 1/4 x 3 1/8 in. (3.2 x 7.9 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241791')
+WHERE inventory_number = '241791';
+UPDATE images SET source_identifier = 'Met 74.51.2238 (Object ID 241791)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '241791');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 250 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 399 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '3rd–4th century CE' ELSE date_display END,
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Late Imperial; Roman, Cypriot'),
+    height = COALESCE(height, 3.18),
+    depth = COALESCE(depth, 7.62),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 1 1/4 x 3 in. (3.2 x 7.6 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241793')
+WHERE inventory_number = '241793';
+UPDATE images SET source_identifier = 'Met 74.51.2240 (Object ID 241793)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '241793');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 200 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 500 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '3rd–5th century' ELSE date_display END,
+    findspot = COALESCE(findspot, 'Peru'),
+    material = COALESCE(material, 'Ceramic, slip'),
+    production_location = COALESCE(production_location, 'Peru'),
+    date_basis = COALESCE(date_basis, 'Moche'),
+    height = COALESCE(height, 29.53),
+    width = COALESCE(width, 16.51),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 11 5/8 × Diam. 6 1/2 in. (29.5 × 16.5 cm)'),
+    object_group = COALESCE(object_group, 'The Michael C. Rockefeller Wing'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/308507')
+WHERE inventory_number = '308507';
+UPDATE images SET source_identifier = 'Met 64.228.1 (Object ID 308507)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '308507');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN -75 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 325 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN '100 BCE–300 CE' ELSE date_display END,
+    findspot = COALESCE(findspot, 'Mesoamerica, Mexico'),
+    material = COALESCE(material, 'Ceramic'),
+    production_location = COALESCE(production_location, 'Jalisco, Mexico'),
+    date_basis = COALESCE(date_basis, 'Jalisco'),
+    height = COALESCE(height, 53.98),
+    width = COALESCE(width, 36.83),
+    depth = COALESCE(depth, 27.78),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)'),
+    object_group = COALESCE(object_group, 'The Michael C. Rockefeller Wing'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/318960')
+WHERE inventory_number = '318960';
+UPDATE images SET source_identifier = 'Met 2005.255.1 (Object ID 318960)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '318960');
+
+UPDATE objects SET
+    date_start = CASE WHEN date_display = 'Unknown' THEN 500 ELSE date_start END,
+    date_end = CASE WHEN date_display = 'Unknown' THEN 700 ELSE date_end END,
+    date_display = CASE WHEN date_display = 'Unknown' THEN 'ca. 6th–7th century CE' ELSE date_display END,
+    findspot = COALESCE(findspot, 'Iran'),
+    material = COALESCE(material, 'Silver, mercury gilding'),
+    production_location = COALESCE(production_location, 'Iran'),
+    date_basis = COALESCE(date_basis, 'Sasanian; Sasanian'),
+    height = COALESCE(height, 4.80),
+    width = COALESCE(width, 13.80),
+    depth = COALESCE(depth, 13.80),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, '1 7/8 × 5 7/16 × 5 7/16 in. (4.8 × 13.8 × 13.8 cm)'),
+    weight = COALESCE(weight, '0.42 kg'),
+    object_group = COALESCE(object_group, 'Ancient West Asian Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/326008')
+WHERE inventory_number = '326008';
+UPDATE images SET source_identifier = 'Met 1970.7 (Object ID 326008)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '326008');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, plaster, paint, linen, grain'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; early reign of Amenemhat I'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'L. 74.9 (29 1/2 in); W. 56 cm (22 1/16 in); H. 36.5 (14 3/8 in);; average height of figures: 20 cm (7 7/8 in.)'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/545281')
+WHERE inventory_number = '20.3.11';
+UPDATE images SET source_identifier = 'Met 20.3.11 (Object ID 545281)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.11');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, gesso, paint, linen'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; reign of Amenemhat I, early'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'l. 73 cm (28 3/4 in); w. 55 cm (21 5/8 in); h. 29 cm (11 7/16 in); average height of figures: 21 cm (8 1/4 in.)'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544258')
+WHERE inventory_number = '20.3.12';
+UPDATE images SET source_identifier = 'Met 20.3.12 (Object ID 544258)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.12');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Plastered and painted wood, gesso'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; reign of Amenemhat I, early'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'l. 72.5 cm (28 9/16 in); w. 57 cm (22 7/16 in); h. 28.5 cm (11 1/4 in); average height of cattle: 18 cm (7 1/16 in.)'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544254')
+WHERE inventory_number = '20.3.9';
+UPDATE images SET source_identifier = 'Met 20.3.9 (Object ID 544254)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.9');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Painted wood'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; early to mid-Dynasty 12'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 20 cm (7 7/8 in.); L. 49.8 cm (19 5/8 in.); W. 19.4 cm (7 5/8 in.)'),
+    object_group = COALESCE(object_group, 'Egyptian Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544255')
+WHERE inventory_number = '36.5';
+UPDATE images SET source_identifier = 'Met 36.5 (Object ID 544255)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '36.5');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, paint, plaster'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; early reign of Amenemhat I'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'L. 76.8 cm (30 1/4 in.); W. 58.5 cm (23 1/16 in.); greatest H. 58.5 cm (23 1/16 in.)'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544257')
+WHERE inventory_number = '20.3.10';
+UPDATE images SET source_identifier = 'Met 20.3.10 (Object ID 544257)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.10');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, paint, plaster, linen twine, linen fabric'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; reign of Amenemhat I, early'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'L. 132.5 cm (52 3/16 in.), with rudder 138.5 (54 1/2 in.); H. 53 cm (20 7/8 in.); W. 38 cm (14 15/16 in.)'),
+    weight = COALESCE(weight, '11.25 kg'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544211')
+WHERE inventory_number = '20.3.5';
+UPDATE images SET source_identifier = 'Met 20.3.5 (Object ID 544211)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.5');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, paint, plaster, linen twine and cloth'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; reign of Amenemhat I, early'),
+    height = COALESCE(height, 40.00),
+    width = COALESCE(width, 73.00),
+    depth = COALESCE(depth, 147.00),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'l. with rudder 147 cm (57 7/8 in); w. with oars 73 cm (28 3/4 in); h. 40 cm (15 3/4 in)'),
+    weight = COALESCE(weight, '14.52 kg'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544212')
+WHERE inventory_number = '20.3.3';
+UPDATE images SET source_identifier = 'Met 20.3.3 (Object ID 544212)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.3');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, gesso, paint'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; early reign of Amenemhat I'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 112 cm (44 1/8 in.); W. 17 cm (6 11/16 in.); D. 46.7 cm (18 3/8 in.)'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544210')
+WHERE inventory_number = '20.3.7';
+UPDATE images SET source_identifier = 'Met 20.3.7 (Object ID 544210)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.7');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Wood, paint, gesso, linen twine and linen fabric'),
+    date_basis = COALESCE(date_basis, 'Middle Kingdom; Dynasty 12; reign of Amenemhat I, early'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'l. 128 cm (50 3/8 in), with rudder 175 cm (68 7/8 in) x w. with oars 30.5 cm (12 in) x h. 37 cm (14 9/16 in)'),
+    weight = COALESCE(weight, '12.79 kg'),
+    object_group = COALESCE(object_group, 'Tomb of Meketre (TT 280)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544214')
+WHERE inventory_number = '20.3.1';
+UPDATE images SET source_identifier = 'Met 20.3.1 (Object ID 544214)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '20.3.1');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Tempera on Paper'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18; reign of Amenhotep III–Akhenaten'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'facsimile: h. 50 cm (19 11/16 in); w. 159.5 cm (62 13/16 in); scale 1:1; framed: h. 57.5 cm (22 5/8 in); w. 165.1 cm (65 in); th. 3.8 cm (1 1/2 in)'),
+    object_group = COALESCE(object_group, 'Tomb of Nebamun and Ipuky (TT 181)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/548568')
+WHERE inventory_number = '30.4.103';
+UPDATE images SET source_identifier = 'Met 30.4.103 (Object ID 548568)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '30.4.103');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Faience'),
+    date_basis = COALESCE(date_basis, 'Third Intermediate Period; Dynasty 21; reign of Painedjem I'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 11.7 × W. 4.3 × D. 2.4 cm (4 5/8 × 1 11/16 × 15/16 in.)'),
+    object_group = COALESCE(object_group, 'First Royal Cache (TT 320)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/545947'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = '44.4.88';
+UPDATE images SET source_identifier = 'Met 44.4.88 (Object ID 545947)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '44.4.88');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Tempera on Paper'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18; reign of Thutmose III–early Amenhotep II'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'facsimile: h. 48 cm (18 7/8 in); w. 68.5 cm (26 15/16 in), scale 1:1, framed: h. 51,4 cm (20 1/4 in); w. 72.4 cm (28 1/2 in)'),
+    object_group = COALESCE(object_group, 'Tomb of Rekhmire (TT 100)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544649')
+WHERE inventory_number = '30.4.77';
+UPDATE images SET source_identifier = 'Met 30.4.77 (Object ID 544649)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '30.4.77');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Tempera on Paper'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18; reign of Thutmose III–early Amenhotep II'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Facsimile: H. 48.5 × W. 45.5 cm (19 1/8 × 17 15/16 in.); scale 1:1; Framed: H. 52.1 × W. 48.3 cm (20 1/2 × 19 in.)'),
+    object_group = COALESCE(object_group, 'Tomb of Rekhmire (TT 100)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544648')
+WHERE inventory_number = '30.4.89';
+UPDATE images SET source_identifier = 'Met 30.4.89 (Object ID 544648)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '30.4.89');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Tempera on Paper'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18; reign of Thutmose III–early Amenhotep II'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'facsimile: h. 54 cm (21 1/4 in); w. 38.5 cm (15 3/16 in), scale 1:1, framed: h. 57.2 cm (22 1/2 in); w. 41.3 cm (16 1/4 in)'),
+    object_group = COALESCE(object_group, 'Tomb of Rekhmire (TT 100)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544655')
+WHERE inventory_number = '30.4.90';
+UPDATE images SET source_identifier = 'Met 30.4.90 (Object ID 544655)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '30.4.90');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Tempera on paper'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'facsimile: h. 58.5 cm (23 1/16 in); w. 197 cm (77 9/16 in); Scale 1:1; framed: h. 62.2 cm (24 1/2 in); w. 200.7 cm (79 in)'),
+    object_group = COALESCE(object_group, 'Tomb of Rekhmire (TT 100)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544639')
+WHERE inventory_number = '35.101.1';
+UPDATE images SET source_identifier = 'Met 35.101.1 (Object ID 544639)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '35.101.1');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Paper, tempera paint, ink'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'facsimile: h. 27.5 cm (10 13/16 in); w. 34.5 cm (13 9/16 in), scale 1:1, framed: h. 30.5 cm (12 in); w. 37.5 cm (14 3/4 in)'),
+    object_group = COALESCE(object_group, 'Tomb of Rekhmire (TT 100)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544647')
+WHERE inventory_number = '31.6.22';
+UPDATE images SET source_identifier = 'Met 31.6.22 (Object ID 544647)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '31.6.22');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Tempera on paper'),
+    date_basis = COALESCE(date_basis, 'New Kingdom; Dynasty 18'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'facsimile: h. 57.5 cm (22 5/8 in); w. 54 cm (21 1/4 in), scale: 1:1'),
+    object_group = COALESCE(object_group, 'Tomb of Rekhmire (TT 100)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/544645')
+WHERE inventory_number = '31.6.11';
+UPDATE images SET source_identifier = 'Met 31.6.11 (Object ID 544645)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '31.6.11');
+
+UPDATE objects SET
+    findspot = CASE WHEN findspot = 'Tomb of Sennedjem (TT 1)' OR findspot IS NULL THEN 'Tomb of Sennedjem (TT 1), Deir el-Medina' ELSE findspot END,
+    material = COALESCE(material, 'Tempera on paper'),
+    date_basis = COALESCE(date_basis, 'Twentieth Century; original New Kingdom; original Dynasty 19; reign of Ramesses I–Ramesses II'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Facsimile H. 54 cm (21 1/4 in); W. 84.5 cm (33 1/4 in); Framed H. 58.1 cm (22 7/8 in); W. 88.6 cm (34 7/8 in); scale 1:2'),
+    object_group = COALESCE(object_group, 'Tomb of Sennedjem (TT 1)'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/548354')
+WHERE inventory_number = '30.4.2';
+UPDATE images SET source_identifier = 'Met 30.4.2 (Object ID 548354)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '30.4.2');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Bronze, silver'),
+    date_basis = COALESCE(date_basis, 'Late Hellenistic; Greek'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, '15 7/8 × 5 1/8 × 4 1/4 in., 15 lb. (40.3 × 13 × 10.8 cm, 6.8 kg)'),
+    weight = COALESCE(weight, '6.80 kg'),
+    object_group = COALESCE(object_group, 'Greek and Roman Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/255344')
+WHERE inventory_number = '1972.11.1';
+UPDATE images SET source_identifier = 'Met 1972.11.1 (Object ID 255344)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1972.11.1');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Bronze'),
+    date_basis = COALESCE(date_basis, 'Hellenistic; Greek'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 18.29 cm.'),
+    object_group = COALESCE(object_group, 'Greek and Roman Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/250673')
+WHERE inventory_number = '18.145.10';
+UPDATE images SET source_identifier = 'Met 18.145.10 (Object ID 250673)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '18.145.10');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Attica, Greece'),
+    date_basis = COALESCE(date_basis, 'Archaic; Greek, Attic'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, '6 3/4 × 3 7/8 in. (17.1 × 9.9 cm)'),
+    object_group = COALESCE(object_group, 'Greek and Roman Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/253348')
+WHERE inventory_number = '31.11.10';
+UPDATE images SET source_identifier = 'Met 31.11.10 (Object ID 253348)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '31.11.10');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Attica, Greece'),
+    date_basis = COALESCE(date_basis, 'Archaic; Greek, Attic'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 14 3/4 in. (37.5 cm)'),
+    object_group = COALESCE(object_group, 'Greek and Roman Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/247244')
+WHERE inventory_number = '06.1021.77';
+UPDATE images SET source_identifier = 'Met 06.1021.77 (Object ID 247244)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '06.1021.77');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Marble'),
+    date_basis = COALESCE(date_basis, 'Mid-Imperial; Roman'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'H.: 11 1/8 x 16 3/4 x 3 in. (28.3 x 42.5 x 7.6 cm)'),
+    object_group = COALESCE(object_group, 'Greek and Roman Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/251843')
+WHERE inventory_number = '25.78.63';
+UPDATE images SET source_identifier = 'Met 25.78.63 (Object ID 251843)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '25.78.63');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Early Imperial; Roman, Cypriot'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 7/8 x 3 1/2 in. (2.2 x 8.9 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241663')
+WHERE inventory_number = '74.51.2110';
+UPDATE images SET source_identifier = 'Met 74.51.2110 (Object ID 241663)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '74.51.2110');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Terracotta'),
+    production_location = COALESCE(production_location, 'Cyprus'),
+    date_basis = COALESCE(date_basis, 'Early Imperial; Roman, Cypriot'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Overall: 1 x 3 5/8 in. (2.5 x 9.2 cm)'),
+    object_group = COALESCE(object_group, 'The Cesnola Collection'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/241662')
+WHERE inventory_number = '74.51.2109';
+UPDATE images SET source_identifier = 'Met 74.51.2109 (Object ID 241662)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '74.51.2109');
+
+UPDATE objects SET
+    material = COALESCE(material, 'Copper alloy'),
+    date_basis = COALESCE(date_basis, 'Ur III; Neo-Sumerian'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, '10 3/4 × 3 9/16 × 2 3/16 in. (27.3 × 9.1 × 5.6 cm)'),
+    object_group = COALESCE(object_group, 'Ancient West Asian Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/329067'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = '47.49';
+UPDATE images SET source_identifier = 'Met 47.49 (Object ID 329067)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '47.49');
+
+UPDATE objects SET
+    findspot = CASE WHEN findspot = 'Mesopotamia' OR findspot IS NULL THEN 'Nippur, Mesopotamia' ELSE findspot END,
+    material = COALESCE(material, 'Copper'),
+    date_basis = COALESCE(date_basis, 'Ur III; Neo-Sumerian'),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, '12 1/4 × 3 7/16 × 2 3/16 in. (31.1 × 8.8 × 5.6 cm)'),
+    weight = COALESCE(weight, '2.49 kg'),
+    object_group = COALESCE(object_group, 'Ancient West Asian Art'),
+    external_url = COALESCE(external_url, 'https://www.metmuseum.org/art/collection/search/324831'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = '59.41.1';
+UPDATE images SET source_identifier = 'Met 59.41.1 (Object ID 324831)' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '59.41.1');
+
+-- 3. British Museum (21 artifacts verified via bm_ancient_workers.json & published corpora)
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Thebes, Upper Egypt'),
+    date_basis = COALESCE(date_basis, '18th Dynasty, New Kingdom; Ancient Egyptian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 58.5 × W. 105.5 cm'),
+    completeness = COALESCE(completeness, 'Fragmentary'),
+    object_group = COALESCE(object_group, 'Tomb-chapel of Nebamun'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = 'EA37976';
+UPDATE images SET source_identifier = 'British Museum Reg. EA37976' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = 'EA37976');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Thebes, Upper Egypt'),
+    date_basis = COALESCE(date_basis, '18th Dynasty, New Kingdom; Ancient Egyptian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 71.0 × W. 115.5 cm'),
+    completeness = COALESCE(completeness, 'Fragmentary'),
+    object_group = COALESCE(object_group, 'Tomb-chapel of Nebamun'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = 'EA37978';
+UPDATE images SET source_identifier = 'British Museum Reg. EA37978' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = 'EA37978');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Thebes, Upper Egypt'),
+    date_basis = COALESCE(date_basis, '18th Dynasty, New Kingdom; Ancient Egyptian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 41.0 × W. 91.0 cm'),
+    completeness = COALESCE(completeness, 'Fragmentary'),
+    object_group = COALESCE(object_group, 'Tomb-chapel of Nebamun'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = 'EA37977';
+UPDATE images SET source_identifier = 'British Museum Reg. EA37977' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = 'EA37977');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Thebes, Upper Egypt'),
+    date_basis = COALESCE(date_basis, '18th Dynasty, New Kingdom; Ancient Egyptian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 44.5 × W. 61.0 cm'),
+    completeness = COALESCE(completeness, 'Fragmentary'),
+    object_group = COALESCE(object_group, 'Tomb-chapel of Nebamun'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = 'EA37982';
+UPDATE images SET source_identifier = 'British Museum Reg. EA37982' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = 'EA37982');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Thebes, Upper Egypt'),
+    date_basis = COALESCE(date_basis, '18th Dynasty, New Kingdom; Ancient Egyptian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 38.0 × W. 42.0 cm'),
+    completeness = COALESCE(completeness, 'Fragmentary'),
+    object_group = COALESCE(object_group, 'Tomb-chapel of Nebamun'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = 'EA37979';
+UPDATE images SET source_identifier = 'British Museum Reg. EA37979' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = 'EA37979');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, '12th Dynasty, Middle Kingdom; Ancient Egyptian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 28.0 × W. 14.0 × D. 68.0 cm')
+WHERE inventory_number = 'EA36422';
+UPDATE images SET source_identifier = 'British Museum Reg. EA36422' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = 'EA36422');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Late Archaic; Ancient Greek, Attic'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 40.6 × W. 27.0 × D. 27.0 cm')
+WHERE inventory_number = '1837,0609.42';
+UPDATE images SET source_identifier = 'British Museum Reg. 1837,0609.42' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1837,0609.42');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Attica, Greece'),
+    date_basis = COALESCE(date_basis, 'Late Archaic; Ancient Greek, Attic'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 8.9 × W. 20.3 × D. 20.3 cm'),
+    publications = COALESCE(publications, 'BM Cat. Vases B 432')
+WHERE inventory_number = '1847,1125.18';
+UPDATE images SET source_identifier = 'British Museum Reg. 1847,1125.18' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1847,1125.18');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Late Archaic; Ancient Greek, Attic'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 14.6 × W. 4.8 × D. 4.8 cm'),
+    inscription_present = COALESCE(inscription_present, TRUE),
+    inscription_1 = COALESCE(inscription_1, 'Πασιάδης ἐποίησεν (Pasiades epoiesen)'),
+    inscription_2 = COALESCE(inscription_2, 'HO PAIS KALOS'),
+    publications = COALESCE(publications, 'BM Cat. Vases B 668')
+WHERE inventory_number = '1887,0801.61';
+UPDATE images SET source_identifier = 'British Museum Reg. 1887,0801.61' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1887,0801.61');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Archaic Period; Ancient Greek, East Greek / Boeotian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 7.5 × W. 7.0 × D. 21.5 cm'),
+    publications = COALESCE(publications, 'BM Cat. Bronze 180')
+WHERE inventory_number = '1852,0901.13';
+UPDATE images SET source_identifier = 'British Museum Reg. 1852,0901.13' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1852,0901.13');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Athens, Greece'),
+    date_basis = COALESCE(date_basis, 'Classical Period; Ancient Greek, Classical Attic'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 83.8 × W. 39.5 × D. 9.5 cm'),
+    inscription_present = COALESCE(inscription_present, TRUE),
+    inscription_1 = COALESCE(inscription_1, 'Ξάνθιππος'),
+    publications = COALESCE(publications, 'BM Cat. Sculpture 628; AIUK 4.6, no. 16; IG I³ 1282bis; IG II² 12332; GIBM I 123')
+WHERE inventory_number = '1805,0703.183';
+UPDATE images SET source_identifier = 'British Museum Reg. 1805,0703.183' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1805,0703.183');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Late Republican to Early Imperial; Ancient Roman, Republican / Augustan'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 66.0 × W. 99.0 × D. 20.0 cm'),
+    inscription_present = COALESCE(inscription_present, TRUE),
+    inscription_1 = COALESCE(inscription_1, 'P(ublius) Licinius P(ubli) l(ibertus) Philonicu[s]'),
+    inscription_2 = COALESCE(inscription_2, 'P(ublius) Licinius P(ubli) l(ibertus) Demetrius patrono fecit'),
+    publications = COALESCE(publications, 'CIL XIV 2721, 2722')
+WHERE inventory_number = '1954,1214.1';
+UPDATE images SET source_identifier = 'British Museum Reg. 1954,1214.1' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1954,1214.1');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Roman Imperial; Ancient Roman, North African'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 48.0 × W. 81.0 × D. 7.5 cm'),
+    publications = COALESCE(publications, 'BM Cat. Sculpture 2405')
+WHERE inventory_number = '1850,0304.32';
+UPDATE images SET source_identifier = 'British Museum Reg. 1850,0304.32' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1850,0304.32');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, '1st Century CE; Ancient Roman'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 2.5 × W. 5.0 × D. 22.0 cm'),
+    object_group = COALESCE(object_group, 'Roman Surgical Instrument Set (GR 1968.6-26.1–39)')
+WHERE inventory_number = '1968,0626.1';
+UPDATE images SET source_identifier = 'British Museum Reg. 1968,0626.1' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1968,0626.1');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Late 1st to Early 2nd Century CE; Romano-British'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 8.5 × W. 21.0 × D. 0.2 cm'),
+    object_group = COALESCE(object_group, 'Vindolanda Tablets'),
+    inscription_present = COALESCE(inscription_present, TRUE),
+    inscription_1 = COALESCE(inscription_1, 'Octauius Candido fratri suo salutem...'),
+    publications = COALESCE(publications, 'Tab. Vindol. II 343')
+WHERE inventory_number = '1989,0602.74';
+UPDATE images SET source_identifier = 'British Museum Reg. 1989,0602.74' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1989,0602.74');
+
+UPDATE objects SET
+    date_basis = COALESCE(date_basis, 'Late Uruk Period; Ancient Mesopotamian, Sumerian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 9.4 × W. 6.8 × D. 2.5 cm'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = '1989,0130.4';
+UPDATE images SET source_identifier = 'British Museum Reg. 1989,0130.4' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1989,0130.4');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Nineveh, Northern Iraq'),
+    date_basis = COALESCE(date_basis, 'Reign of Sennacherib; Ancient Mesopotamian, Neo-Assyrian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 175.0 × W. 210.0 × D. 15.0 cm'),
+    object_group = COALESCE(object_group, 'Southwest Palace of Sennacherib, Court VI, Nineveh')
+WHERE inventory_number = '1851,0902.6';
+UPDATE images SET source_identifier = 'British Museum Reg. 1851,0902.6' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1851,0902.6');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Nineveh, Northern Iraq'),
+    date_basis = COALESCE(date_basis, 'Reign of Sennacherib; Ancient Mesopotamian, Neo-Assyrian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 178.0 × W. 205.0 × D. 15.0 cm'),
+    object_group = COALESCE(object_group, 'Southwest Palace of Sennacherib, Court VI, Nineveh')
+WHERE inventory_number = '1851,0902.5';
+UPDATE images SET source_identifier = 'British Museum Reg. 1851,0902.5' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1851,0902.5');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Nineveh, Northern Iraq'),
+    date_basis = COALESCE(date_basis, 'Reign of Sennacherib; Ancient Mesopotamian, Neo-Assyrian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 180.0 × W. 215.0 × D. 15.0 cm'),
+    object_group = COALESCE(object_group, 'Southwest Palace of Sennacherib, Court VI, Nineveh')
+WHERE inventory_number = '1851,0902.4';
+UPDATE images SET source_identifier = 'British Museum Reg. 1851,0902.4' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1851,0902.4');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Nineveh, Northern Iraq'),
+    date_basis = COALESCE(date_basis, 'Reign of Sennacherib; Ancient Mesopotamian, Neo-Assyrian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 176.0 × W. 208.0 × D. 15.0 cm'),
+    object_group = COALESCE(object_group, 'Southwest Palace of Sennacherib, Court VI, Nineveh')
+WHERE inventory_number = '1851,0902.3';
+UPDATE images SET source_identifier = 'British Museum Reg. 1851,0902.3' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1851,0902.3');
+
+UPDATE objects SET
+    production_location = COALESCE(production_location, 'Nineveh, Northern Iraq'),
+    date_basis = COALESCE(date_basis, 'Reign of Sennacherib; Ancient Mesopotamian, Neo-Assyrian'),
+    dimensions_display = COALESCE(dimensions_display, 'H. 175.0 × W. 195.0 × D. 15.0 cm'),
+    object_group = COALESCE(object_group, 'Southwest Palace of Sennacherib, Court VI, Nineveh'),
+    inscription_present = COALESCE(inscription_present, TRUE)
+WHERE inventory_number = '1851,0902.2';
+UPDATE images SET source_identifier = 'British Museum Reg. 1851,0902.2' WHERE source_identifier IS NULL AND object_id = (SELECT id FROM objects WHERE inventory_number = '1851,0902.2');
+
+-- 4. Vatican Library Gold-Glass Roundel (Inv. 60788; Morey & Ferrari 1959 no. 96)
+UPDATE objects SET
+    material = COALESCE(material, 'Glass, gold leaf (gold-glass)'),
+    findspot = CASE WHEN findspot = 'Rome' OR findspot IS NULL THEN 'Catacomb of San Saturnino (Via Salaria), Rome' ELSE findspot END,
+    width = COALESCE(width, 16.00),
+    height = COALESCE(height, 16.00),
+    unit = COALESCE(unit, 'cm'),
+    dimensions_display = COALESCE(dimensions_display, 'Diam. 16.0 cm (160 mm)')
+WHERE inventory_number = '60788';
+
+-- 5. Geographic Coordinate Backfill (runs after findspot enrichment)
+UPDATE objects
+SET latitude = CASE
+        WHEN findspot LIKE '%Thebes%' OR findspot LIKE '%Sennedjem%' OR findspot LIKE '%Deir el-Medina%' THEN 25.7333
+        WHEN findspot LIKE '%Beni Hasan%' THEN 27.9296
+        WHEN findspot LIKE '%Vulci%' THEN 42.4184
+        WHEN findspot LIKE '%Marion-Arsinoe%' OR findspot LIKE '%Cypriot%' THEN 35.0361
+        WHEN findspot LIKE '%Vindolanda%' THEN 54.9912
+        WHEN findspot LIKE '%Carthage%' THEN 36.8528
+        WHEN findspot LIKE '%Frascati%' THEN 41.8075
+        WHEN findspot LIKE '%Ostia%' THEN 41.7558
+        WHEN findspot LIKE '%Nineveh%' THEN 36.3594
+        WHEN findspot LIKE '%Nippur%' THEN 32.1261
+        WHEN findspot LIKE '%Mesopotamia%' THEN 31.3260
+        WHEN findspot LIKE '%Boeotia%' THEN 38.3667
+        WHEN findspot LIKE '%Athens%' OR findspot LIKE '%Attica%' THEN 37.9838
+        WHEN findspot LIKE '%Rome%' OR findspot = 'Roman' THEN 41.9028
+        WHEN findspot = 'Italy' THEN 42.5000
+        WHEN findspot LIKE '%Egypt%' THEN 26.8206
+        WHEN findspot LIKE '%Greek%' THEN 38.0000
+        WHEN findspot LIKE '%Peru%' THEN -8.1116
+        WHEN findspot LIKE '%Mexico%' OR findspot LIKE '%Mesoamerica%' THEN 19.6925
+        WHEN findspot LIKE '%Iran%' THEN 32.4279
+        ELSE NULL
+    END,
+    longitude = CASE
+        WHEN findspot LIKE '%Thebes%' OR findspot LIKE '%Sennedjem%' OR findspot LIKE '%Deir el-Medina%' THEN 32.6000
+        WHEN findspot LIKE '%Beni Hasan%' THEN 30.8753
+        WHEN findspot LIKE '%Vulci%' THEN 11.6317
+        WHEN findspot LIKE '%Marion-Arsinoe%' OR findspot LIKE '%Cypriot%' THEN 32.4264
+        WHEN findspot LIKE '%Vindolanda%' THEN -2.3607
+        WHEN findspot LIKE '%Carthage%' THEN 10.3233
+        WHEN findspot LIKE '%Frascati%' THEN 12.6808
+        WHEN findspot LIKE '%Ostia%' THEN 12.2906
+        WHEN findspot LIKE '%Nineveh%' THEN 43.1528
+        WHEN findspot LIKE '%Nippur%' THEN 45.2308
+        WHEN findspot LIKE '%Mesopotamia%' THEN 45.6360
+        WHEN findspot LIKE '%Boeotia%' THEN 23.1833
+        WHEN findspot LIKE '%Athens%' OR findspot LIKE '%Attica%' THEN 23.7275
+        WHEN findspot LIKE '%Rome%' OR findspot = 'Roman' THEN 12.4964
+        WHEN findspot = 'Italy' THEN 12.5000
+        WHEN findspot LIKE '%Egypt%' THEN 30.8025
+        WHEN findspot LIKE '%Greek%' THEN 23.7000
+        WHEN findspot LIKE '%Peru%' THEN -79.0288
+        WHEN findspot LIKE '%Mexico%' OR findspot LIKE '%Mesoamerica%' THEN -98.8438
+        WHEN findspot LIKE '%Iran%' THEN 53.6880
+        ELSE NULL
+    END
+WHERE latitude IS NULL
+  AND longitude IS NULL
+  AND findspot IS NOT NULL;
+
+COMMIT;

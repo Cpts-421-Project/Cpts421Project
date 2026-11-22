@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text, or_, func
+from sqlalchemy import text, or_, func, case
 from typing import List, Optional
 from ..models import Object, Image, Source, Tag
 from ..schemas import ObjectDetailResponse, ObjectMapResponse
@@ -15,7 +15,33 @@ UPDATABLE_OBJECT_FIELDS = frozenset({
     "latitude",
     "longitude",
     "description",
+    "width",
+    "height",
+    "depth",
+    "unit",
+    "dimensions_display",
+    "weight",
+    "completeness",
+    "date_basis",
+    "present_location",
+    "production_location",
+    "object_group",
+    "inscription_present",
+    "inscription_1",
+    "inscription_2",
+    "publications",
+    "caption",
+    "external_url",
     "review_status",
+})
+
+UPDATABLE_IMAGE_FIELDS = frozenset({
+    "file_url",
+    "image_type",
+    "view_type",
+    "image_sequence",
+    "source_identifier",
+    "source_id",
 })
 
 
@@ -45,6 +71,8 @@ class ObjectRepository:
         search: Optional[str] = None,
         tags: Optional[List[str]] = None,
         tag_mode: str = "any",
+        sort_by: str = "title",
+        sort_order: str = "asc",
         skip: int = 0,
         limit: int = 100,
     ) -> List[Object]:
@@ -53,7 +81,7 @@ class ObjectRepository:
             joinedload(Object.images).joinedload(Image.tags),
         ).filter(Object.review_status == 'accepted')
 
-        # General text search across type, description, material, findspot, inventory number, and tags
+        # General text search across core metadata, scholarly fields, and tags
         if search and search.strip():
             term = f"%{search.strip()}%"
             query = query.filter(
@@ -62,6 +90,14 @@ class ObjectRepository:
                     Object.description.ilike(term),
                     Object.material.ilike(term),
                     Object.findspot.ilike(term),
+                    Object.present_location.ilike(term),
+                    Object.production_location.ilike(term),
+                    Object.object_group.ilike(term),
+                    Object.publications.ilike(term),
+                    Object.inscription_1.ilike(term),
+                    Object.inscription_2.ilike(term),
+                    Object.completeness.ilike(term),
+                    Object.date_basis.ilike(term),
                     Object.inventory_number.ilike(term),
                     Object.images.any(Image.tags.any(Tag.tag_name.ilike(term))),
                 )
@@ -98,6 +134,44 @@ class ObjectRepository:
         if date_end is not None:
             query = query.filter(Object.date_start <= date_end)
 
+        is_desc = sort_order == "desc"
+        if sort_by == "date":
+            start_col = Object.date_start.desc() if is_desc else Object.date_start.asc()
+            end_col = Object.date_end.desc() if is_desc else Object.date_end.asc()
+            query = query.order_by(
+                start_col,
+                end_col,
+                func.lower(Object.object_type).asc(),
+                Object.id.asc(),
+            )
+        elif sort_by == "location":
+            loc_expr = func.coalesce(
+                func.nullif(Object.findspot, ""),
+                func.nullif(Object.production_location, ""),
+                func.nullif(Object.present_location, ""),
+            )
+            null_rank = case((loc_expr.is_(None), 1), else_=0).asc()
+            loc_col = func.lower(loc_expr).desc() if is_desc else func.lower(loc_expr).asc()
+            query = query.order_by(
+                null_rank,
+                loc_col,
+                func.lower(Object.object_type).asc(),
+                Object.id.asc(),
+            )
+        elif sort_by == "material":
+            mat_expr = func.nullif(Object.material, "")
+            null_rank = case((mat_expr.is_(None), 1), else_=0).asc()
+            mat_col = func.lower(mat_expr).desc() if is_desc else func.lower(mat_expr).asc()
+            query = query.order_by(
+                null_rank,
+                mat_col,
+                func.lower(Object.object_type).asc(),
+                Object.id.asc(),
+            )
+        else:  # Default: alphabetical by title
+            title_col = func.lower(Object.object_type).desc() if is_desc else func.lower(Object.object_type).asc()
+            query = query.order_by(title_col, Object.id.asc())
+
         results = query.offset(skip).limit(limit).all()
         return results
 
@@ -116,15 +190,33 @@ class ObjectRepository:
         ]
 
     def get_all_tags(self) -> List[str]:
-        """Fetch all unique tag names."""
+        """Fetch all unique tag names sorted alphabetically (case-insensitive)."""
         tags = self.db.query(Tag.tag_name).distinct().all()
-        return [tag[0] for tag in tags]
+        return sorted({tag[0] for tag in tags if tag[0]}, key=lambda t: (t.lower(), t))
         
     def get_pending_objects(self) -> List[Object]:
         """Fetch all objects awaiting admin review."""
         return self.db.query(Object).options(
             joinedload(Object.images).joinedload(Image.source)
         ).filter(Object.review_status == 'pending').order_by(Object.id.asc()).limit(50).all()
+
+    def _get_or_create_source_id(self, citation_text: str) -> int:
+        clean_citation = citation_text.strip()
+        existing = self.db.query(Source).filter(Source.citation_text == clean_citation).first()
+        if existing:
+            return existing.id
+        source = Source(citation_text=clean_citation)
+        self.db.add(source)
+        self.db.flush()
+        return source.id
+
+    def _build_image_model(self, img_data: dict, object_id: int) -> Image:
+        payload = dict(img_data)
+        citation = payload.pop("source_citation", None)
+        if isinstance(citation, str) and citation.strip():
+            payload["source_id"] = self._get_or_create_source_id(citation)
+        sanitized = {k: v for k, v in payload.items() if k in UPDATABLE_IMAGE_FIELDS}
+        return Image(**sanitized, object_id=object_id)
 
     def add_object(self, obj_data: dict, images_data: Optional[List[dict]] = None) -> Object:
         sanitized_data = {k: v for k, v in obj_data.items() if k in UPDATABLE_OBJECT_FIELDS}
@@ -135,10 +227,10 @@ class ObjectRepository:
         
         images_list = images_data or []
         for img in images_list:
-            db_img = Image(**img, object_id=db_obj.id)
+            db_img = self._build_image_model(img, db_obj.id)
             self.db.add(db_img)
         self.db.commit()
-        return db_obj
+        return self.get_by_id(db_obj.id) or db_obj
 
     def update_object(self, object_id: int, obj_data: dict, images_data: Optional[List[dict]] = None) -> Optional[Object]:
         db_obj = self.get_by_id(object_id)
@@ -152,12 +244,12 @@ class ObjectRepository:
         if images_data is not None:
             self.db.query(Image).filter(Image.object_id == object_id).delete()
             for img in images_data:
-                db_img = Image(**img, object_id=object_id)
+                db_img = self._build_image_model(img, object_id)
                 self.db.add(db_img)
             
         self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
+        self.db.expire(db_obj)
+        return self.get_by_id(object_id)
 
     def delete_object(self, object_id: int) -> bool:
         db_obj = self.get_by_id(object_id)

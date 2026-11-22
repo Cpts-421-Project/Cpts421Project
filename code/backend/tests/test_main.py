@@ -627,4 +627,273 @@ class TestSecurityAuditRemediations:
         assert "Logged out successfully" in response.json()["message"]
 
 
+class TestAlphabeticalTagsAndSearchSorting:
+    """Tests for alphabetical tag ordering, search sorting, and 0-899 CE filtering."""
+
+    def test_getTags_mixedCase_returnsAlphabeticalOrder(self, client):
+        # Arrange: seed additional mixed-case tags
+        db = TestingSessionLocal()
+        try:
+            db.add_all([Tag(tag_name="bronze"), Tag(tag_name="arch"), Tag(tag_name="Workshop")])
+            db.commit()
+        finally:
+            db.close()
+
+        # Act
+        response = client.get("/tags")
+
+        # Assert: case-insensitive alphabetical ordering
+        assert response.status_code == 200
+        assert response.json() == ["arch", "bronze", "Egyptian", "Roman", "Workshop"]
+
+    def test_search_defaultSort_returnsAlphabeticalByTitle(self, client):
+        # Arrange: seeded objects are Vase and Coin (both accepted)
+        # Act
+        response = client.get("/objects/search")
+
+        # Assert: Coin comes before Vase alphabetically
+        assert response.status_code == 200
+        titles = [item["object_type"] for item in response.json()]
+        assert titles == ["Coin", "Vase"]
+
+    def test_search_sortOptions_sortByTitleDescDateLocationAndMaterialWithNullsLast(self, client):
+        # Arrange: add a 3rd accepted object with NULL material and NULL location, dated 50 CE
+        db = TestingSessionLocal()
+        try:
+            obj3 = Object(
+                object_type="Amphora",
+                material=None,
+                findspot=None,
+                present_location=None,
+                production_location=None,
+                date_display="c. 50 CE",
+                date_start=50,
+                date_end=50,
+                inventory_number="INV003",
+                review_status="accepted",
+            )
+            db.add(obj3)
+            db.commit()
+        finally:
+            db.close()
+
+        # Act & Assert: title desc
+        res_title_desc = client.get("/objects/search?sort_by=title&sort_order=desc")
+        assert res_title_desc.status_code == 200
+        assert [o["object_type"] for o in res_title_desc.json()] == ["Vase", "Coin", "Amphora"]
+
+        # Act & Assert: date asc (Coin -150, Amphora 50, Vase 250)
+        res_date_asc = client.get("/objects/search?sort_by=date&sort_order=asc")
+        assert res_date_asc.status_code == 200
+        assert [o["object_type"] for o in res_date_asc.json()] == ["Coin", "Amphora", "Vase"]
+
+        # Act & Assert: date desc
+        res_date_desc = client.get("/objects/search?sort_by=date&sort_order=desc")
+        assert res_date_desc.status_code == 200
+        assert [o["object_type"] for o in res_date_desc.json()] == ["Vase", "Amphora", "Coin"]
+
+        # Act & Assert: location asc & desc always keep NULL location last
+        res_loc_asc = client.get("/objects/search?sort_by=location&sort_order=asc")
+        assert res_loc_asc.status_code == 200
+        assert [o["object_type"] for o in res_loc_asc.json()] == ["Coin", "Vase", "Amphora"]
+
+        res_loc_desc = client.get("/objects/search?sort_by=location&sort_order=desc")
+        assert res_loc_desc.status_code == 200
+        assert [o["object_type"] for o in res_loc_desc.json()] == ["Vase", "Coin", "Amphora"]
+
+        # Act & Assert: material asc keeps NULL material last (Clay, Gold, None)
+        res_mat_asc = client.get("/objects/search?sort_by=material&sort_order=asc")
+        assert res_mat_asc.status_code == 200
+        assert [o["object_type"] for o in res_mat_asc.json()] == ["Vase", "Coin", "Amphora"]
+
+    def test_search_dateRangeZeroTo899_handlesYearZeroBoundary(self, client):
+        # Arrange: add boundary object starting at year 0 CE
+        db = TestingSessionLocal()
+        try:
+            obj_zero = Object(
+                object_type="Augustan Lamp",
+                date_display="c. 0–50 CE",
+                date_start=0,
+                date_end=50,
+                inventory_number="INV-ZERO",
+                review_status="accepted",
+            )
+            db.add(obj_zero)
+            db.commit()
+        finally:
+            db.close()
+
+        # Act
+        res = client.get("/objects/search?date_start=0&date_end=899")
+
+        # Assert: Coin (-150..-50) excluded; Augustan Lamp (0..50) and Vase (250..350) included
+        assert res.status_code == 200
+        titles = [o["object_type"] for o in res.json()]
+        assert "Augustan Lamp" in titles
+        assert "Vase" in titles
+        assert "Coin" not in titles
+
+    def test_search_invalidSortBy_returns422(self, client):
+        # Act
+        res = client.get("/objects/search?sort_by=invalid_col")
+
+        # Assert
+        assert res.status_code == 422
+
+
+class TestTwoExcelSchemaAlignment:
+    """Tests for 2_excel fields, assembled caption, multi-image IDs, partial PUT, and Alembic migration."""
+
+    def test_createAndFetchObject_withFull2ExcelFields_returnsCaptionDimensionsAndImageIds(self, client):
+        # Arrange: login as admin
+        login_res = client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+        assert login_res.status_code == 200
+
+        payload = {
+            "object_type": "Roundel with gold-glass",
+            "material": "Gold-glass",
+            "findspot": "Rome",
+            "present_location": "Museo Biblioteca Apostolica Vaticana, Vatican City",
+            "production_location": "Rome",
+            "object_group": "Catacomb group",
+            "date_display": "c. 4th century CE",
+            "date_start": 300,
+            "date_end": 399,
+            "date_basis": "See Kisa 1908",
+            "inventory_number": "60788",
+            "description": "Six Craftworkers",
+            "width": 10.5,
+            "height": 10.5,
+            "depth": 0.6,
+            "unit": "cm",
+            "dimensions_display": "Diam. 10.5 cm",
+            "weight": "42 g",
+            "completeness": "Fragmentary, broken at the edges",
+            "inscription_present": True,
+            "inscription_1": "DAEDALUS",
+            "publications": "Kisa 1908; Meredith 2023b",
+            "external_url": "https://digi.vatlib.it/example",
+            "images": [
+                {
+                    "file_url": "",
+                    "image_type": "Line drawing",
+                    "view_type": "Full",
+                    "image_sequence": 1,
+                    "source_identifier": "Kisa 1908, fig. 357",
+                    "source_citation": "Kisa, Anton. Das Glas im Altertume. 1908.",
+                },
+                {
+                    "file_url": "",
+                    "image_type": "b+w photo",
+                    "view_type": "Full",
+                    "image_sequence": 2,
+                    "source_identifier": "Morey 1959, no. 96",
+                    "source_citation": "Morey, Charles Rufus. Gold-Glass Collection. 1959.",
+                },
+            ],
+        }
+
+        # Act
+        create_res = client.post("/objects", json=payload)
+        assert create_res.status_code == 200
+        created = create_res.json()
+        obj_id = created["id"]
+
+        fetch_res = client.get(f"/objects/{obj_id}")
+        assert fetch_res.status_code == 200
+        detail = fetch_res.json()
+
+        # Assert
+        assert detail["present_location"] == "Museo Biblioteca Apostolica Vaticana, Vatican City"
+        assert detail["width"] == 10.5
+        assert detail["completeness"] == "Fragmentary, broken at the edges"
+        assert detail["inscription_present"] is True
+        assert detail["inscription_1"] == "DAEDALUS"
+        assert detail["publications"] == "Kisa 1908; Meredith 2023b"
+        assert len(detail["images"]) == 2
+        assert detail["images"][0]["db_identifier"] == f"{obj_id}.1"
+        assert detail["images"][1]["db_identifier"] == f"{obj_id}.2"
+        assert detail["images"][0]["source_identifier"] == "Kisa 1908, fig. 357"
+        assert "Kisa, Anton." in detail["bibliography"][0]
+        assert "Six Craftworkers" in detail["assembled_caption"]
+        assert "Inscribed: DAEDALUS" in detail["assembled_caption"]
+        assert "inv. 60788" in detail["assembled_caption"]
+        assert "Museo Biblioteca Apostolica Vaticana" in detail["assembled_caption"]
+
+    def test_updateObject_partialPutWithoutImages_preservesExistingImages(self, client):
+        # Arrange: login as admin; object 1 already has 1 image
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+
+        # Act: PUT without images key (mirrors ReviewPage metadata save)
+        res = client.put(
+            "/objects/1",
+            json={
+                "object_type": "Vase",
+                "date_display": "c. 300 AD",
+                "date_start": 250,
+                "date_end": 350,
+                "present_location": "Test Museum Collection",
+            },
+        )
+
+        # Assert
+        assert res.status_code == 200
+        data = res.json()
+        assert data["present_location"] == "Test Museum Collection"
+        assert len(data["images"]) == 1
+
+    def test_createObject_invalidExternalUrl_returns422(self, client):
+        # Arrange
+        client.post("/auth/login", json={"username": "asafKedar", "password": "TestAdminPass!2026"})
+
+        # Act & Assert: non-HTTPS scheme rejected
+        for bad_url in ("http://example.com/item", "javascript:alert(1)"):
+            res = client.post(
+                "/objects",
+                json={
+                    "object_type": "Ring",
+                    "date_display": "c. 100 CE",
+                    "date_start": 100,
+                    "date_end": 100,
+                    "external_url": bad_url,
+                    "images": [],
+                },
+            )
+            assert res.status_code == 422
+
+    def test_alembicMigration_upgradeDowngradeUpgrade_isIdempotent(self, tmp_path, monkeypatch):
+        # Arrange: isolated SQLite database for Alembic revision chain verification
+        from pathlib import Path
+        from alembic.config import Config as AlembicConfig
+        from alembic import command
+        from sqlalchemy import inspect as sa_inspect
+        from src.config import config as app_config
+
+        db_file = tmp_path / "alembic_roundtrip.db"
+        db_url = f"sqlite:///{db_file}"
+        monkeypatch.setattr(app_config, "DATABASE_URL", db_url)
+
+        backend_dir = Path(__file__).resolve().parents[1]
+        alembic_cfg = AlembicConfig(str(backend_dir / "alembic.ini"))
+        alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+
+        # Act: upgrade to head, inspect, downgrade to previous rev, inspect, re-upgrade to head
+        command.upgrade(alembic_cfg, "head")
+        mig_engine = create_engine(db_url)
+        obj_cols_up = {c["name"] for c in sa_inspect(mig_engine).get_columns("objects")}
+        img_cols_up = {c["name"] for c in sa_inspect(mig_engine).get_columns("images")}
+        assert {"present_location", "publications", "caption", "external_url"}.issubset(obj_cols_up)
+        assert {"image_sequence", "source_identifier"}.issubset(img_cols_up)
+
+        command.downgrade(alembic_cfg, "e1a2b3c4d5e6")
+        obj_cols_down = {c["name"] for c in sa_inspect(mig_engine).get_columns("objects")}
+        assert "present_location" not in obj_cols_down
+
+        command.upgrade(alembic_cfg, "head")
+        obj_cols_reup = {c["name"] for c in sa_inspect(mig_engine).get_columns("objects")}
+        assert "present_location" in obj_cols_reup
+        mig_engine.dispose()
+
+
+
 
