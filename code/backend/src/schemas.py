@@ -147,9 +147,24 @@ class PredefinedMuseumResponse(BaseModel):
     default_limit: int
 
 
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _normalize_keyword(raw: Any) -> str:
+    """Normalize whitespace and reject control characters or oversized keywords."""
+    if not isinstance(raw, str):
+        raise ValueError("Keyword must be a string.")
+    if _CONTROL_CHAR_RE.search(raw):
+        raise ValueError("Keyword contains invalid control characters.")
+    cleaned = re.sub(r"\s+", " ", raw).strip()
+    if len(cleaned) > 80:
+        raise ValueError("Each keyword must be 80 characters or fewer.")
+    return cleaned
+
+
 class DiscoverySearchRequest(BaseModel):
     museums: List[MuseumKey] = Field(min_length=1, max_length=4)
-    keywords: List[str] = Field(min_length=1, max_length=10)
+    keywords: List[str] = Field(min_length=1, max_length=50)
     date_start: int = Field(0, ge=-5000, le=2026)
     date_end: int = Field(899, ge=-5000, le=2026)
     limit_per_museum: int = Field(10, ge=1, le=25)
@@ -173,11 +188,9 @@ class DiscoverySearchRequest(BaseModel):
         seen = set()
         cleaned: List[str] = []
         for raw in v:
-            kw = raw.strip() if isinstance(raw, str) else ""
+            kw = _normalize_keyword(raw) if isinstance(raw, str) else ""
             if not kw:
                 continue
-            if len(kw) > 80:
-                raise ValueError("Each keyword must be 80 characters or fewer.")
             low = kw.lower()
             if low not in seen:
                 seen.add(low)
@@ -291,3 +304,21 @@ class DiscoveryImportResponse(BaseModel):
     imported_objects: List[DiscoveryImportedItem]
     skipped_inventory_numbers: List[str] = []
     errors: List[str] = []
+
+
+class DiscoveryKeywordCreate(BaseModel):
+    keyword: str = Field(..., min_length=1, max_length=80)
+
+    @field_validator("keyword")
+    @classmethod
+    def validate_keyword(cls, v: str) -> str:
+        cleaned = _normalize_keyword(v)
+        if not cleaned:
+            raise ValueError("Keyword cannot be empty.")
+        return cleaned
+
+
+class DiscoveryKeywordResponse(BaseModel):
+    keyword: str
+    keywords: List[str]
+    created: bool

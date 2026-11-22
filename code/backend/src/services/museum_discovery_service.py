@@ -18,8 +18,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import config
+from ..exceptions import ValidationError
 from ..logger import app_logger
-from ..models import Image, Object, Source, Tag
+from ..models import DiscoveryKeyword, Image, Object, Source, Tag
 from ..schemas import (
     DiscoveryCandidate,
     DiscoverySearchRequest,
@@ -29,6 +30,7 @@ from ..url_validator import ALLOWED_API_DOMAINS, is_safe_image_url, validate_url
 from .object_service import build_assembled_caption
 from .s3_service import download_and_store_image
 
+MAX_SAVED_KEYWORDS = 200
 USER_AGENT = "AcademicArtifactDB/1.0 (Research Project)"
 DEFAULT_KEYWORDS: List[str] = [
     "craftsman",
@@ -1290,12 +1292,113 @@ class MuseumDiscoveryService:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_saved_keywords(self) -> List[str]:
+        """Return persisted discovery keywords ordered by creation, bootstrapping defaults if empty."""
+        rows = self.db.query(DiscoveryKeyword).order_by(DiscoveryKeyword.id.asc()).all()
+        if not rows:
+            for default_kw in DEFAULT_KEYWORDS:
+                self.db.add(DiscoveryKeyword(keyword=default_kw, is_default=True))
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+            rows = self.db.query(DiscoveryKeyword).order_by(DiscoveryKeyword.id.asc()).all()
+        return [row.keyword for row in rows]
+
+    def add_keyword(self, raw_keyword: str) -> Dict[str, Any]:
+        """Persist a new discovery keyword case-insensitively with bounded capacity."""
+        self.get_saved_keywords()
+        clean = _clean_text(raw_keyword)
+        if not clean or len(clean) > 80:
+            raise ValidationError("Keyword must be between 1 and 80 characters.")
+
+        existing = (
+            self.db.query(DiscoveryKeyword)
+            .filter(func.lower(DiscoveryKeyword.keyword) == clean.lower())
+            .first()
+        )
+        if existing:
+            return {
+                "keyword": existing.keyword,
+                "keywords": self.get_saved_keywords(),
+                "created": False,
+            }
+
+        current_count = self.db.query(func.count(DiscoveryKeyword.id)).scalar() or 0
+        if current_count >= MAX_SAVED_KEYWORDS:
+            raise ValidationError(f"Maximum of {MAX_SAVED_KEYWORDS} saved keywords reached.")
+
+        self.db.add(DiscoveryKeyword(keyword=clean, is_default=False))
+        try:
+            self.db.commit()
+            created = True
+            saved_kw = clean
+        except IntegrityError:
+            self.db.rollback()
+            created = False
+            fallback = (
+                self.db.query(DiscoveryKeyword)
+                .filter(func.lower(DiscoveryKeyword.keyword) == clean.lower())
+                .first()
+            )
+            saved_kw = fallback.keyword if fallback else clean
+
+        return {
+            "keyword": saved_kw,
+            "keywords": self.get_saved_keywords(),
+            "created": created,
+        }
+
+    def save_keywords(self, keywords: List[str]) -> List[str]:
+        """Idempotently persist any new keywords used in a discovery search."""
+        existing_words = self.get_saved_keywords()
+        existing_lower = {kw.lower() for kw in existing_words}
+        current_count = len(existing_words)
+        added_any = False
+
+        for raw in keywords:
+            clean = _clean_text(raw)
+            if not clean or len(clean) > 80 or clean.lower() in existing_lower:
+                continue
+            if current_count >= MAX_SAVED_KEYWORDS:
+                break
+            self.db.add(DiscoveryKeyword(keyword=clean, is_default=False))
+            existing_lower.add(clean.lower())
+            current_count += 1
+            added_any = True
+
+        if added_any:
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+
+        return self.get_saved_keywords()
+
+    def delete_keyword(self, raw_keyword: str) -> bool:
+        """Remove a saved discovery keyword case-insensitively."""
+        clean = _clean_text(raw_keyword)
+        if not clean:
+            return False
+        existing = (
+            self.db.query(DiscoveryKeyword)
+            .filter(func.lower(DiscoveryKeyword.keyword) == clean.lower())
+            .first()
+        )
+        if not existing:
+            return False
+        self.db.delete(existing)
+        self.db.commit()
+        return True
+
     def list_museums(self) -> List[Dict[str, Any]]:
-        """Return predefined museum specifications and default search parameters."""
-        return PREDEFINED_MUSEUMS
+        """Return predefined museum specifications with persisted discovery keywords."""
+        saved_keywords = self.get_saved_keywords()
+        return [{**museum, "default_keywords": list(saved_keywords)} for museum in PREDEFINED_MUSEUMS]
 
     def discover(self, request: DiscoverySearchRequest) -> Dict[str, Any]:
-        """Query selected predefined museums and filter out artifacts already in the DB."""
+        """Persist new search keywords, query selected predefined museums, and skip duplicates."""
+        self.save_keywords(request.keywords)
         index = ExistingArtifactIndex(self.db)
         all_candidates: List[Dict[str, Any]] = []
         reports: List[Dict[str, Any]] = []

@@ -39,7 +39,7 @@
 | Auth, cookies, bot defense, rate limits, SSRF, uploads, schema privileges | [security_and_defense.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/security_and_defense.md) |
 | Seed SQL/JSON, artifact catalog, `seed_db.py` pipeline, scrapers, URL normalization | [data_and_catalog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/data_and_catalog.md) |
 | Debugging, migrations, regressions — check `INV-*` before changing infra/security | [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md) |
-| "When/why did we change X?" — Cycles 4–27 history | [archive.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/archive.md) |
+| "When/why did we change X?" — Cycles 4–28 history | [archive.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/archive.md) |
 
 **Expansion protocol:** new domain → new node in `.agents/memory/` with a backlink to `MEMORY.md` + a row above. New root-cause bug → new `INV-<AREA>-NN` row in `lessons_and_invariants.md`. Cycles leaving the rolling window → `archive.md`.
 
@@ -48,7 +48,7 @@
 - [main.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/main.py): Routes, middleware (trace ID, CORS, rate limit, bot defense), auth endpoints, `/api/images/{key}` proxy, honeypots, `/robots.txt`.
 - [config.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/config.py): Env config; `postgres://` normalization; MinIO/AWS/Railway bucket aliases.
 - [database.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/database.py): SQLAlchemy engine, session factory, declarative base.
-- [models.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/models.py): `User`, `Source`, `Tag`, `Image`, `Object`, `image_tags`.
+- [models.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/models.py): `User`, `Source`, `Tag`, `Image`, `Object`, `DiscoveryKeyword`, `image_tags`.
 - [schema.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/schema.sql): Reference DDL (Alembic is the source of truth).
 - [schemas.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/schemas.py): Pydantic I/O; `UserLogin` honeypots; `ReviewUpdate` `Literal`; `ImageResponse.normalize_file_url`.
 - [auth.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/src/auth.py): bcrypt hashing, JWT creation, cookie auth dependencies.
@@ -70,7 +70,7 @@
 
 ### Backend ops & data
 - [seed_db.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/seed_db.py): Idempotent boot seeder (SQL, legacy URL rewrite, bucket migration, admins).
-- [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/Dockerfile), [requirements.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/requirements.txt), `alembic/versions/` (`d86f7k1a32b9_initial_schema.py`, `e1a2b3c4d5e6_add_review_status_to_objects.py`, `f2b3c4d5e6f7_align_schema_with_2_excel.py`).
+- [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/Dockerfile), [requirements.txt](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/requirements.txt), `alembic/versions/` (`d86f7k1a32b9_initial_schema.py`, `e1a2b3c4d5e6_add_review_status_to_objects.py`, `f2b3c4d5e6f7_align_schema_with_2_excel.py`, `a1b2c3d4e5f8_add_discovery_keywords_table.py`).
 - `data/`: [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) (all 61), `met_ancient_workers.{json,sql}`, `bm_ancient_workers.{json,sql}`, `images/` — see `data_and_catalog.md`.
 
 ### Backend tests — `code/backend/tests/`
@@ -101,7 +101,7 @@ Touching one column? Check every other column in the same row.
 | :--- | :--- | :--- | :--- | :--- |
 | Search & tags | `main.py` `/objects/search`, `/tags` → `object_service` → `object_repository` | `useArtifacts`, `useTags`, `SearchPage`, `FilterSidebar`, `ArtifactGrid`, `api.js` serializer | `test_main.py::TestSearchAndTags`, `ArtifactGrid.test.jsx` | api-response, architecture node, INV-DB-03, INV-NET-03 |
 | Object detail/edit/review | `/objects/{id}`, `PATCH /objects/{id}/review`, `schemas.ReviewUpdate` | `useObject`, `ObjectPage`, `EditObjectPage`, `ReviewPage` | `test_main.py::TestSecurityAuditRemediations` | security (mass assignment), INV-DB-04 |
-| Admin museum discovery | `/admin/discovery/{museums,search,import}`, `museum_discovery_service`, `url_validator` | `DiscoveryPage`, `Layout`, `App` | `test_museum_discovery.py`, `DiscoveryPage.test.jsx` | security + data nodes, INV-SEC-01, INV-UI-01 |
+| Admin museum discovery | `/admin/discovery/{museums,keywords,search,import}`, `museum_discovery_service`, `url_validator` | `DiscoveryPage`, `Layout`, `App` | `test_museum_discovery.py`, `DiscoveryPage.test.jsx` | security + data nodes, INV-SEC-01, INV-UI-01 |
 | Map | `/objects/map` → `object_service.get_map_data` | `useMapData`, `MapPage`, `MapVisualizer` | `test_main.py` | production (defensive DB errors) |
 | Auth & sessions | `/auth/login`, `/auth/logout`, `auth.py`, `bot_defense.LoginRateLimiter` | `AuthContext`, `LoginPage` | `test_main.py::TestAuthLogin`, `test_bot_defense.py` | security node |
 | Anti-bot | `bot_defense.py`, middleware, `/bot-trap` | `Layout` trap link, `robots.txt`, `nginx.conf.template` | `test_bot_defense.py` | security node, INV-SEC-03 |
@@ -111,15 +111,15 @@ Touching one column? Check every other column in the same row.
 | Memory system | `.agents/scripts/memory_manager.py` | — | `test_memory_integrity.py` | memory-backlog, INV-MEM-01 |
 
 ## [RECENT CHANGES]
-- **Cycle 28 (2_excel Alignment, Sorting, Alphabetical Tags, 0–899 CE Focus & Zoomable Lightbox):**
-  - Extended `Object` & `Image` schema (`f2b3c4d5e6f7`), exposed `width`/`height`/`depth`/`unit`, multi-image `db_identifier`, `assembled_caption`, and `ObjectUpdate.images = None` (`exclude_unset=True`).
-  - Added alphabetical `/tags`, configurable `/objects/search` sorting (`title:asc` default, `date`, `location`, `material`), `0–899 CE` focus preset & `0 CE` bugfix, Vatican gold-glass `60788` seed + location/coord backfills, and native `<dialog>` zoom/pan `ImageLightbox`.
-  - Documented `INV-DB-05` & `INV-UI-01`; archived Cycle 25 to `archive.md`.
 - **Cycle 29 (Admin Predefined Museum Discovery & Duplicate-Safe Import):**
   - Expanded SSRF allowlists (`url_validator.py`) and built `museum_discovery_service.py` (`met` v1.1, `cma`, `aic`, `vam` adapters, `ExistingArtifactIndex` deduplication, full `2_excel` field population, S3 caching, pending staging) + `/admin/discovery/{museums,search,import}` in `main.py`.
   - Added `/admin/discover` (`DiscoveryPage.jsx`, `Layout.jsx`, `App.jsx`) with editable keywords, date range (`0–899 CE` default), candidate preview cards, and Review Queue import; added `test_museum_discovery.py` & `DiscoveryPage.test.jsx`; archived Cycle 26 to `archive.md`.
 - **Cycle 30 (Authoritative Missing-Metadata Backfill Without Fabrication):**
   - Backfilled verified fields in [filtered_small.sql](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/data/filtered_small.sql) using `COALESCE`/placeholder guards across all 61 objects (`61/61` material, real dates, `date_basis`, `dimensions_display`; `39` Met `external_url`s & `source_identifier`s; verified BM epigraphy/`publications`; Vatican `60788` Morey & Ferrari / Catacomb of San Saturnino dims & material; `63/63` `image_sequence`); fixed Met `Weight` (`kg`) & depth fallback in `museum_discovery_service.py`, prioritized backend SQL in `seed_db.py`, added completeness tests in `test_seed_db.py`, and archived Cycle 27 to `archive.md`.
+- **Cycle 31 (Persistent Discovery Search Keywords Across Sessions):**
+  - Added `DiscoveryKeyword` model (`models.py`), DDL (`schema.sql`), and Alembic revision `a1b2c3d4e5f8_add_discovery_keywords_table.py` (with idempotent default seeding).
+  - Implemented `get_saved_keywords`, `add_keyword` (`MAX_SAVED_KEYWORDS = 200`), `save_keywords`, and `delete_keyword` in `museum_discovery_service.py`, wired into `list_museums`, `discover`, and `/admin/discovery/keywords` (`GET`/`POST`/`DELETE` 204) in `main.py` & `schemas.py`.
+  - Updated [DiscoveryPage.jsx](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/src/pages/DiscoveryPage.jsx) to persist additions/removals & pending input on search, preserve HTTP 204 safety, and expose accessible status feedback; expanded `test_museum_discovery.py`, `test_main.py`, & `DiscoveryPage.test.jsx`; archived Cycle 28 to `archive.md`.
 
 ## [ACTIVE BACKLOG]
 ### [BLOCKED]

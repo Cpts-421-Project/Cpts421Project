@@ -34,6 +34,8 @@ const DiscoveryPage = () => {
     const [selectedMuseums, setSelectedMuseums] = useState(['met', 'cma', 'aic', 'vam']);
     const [keywords, setKeywords] = useState(DEFAULT_KEYWORDS);
     const [keywordInput, setKeywordInput] = useState('');
+    const [savingKeyword, setSavingKeyword] = useState(false);
+    const [keywordStatus, setKeywordStatus] = useState('');
     const [dateStart, setDateStart] = useState(0);
     const [dateEnd, setDateEnd] = useState(899);
     const [limitPerMuseum, setLimitPerMuseum] = useState(10);
@@ -100,6 +102,11 @@ const DiscoveryPage = () => {
         return errs;
     };
 
+    const syncSavedKeywords = (nextList) => {
+        setKeywords(nextList);
+        setMuseums((prev) => prev.map((m) => ({ ...m, default_keywords: nextList })));
+    };
+
     const handleToggleMuseum = (museumId) => {
         const next = selectedMuseums.includes(museumId)
             ? selectedMuseums.filter((id) => id !== museumId)
@@ -110,17 +117,38 @@ const DiscoveryPage = () => {
         }
     };
 
-    const handleAddKeyword = () => {
-        const trimmed = keywordInput.trim();
-        if (!trimmed) return;
-        if (!keywords.some((kw) => kw.toLowerCase() === trimmed.toLowerCase())) {
-            const nextKeywords = [...keywords, trimmed];
-            setKeywords(nextKeywords);
+    const handleAddKeyword = async () => {
+        const trimmed = keywordInput.replace(/\s+/g, ' ').trim();
+        if (!trimmed) return keywords;
+
+        if (keywords.some((kw) => kw.toLowerCase() === trimmed.toLowerCase())) {
+            setKeywordInput('');
+            setKeywordStatus(`Keyword "${trimmed}" is already saved.`);
+            return keywords;
+        }
+
+        setSavingKeyword(true);
+        setApiError('');
+        setKeywordStatus('');
+
+        try {
+            const response = await api.post('/admin/discovery/keywords', { keyword: trimmed });
+            const nextKeywords = Array.isArray(response?.data?.keywords)
+                ? response.data.keywords
+                : [...keywords, trimmed];
+            syncSavedKeywords(nextKeywords);
+            setKeywordInput('');
+            setKeywordStatus(`Saved "${trimmed}" for future searches.`);
             if (validationErrors.keywords) {
                 setValidationErrors((prev) => ({ ...prev, keywords: undefined }));
             }
+            return nextKeywords;
+        } catch (err) {
+            setApiError(err.response?.data?.detail || err.message || 'Failed to save keyword.');
+            return null;
+        } finally {
+            setSavingKeyword(false);
         }
-        setKeywordInput('');
     };
 
     const handleKeywordKeyDown = (e) => {
@@ -131,8 +159,21 @@ const DiscoveryPage = () => {
         }
     };
 
-    const handleRemoveKeyword = (kwToRemove) => {
-        setKeywords((prev) => prev.filter((kw) => kw !== kwToRemove));
+    const handleRemoveKeyword = async (kwToRemove) => {
+        setApiError('');
+        setKeywordStatus('');
+        try {
+            const response = await api.delete('/admin/discovery/keywords', {
+                params: { keyword: kwToRemove },
+            });
+            if (response?.status === 204 || !response || response.status < 300) {
+                const nextKeywords = keywords.filter((kw) => kw !== kwToRemove);
+                syncSavedKeywords(nextKeywords);
+                setKeywordStatus(`Removed "${kwToRemove}" from saved keywords.`);
+            }
+        } catch (err) {
+            setApiError(err.response?.data?.detail || err.message || 'Failed to remove keyword.');
+        }
     };
 
     const handleResetDefaults = () => {
@@ -144,6 +185,7 @@ const DiscoveryPage = () => {
         setSelectedMuseums(museums.length > 0 ? museums.map((m) => m.id) : ['met', 'cma', 'aic', 'vam']);
         setKeywords([...defaultKeywords]);
         setKeywordInput('');
+        setKeywordStatus('');
         setDateStart(defaultStart);
         setDateEnd(defaultEnd);
         setLimitPerMuseum(defaultLimit);
@@ -161,7 +203,14 @@ const DiscoveryPage = () => {
         setApiError('');
         setImportResult(null);
 
-        const errs = validateForm();
+        let effectiveKeywords = keywords;
+        if (keywordInput.trim()) {
+            const added = await handleAddKeyword();
+            if (added === null) return;
+            effectiveKeywords = added;
+        }
+
+        const errs = validateForm(selectedMuseums, effectiveKeywords, dateStart, dateEnd);
         if (Object.keys(errs).length > 0) {
             setValidationErrors(errs);
             return;
@@ -172,7 +221,7 @@ const DiscoveryPage = () => {
         try {
             const response = await api.post('/admin/discovery/search', {
                 museums: selectedMuseums,
-                keywords,
+                keywords: effectiveKeywords,
                 date_start: Number(dateStart),
                 date_end: Number(dateEnd),
                 limit_per_museum: Number(limitPerMuseum) || 10,
@@ -385,7 +434,18 @@ const DiscoveryPage = () => {
                         </fieldset>
 
                         {/* Editable Keywords */}
-                        <fieldset className="space-y-3" aria-describedby={validationErrors.keywords ? 'keywords-error' : undefined}>
+                        <fieldset
+                            className="space-y-3"
+                            aria-describedby={
+                                [
+                                    'keyword-help',
+                                    keywordStatus ? 'keyword-status' : null,
+                                    validationErrors.keywords ? 'keywords-error' : null,
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')
+                            }
+                        >
                             <legend className="text-sm font-semibold text-gray-800">
                                 Search Keywords ({keywords.length})
                             </legend>
@@ -399,7 +459,13 @@ const DiscoveryPage = () => {
                                         id="keyword-input"
                                         name="keyword"
                                         type="text"
+                                        maxLength={80}
+                                        autoCorrect="off"
+                                        autoCapitalize="none"
+                                        spellCheck={false}
+                                        enterKeyHint="done"
                                         value={keywordInput}
+                                        aria-describedby="keyword-help"
                                         onChange={(e) => setKeywordInput(e.target.value)}
                                         onKeyDown={handleKeywordKeyDown}
                                         placeholder="e.g. gold-glass, amphora, potter"
@@ -408,12 +474,23 @@ const DiscoveryPage = () => {
                                 </div>
                                 <button
                                     type="button"
+                                    disabled={savingKeyword}
                                     onClick={handleAddKeyword}
-                                    className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
+                                    className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 disabled:opacity-60"
                                 >
-                                    Add Keyword
+                                    {savingKeyword ? 'Saving...' : 'Add Keyword'}
                                 </button>
                             </div>
+
+                            <p id="keyword-help" className="text-xs text-gray-500">
+                                Added keywords are saved automatically for future searches (up to 80 characters).
+                            </p>
+
+                            {keywordStatus && (
+                                <p id="keyword-status" role="status" aria-live="polite" className="text-xs text-emerald-700">
+                                    {keywordStatus}
+                                </p>
+                            )}
 
                             <div className="flex flex-wrap gap-2">
                                 {keywords.map((kw) => (

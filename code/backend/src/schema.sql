@@ -100,3 +100,11 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     is_admin BOOLEAN DEFAULT FALSE
 );
+
+-- 1.7 DISCOVERY_KEYWORDS
+-- Persistent saved search keywords for predefined museum discovery
+CREATE TABLE discovery_keywords (
+    id SERIAL PRIMARY KEY,
+    keyword VARCHAR(80) UNIQUE NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE
+);

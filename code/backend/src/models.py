@@ -87,3 +87,10 @@ class Object(Base):
     # Relationships
     images = relationship("Image", backref="object", cascade="all, delete-orphan")
 
+
+class DiscoveryKeyword(Base):
+    __tablename__ = "discovery_keywords"
+    id = Column(Integer, primary_key=True, index=True)
+    keyword = Column(String(80), unique=True, nullable=False, index=True)
+    is_default = Column(Boolean, nullable=False, default=False)
+

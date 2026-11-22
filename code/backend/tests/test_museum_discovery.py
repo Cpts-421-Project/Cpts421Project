@@ -504,3 +504,71 @@ class TestDiscoveryEdgeAndExtraordinaryCases:
 
         # Assert
         assert res.status_code == 422
+
+
+class TestPersistentDiscoveryKeywords:
+    """Normal, Edge, and Extraordinary tests for persistent /admin/discovery/keywords."""
+
+    def test_keywords_unauthenticated_return401(self, client):
+        # Act & Assert
+        assert client.get("/admin/discovery/keywords").status_code == 401
+        assert client.post("/admin/discovery/keywords", json={"keyword": "gold-glass"}).status_code == 401
+        assert client.delete("/admin/discovery/keywords", params={"keyword": "gold-glass"}).status_code == 401
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_keywords_addPersistsAcrossMuseumsListAndSearchAndDeleteRemoves(self, mock_get, client):
+        # Arrange
+        _login_admin(client)
+        mock_get.return_value = _mock_response({"data": []})
+
+        # Act 1 (Normal): Explicitly add a keyword
+        add_res = client.post("/admin/discovery/keywords", json={"keyword": "  gold-glass  "})
+        assert add_res.status_code == 200
+        add_data = add_res.json()
+        assert add_data["keyword"] == "gold-glass"
+        assert add_data["created"] is True
+        assert "gold-glass" in add_data["keywords"]
+
+        # Assert 1: Saved keyword appears in both /keywords and /museums default_keywords
+        assert "gold-glass" in client.get("/admin/discovery/keywords").json()
+        museums = client.get("/admin/discovery/museums").json()
+        assert all("gold-glass" in m["default_keywords"] for m in museums)
+
+        # Act 2 (Edge): Re-adding case-insensitively does not duplicate
+        dup_res = client.post("/admin/discovery/keywords", json={"keyword": "  GOLD-GLASS  "})
+        assert dup_res.status_code == 200
+        assert dup_res.json()["created"] is False
+        assert sum(1 for k in dup_res.json()["keywords"] if k.lower() == "gold-glass") == 1
+
+        # Act 3 (Normal): Implicit persistence when running a search with a new keyword
+        search_res = client.post("/admin/discovery/search", json={
+            "museums": ["cma"],
+            "keywords": ["mosaic", "gold-glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+        assert search_res.status_code == 200
+        assert "mosaic" in client.get("/admin/discovery/keywords").json()
+
+        # Act 4 (Normal): Removing a keyword persists removal (HTTP 204)
+        del_res = client.delete("/admin/discovery/keywords", params={"keyword": "gold-glass"})
+        assert del_res.status_code == 204
+        assert "gold-glass" not in client.get("/admin/discovery/keywords").json()
+        assert "mosaic" in client.get("/admin/discovery/keywords").json()
+
+    def test_keywords_extraordinaryBlankAndTooLongAndMaxCap_rejected(self, client, monkeypatch):
+        # Arrange
+        _login_admin(client)
+        from src.services import museum_discovery_service
+
+        # Act & Assert: blank, control chars, >80 chars -> 422
+        assert client.post("/admin/discovery/keywords", json={"keyword": "   "}).status_code == 422
+        assert client.post("/admin/discovery/keywords", json={"keyword": "bad\x00kw"}).status_code == 422
+        assert client.post("/admin/discovery/keywords", json={"keyword": "x" * 81}).status_code == 422
+
+        # Act & Assert: exceeding MAX_SAVED_KEYWORDS -> 400 ValidationError
+        monkeypatch.setattr(museum_discovery_service, "MAX_SAVED_KEYWORDS", 8)
+        cap_res = client.post("/admin/discovery/keywords", json={"keyword": "mosaic"})
+        assert cap_res.status_code == 400
+        assert "Maximum of 8" in cap_res.json()["detail"]

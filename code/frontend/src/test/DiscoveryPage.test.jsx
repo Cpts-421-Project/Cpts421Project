@@ -12,6 +12,7 @@ vi.mock('../services/api', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -47,10 +48,33 @@ beforeEach(() => {
 });
 
 describe('DiscoveryPage', () => {
-  it('normal_loadsMuseumsEditsKeywordsDiscoversAndImportsSelected', async () => {
+  it('normal_loadsMuseumsEditsAndPersistsKeywordsDiscoversAndImportsSelected', async () => {
     // Arrange
-    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
-    api.post.mockImplementation((url) => {
+    let persistedKeywords = ['craftsman', 'glass'];
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/discovery/museums') {
+        return Promise.resolve({
+          data: MOCK_MUSEUMS.map((m) => ({ ...m, default_keywords: [...persistedKeywords] })),
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.delete.mockImplementation((url, { params }) => {
+      if (url === '/admin/discovery/keywords') {
+        persistedKeywords = persistedKeywords.filter((k) => k !== params.keyword);
+        return Promise.resolve({ status: 204, data: '' });
+      }
+      return Promise.resolve({ status: 204, data: '' });
+    });
+    api.post.mockImplementation((url, body) => {
+      if (url === '/admin/discovery/keywords') {
+        if (!persistedKeywords.some((k) => k.toLowerCase() === body.keyword.toLowerCase())) {
+          persistedKeywords = [...persistedKeywords, body.keyword];
+        }
+        return Promise.resolve({
+          data: { keyword: body.keyword, keywords: [...persistedKeywords], created: true },
+        });
+      }
       if (url === '/admin/discovery/search') {
         return Promise.resolve({
           data: {
@@ -123,7 +147,7 @@ describe('DiscoveryPage', () => {
       return Promise.resolve({ data: {} });
     });
 
-    render(
+    const { unmount } = render(
       <MemoryRouter>
         <DiscoveryPage />
       </MemoryRouter>
@@ -136,13 +160,21 @@ describe('DiscoveryPage', () => {
     expect(screen.getByLabelText(/Start Year/i)).toHaveValue(0);
     expect(screen.getByLabelText(/End Year/i)).toHaveValue(899);
 
-    // Add a keyword and remove one
+    // Add a keyword (persisted via POST) and remove one (persisted via DELETE 204)
     const kwInput = screen.getByLabelText(/Add keyword/i);
     fireEvent.change(kwInput, { target: { value: 'gold-glass' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add Keyword' }));
-    expect(screen.getByText('gold-glass')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('gold-glass')).toBeInTheDocument();
+    });
+    expect(api.post).toHaveBeenCalledWith('/admin/discovery/keywords', { keyword: 'gold-glass' });
+
     fireEvent.click(screen.getByLabelText('Remove keyword craftsman'));
-    expect(screen.queryByText('craftsman')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('craftsman')).not.toBeInTheDocument();
+    });
+    expect(api.delete).toHaveBeenCalledWith('/admin/discovery/keywords', { params: { keyword: 'craftsman' } });
 
     // Act: Submit discovery search
     fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
@@ -165,11 +197,31 @@ describe('DiscoveryPage', () => {
         candidates: [expect.objectContaining({ inventory_number: '1985.12' })],
       })
     );
+
+    // Remount page to confirm added keyword is kept for future sessions
+    unmount();
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+    await waitFor(() => {
+      expect(screen.getByText('gold-glass')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('craftsman')).not.toBeInTheDocument();
   });
 
   it('edge_validatesInvertedDatesAndGuardsImeCompositionOnEnter', async () => {
     // Arrange
     api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    api.post.mockImplementation((url, body) => {
+      if (url === '/admin/discovery/keywords') {
+        return Promise.resolve({
+          data: { keyword: body.keyword, keywords: ['craftsman', 'glass', body.keyword], created: true },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
 
     render(
       <MemoryRouter>
@@ -186,25 +238,34 @@ describe('DiscoveryPage', () => {
     fireEvent.change(kwInput, { target: { value: 'amphora' } });
     fireEvent.keyDown(kwInput, { key: 'Enter', isComposing: true, keyCode: 229 });
     expect(screen.queryByText('amphora')).not.toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
 
-    // Act 2: Non-composing Enter adds keyword
+    // Act 2: Non-composing Enter adds and persists keyword
     fireEvent.keyDown(kwInput, { key: 'Enter' });
-    expect(screen.getByText('amphora')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('amphora')).toBeInTheDocument();
+    });
+    expect(api.post).toHaveBeenCalledWith('/admin/discovery/keywords', { keyword: 'amphora' });
 
-    // Act 3: Set inverted dates and submit -> shows aria-invalid validation error without API call
+    // Act 3: Set inverted dates and submit -> shows aria-invalid validation error without search API call
     const startInput = screen.getByLabelText(/Start Year/i);
     fireEvent.change(startInput, { target: { value: '950' } });
     fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
 
     expect(await screen.findByText(/Start Year must be less than or equal to End Year/i)).toBeInTheDocument();
     expect(startInput).toHaveAttribute('aria-invalid', 'true');
-    expect(api.post).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalledWith('/admin/discovery/search', expect.anything());
   });
 
-  it('extraordinary_displaysVisibleErrorAlertWhenSearchFails', async () => {
+  it('extraordinary_displaysVisibleErrorAlertWhenSearchOrKeywordSaveFails', async () => {
     // Arrange
     api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
-    api.post.mockRejectedValueOnce({ response: { data: { detail: 'Museum gateway unreachable' } } });
+    api.post.mockImplementation((url) => {
+      if (url === '/admin/discovery/keywords') {
+        return Promise.reject({ response: { data: { detail: 'Keyword storage failed' } } });
+      }
+      return Promise.reject({ response: { data: { detail: 'Museum gateway unreachable' } } });
+    });
 
     render(
       <MemoryRouter>
@@ -216,7 +277,15 @@ describe('DiscoveryPage', () => {
       expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
     });
 
-    // Act
+    // Act 1: Keyword save fails -> shows alert and keeps input value
+    const kwInput = screen.getByLabelText(/Add keyword/i);
+    fireEvent.change(kwInput, { target: { value: 'enamel' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Keyword' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Keyword storage failed');
+    expect(screen.queryByText('enamel')).not.toBeInTheDocument();
+
+    // Clear typed input and test search failure alert
+    fireEvent.change(kwInput, { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
 
     // Assert

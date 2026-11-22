@@ -26,6 +26,8 @@ from .schemas import (
     DiscoverySearchResponse,
     DiscoveryImportRequest,
     DiscoveryImportResponse,
+    DiscoveryKeywordCreate,
+    DiscoveryKeywordResponse,
 )
 from .services.object_service import ObjectService
 from .services.museum_discovery_service import MuseumDiscoveryService
@@ -397,6 +399,33 @@ async def get_pending_objects(db: Session = Depends(get_db), current_user: User 
 async def get_discovery_museums(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = MuseumDiscoveryService(db)
     return await run_in_threadpool(service.list_museums)
+
+
+@app.get("/admin/discovery/keywords", response_model=List[str])
+async def get_discovery_keywords(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.get_saved_keywords)
+
+
+@app.post("/admin/discovery/keywords", response_model=DiscoveryKeywordResponse)
+async def add_discovery_keyword(
+    keyword_request: DiscoveryKeywordCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.add_keyword, keyword_request.keyword)
+
+
+@app.delete("/admin/discovery/keywords", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_discovery_keyword(
+    keyword: str = Query(..., min_length=1, max_length=80),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    await run_in_threadpool(service.delete_keyword, keyword)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/admin/discovery/search", response_model=DiscoverySearchResponse)

@@ -1,4 +1,4 @@
-# Historical Execution Ledger (Cycles 4–27 Archive)
+# Historical Execution Ledger (Cycles 4–28 Archive)
 
 > **Connected Hub:** [MEMORY.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/MEMORY.md) | **Domain Nodes:** [architecture_and_infra.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/architecture_and_infra.md), [security_and_defense.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/security_and_defense.md), [data_and_catalog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/data_and_catalog.md), [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md)
 
@@ -6,7 +6,12 @@ This archive preserves the full chronological execution history compacted out of
 
 ---
 
-## Cycles 21–27: Security Hardening, Memory Architecture & Curated Catalog
+## Cycles 21–28: Security Hardening, Memory Architecture & Catalog Alignment
+
+- **Cycle 28 (2_excel Alignment, Sorting, Alphabetical Tags, 0–899 CE Focus & Zoomable Lightbox):**
+  - Extended `Object` & `Image` schema (`f2b3c4d5e6f7`), exposed `width`/`height`/`depth`/`unit`, multi-image `db_identifier`, `assembled_caption`, and `ObjectUpdate.images = None` (`exclude_unset=True`).
+  - Added alphabetical `/tags`, configurable `/objects/search` sorting (`title:asc` default, `date`, `location`, `material`), `0–899 CE` focus preset & `0 CE` bugfix, Vatican gold-glass `60788` seed + location/coord backfills, and native `<dialog>` zoom/pan `ImageLightbox`.
+  - Documented `INV-DB-05` & `INV-UI-01` in [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md).
 
 - **Cycle 27 (Self-Correcting, Connected Memory System):**
   - Split `MEMORY.md` into hub + 5 deep nodes (`.agents/memory/`), added [lessons_and_invariants.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/memory/lessons_and_invariants.md) (`INV-*`), built [memory_manager.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/scripts/memory_manager.py) and [test_memory_integrity.py](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/tests/test_memory_integrity.py), and updated [memory-backlog.md](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/.agents/rules/memory-backlog.md).

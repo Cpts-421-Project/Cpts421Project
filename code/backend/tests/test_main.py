@@ -880,18 +880,24 @@ class TestTwoExcelSchemaAlignment:
         # Act: upgrade to head, inspect, downgrade to previous rev, inspect, re-upgrade to head
         command.upgrade(alembic_cfg, "head")
         mig_engine = create_engine(db_url)
-        obj_cols_up = {c["name"] for c in sa_inspect(mig_engine).get_columns("objects")}
-        img_cols_up = {c["name"] for c in sa_inspect(mig_engine).get_columns("images")}
+        inspector_up = sa_inspect(mig_engine)
+        obj_cols_up = {c["name"] for c in inspector_up.get_columns("objects")}
+        img_cols_up = {c["name"] for c in inspector_up.get_columns("images")}
         assert {"present_location", "publications", "caption", "external_url"}.issubset(obj_cols_up)
         assert {"image_sequence", "source_identifier"}.issubset(img_cols_up)
+        assert "discovery_keywords" in inspector_up.get_table_names()
 
         command.downgrade(alembic_cfg, "e1a2b3c4d5e6")
-        obj_cols_down = {c["name"] for c in sa_inspect(mig_engine).get_columns("objects")}
+        inspector_down = sa_inspect(mig_engine)
+        obj_cols_down = {c["name"] for c in inspector_down.get_columns("objects")}
         assert "present_location" not in obj_cols_down
+        assert "discovery_keywords" not in inspector_down.get_table_names()
 
         command.upgrade(alembic_cfg, "head")
-        obj_cols_reup = {c["name"] for c in sa_inspect(mig_engine).get_columns("objects")}
+        inspector_reup = sa_inspect(mig_engine)
+        obj_cols_reup = {c["name"] for c in inspector_reup.get_columns("objects")}
         assert "present_location" in obj_cols_reup
+        assert "discovery_keywords" in inspector_reup.get_table_names()
         mig_engine.dispose()
 
 
