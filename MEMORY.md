@@ -14,7 +14,7 @@
 - Schema & Search: Aligned with `2_excel` (`f2b3c4d5e6f7`), assembled scholarly captions, multi-image `db_identifier` (`<id>.<seq>`), alphabetical `/tags`, default `title:asc` search sort (+ `date`/`location`/`material`), `0–899 CE` preset, and native `<dialog>` zoom/pan `ImageLightbox`.
 - Auth: JWT in HttpOnly cookie (`samesite="lax"`, `max_age=1800` = `ACCESS_TOKEN_EXPIRE_MINUTES`); case-insensitive username/email login; constant-time decoy hash.
 - Security: multi-layer anti-bot (Nginx + `bot_defense.py` + honeypots), strict-HTTPS SSRF allowlist, 64 KB chunked uploads with magic-byte MIME, `UPDATABLE_OBJECT_FIELDS` whitelist.
-- Git remotes: `origin` = `Cpts-421-Project/Cpts421Project` (Railway deploys `main`), `personal` = `asafked121/Cpts421Project`. Flow: `staging` → PR → `main`.
+- Git remote: `origin` = `Cpts-421-Project/Cpts421Project` (Railway deploys `main`). Flow: `staging` → PR → `main`.
 
 ### Memory Architecture
 - **Tier 1:** this file (≤ 260 lines, ≤ 3 recent cycles).
