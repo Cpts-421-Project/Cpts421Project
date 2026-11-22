@@ -11,6 +11,8 @@ os.environ.setdefault("MINIO_ACCESS_KEY", "minioadmin")
 os.environ.setdefault("MINIO_SECRET_KEY", "minioadmin")
 os.environ.setdefault("MINIO_BUCKET_NAME", "artifacts")
 
+import json
+import threading
 from unittest.mock import MagicMock, patch
 import pytest
 import requests
@@ -613,3 +615,197 @@ class TestPersistentDiscoveryKeywords:
             "limit_per_museum": 5,
         })
         assert search_res.status_code == 200
+
+
+class TestDiscoveryProgressStreaming:
+    """Normal, Edge, and Extraordinary tests for NDJSON progress streaming (/admin/discovery/search/stream)."""
+
+    @patch("src.services.museum_discovery_service.requests.post")
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_streamSearch_allMuseums_emitsOrderedProgressEventsAndFinalResult(self, mock_get, mock_post, client):
+        # Arrange
+        _login_admin(client)
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            if "metmuseum.org/public/collection/v1.1/search" in url:
+                return _mock_response({"total": 1, "objectIDs": [555001]})
+            if url.endswith("/objects/555001"):
+                return _mock_response({
+                    "objectID": 555001,
+                    "isPublicDomain": True,
+                    "accessionNumber": "17.194.100",
+                    "title": "Gold-Glass Roundel Fragment",
+                    "medium": "Glass, gold leaf",
+                    "objectDate": "4th century CE",
+                    "objectBeginDate": 300,
+                    "objectEndDate": 399,
+                    "city": "Rome",
+                    "country": "Italy",
+                    "objectURL": "https://www.metmuseum.org/art/collection/search/555001",
+                    "primaryImage": "https://images.metmuseum.org/CRDImages/md/original/DP123.jpg",
+                })
+            raise AssertionError(f"Unexpected GET URL: {url}")
+
+        mock_get.side_effect = fake_get
+        mock_post.return_value = _mock_response({
+            "config": {"iiif_url": "https://www.artic.edu/iiif/2"},
+            "data": [{
+                "id": 61600,
+                "title": "Roman Glass Beaker",
+                "medium_display": "Mold-blown glass",
+                "date_display": "1st century CE",
+                "date_start": 1,
+                "date_end": 100,
+                "place_of_origin": "Rome",
+                "main_reference_number": "1981.11",
+                "image_id": "aee665f2-bb63-2a25-832e-260b73c278a8",
+                "is_public_domain": True,
+            }],
+        })
+
+        # Act
+        with client.stream("POST", "/admin/discovery/search/stream", json={
+            "museums": ["met", "aic"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        }) as res:
+            assert res.status_code == 200
+            assert "application/x-ndjson" in res.headers["content-type"]
+            assert res.headers.get("x-accel-buffering") == "no"
+            assert res.headers.get("cache-control") == "no-cache"
+            events = [json.loads(line) for line in res.iter_lines() if line]
+
+        # Assert ordered event lifecycle and final payload
+        event_types = [e["type"] for e in events]
+        assert event_types[0] == "search_started"
+        assert event_types[-1] == "complete"
+        assert events[0]["total_museums"] == 2
+        assert events[0]["total_keywords"] == 1
+        assert "museum_started" in event_types
+        assert "keyword_searching" in event_types
+        assert "detail_fetching" in event_types
+        assert event_types.count("candidate_found") == 2
+        assert event_types.count("museum_completed") == 2
+
+        detail_evt = next(e for e in events if e["type"] == "detail_fetching")
+        assert detail_evt["museum_id"] == "met"
+        assert detail_evt["detail_index"] == 1
+        assert detail_evt["detail_total"] == 1
+
+        complete_evt = events[-1]
+        assert complete_evt["total_new"] == 2
+        assert len(complete_evt["result"]["candidates"]) == 2
+        assert len(complete_evt["result"]["museum_reports"]) == 2
+
+    @patch("src.services.museum_discovery_service.requests.post")
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_streamSearch_partialMuseumTimeoutAndCancellation_handledCleanly(self, mock_get, mock_post, client):
+        # Arrange: CMA times out while AIC succeeds
+        _login_admin(client)
+        mock_get.side_effect = requests.Timeout("CMA timed out")
+        mock_post.return_value = _mock_response({
+            "config": {"iiif_url": "https://www.artic.edu/iiif/2"},
+            "data": [{
+                "id": 777,
+                "title": "Byzantine Lamp",
+                "date_display": "500 CE",
+                "date_start": 500,
+                "date_end": 500,
+                "main_reference_number": "1950.77",
+                "image_id": "img-777",
+                "is_public_domain": True,
+            }],
+        })
+
+        # Act 1 (Edge): Stream still completes cleanly when one museum fails
+        with client.stream("POST", "/admin/discovery/search/stream", json={
+            "museums": ["cma", "aic"],
+            "keywords": ["lamp"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        }) as res:
+            assert res.status_code == 200
+            events = [json.loads(line) for line in res.iter_lines() if line]
+
+        completed_by_museum = {
+            e["museum_id"]: e for e in events if e["type"] == "museum_completed"
+        }
+        assert "CMA timed out" in completed_by_museum["cma"]["error"]
+        assert completed_by_museum["aic"]["error"] is None
+        assert completed_by_museum["aic"]["new_count"] == 1
+        assert events[-1]["type"] == "complete"
+        assert events[-1]["total_new"] == 1
+
+        # Act 2 (Edge): Pre-cancelled worker stops before making outbound HTTP calls
+        mock_get.reset_mock()
+        mock_post.reset_mock()
+        db = TestingSessionLocal()
+        try:
+            from src.services.museum_discovery_service import MuseumDiscoveryService
+            from src.schemas import DiscoverySearchRequest
+
+            service = MuseumDiscoveryService(db)
+            req = DiscoverySearchRequest(
+                museums=["cma"],
+                keywords=["lamp"],
+                date_start=0,
+                date_end=899,
+                limit_per_museum=5,
+            )
+            index = service.prepare_discovery(req)
+            cancel_event = threading.Event()
+            cancel_event.set()
+            recorded = []
+            MuseumDiscoveryService.discover_with_index(
+                req,
+                index,
+                progress_callback=recorded.append,
+                cancel_event=cancel_event,
+            )
+        finally:
+            db.close()
+
+        mock_get.assert_not_called()
+        assert [e["type"] for e in recorded] == ["search_started"]
+
+    def test_streamSearch_unauthenticatedAndInvalidPayloads_rejectedBeforeStreaming(self, client):
+        # Act & Assert: 401 when unauthenticated
+        assert client.post("/admin/discovery/search/stream", json={
+            "museums": ["met"], "keywords": ["glass"], "date_start": 0, "date_end": 899
+        }).status_code == 401
+
+        # Authenticate then verify 422 validation errors
+        _login_admin(client)
+        assert client.post("/admin/discovery/search/stream", json={
+            "museums": ["met"], "keywords": ["glass"], "date_start": 900, "date_end": 100
+        }).status_code == 422
+        assert client.post("/admin/discovery/search/stream", json={
+            "museums": ["louvre_invalid"], "keywords": ["glass"], "date_start": 0, "date_end": 899
+        }).status_code == 422
+
+    def test_streamSearch_unexpectedWorkerException_emitsTerminalErrorEvent(self, client):
+        # Arrange
+        _login_admin(client)
+
+        with patch(
+            "src.services.museum_discovery_service.MuseumDiscoveryService.discover_with_index",
+            side_effect=RuntimeError("boom"),
+        ):
+            # Act
+            with client.stream("POST", "/admin/discovery/search/stream", json={
+                "museums": ["met"],
+                "keywords": ["glass"],
+                "date_start": 0,
+                "date_end": 899,
+                "limit_per_museum": 5,
+            }) as res:
+                assert res.status_code == 200
+                events = [json.loads(line) for line in res.iter_lines() if line]
+
+        # Assert
+        assert len(events) == 1
+        assert events[0]["type"] == "error"
+        assert "boom" in events[0]["message"]

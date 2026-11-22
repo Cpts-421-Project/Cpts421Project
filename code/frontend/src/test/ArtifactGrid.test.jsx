@@ -60,6 +60,7 @@ describe('ArtifactGrid', () => {
         <ArtifactGrid artifacts={[]} loading={true} error={null} />
       );
 
+      expect(screen.getByRole('progressbar', { name: 'Loading artifacts' })).toBeInTheDocument();
       expect(screen.getByText('Loading artifacts...')).toBeInTheDocument();
     });
 

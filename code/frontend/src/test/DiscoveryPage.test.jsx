@@ -2,11 +2,16 @@
  * Frontend unit & integration tests for Admin Predefined Museum DiscoveryPage.
  * Covers Normal, Edge, and Extraordinary cases following AAA pattern.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DiscoveryPage from '../pages/DiscoveryPage';
 import api from '../services/api';
+import {
+  createInitialProgressState,
+  formatElapsedTime,
+  reduceDiscoveryProgress,
+} from '../utils/discoveryStream';
 
 vi.mock('../services/api', () => ({
   default: {
@@ -43,8 +48,32 @@ const MOCK_MUSEUMS = [
   },
 ];
 
+const originalFetch = globalThis.fetch;
+
+function createNdjsonStreamResponse(chunks, status = 200) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default stub falls back gracefully to api.post in existing search tests
+  globalThis.fetch = vi.fn().mockResolvedValue(new Response('', { status: 404 }));
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
 });
 
 describe('DiscoveryPage', () => {
@@ -290,5 +319,254 @@ describe('DiscoveryPage', () => {
 
     // Assert
     expect(await screen.findByRole('alert')).toHaveTextContent('Museum gateway unreachable');
+  });
+
+  it('normal_streamsLiveNdjsonProgressAcrossSplitChunksAndTransitionsToResults', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    const encoder = new TextEncoder();
+    let streamController;
+    const controlledStream = new ReadableStream({
+      start(controller) {
+        streamController = controller;
+      },
+    });
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(controlledStream, {
+        status: 200,
+        headers: { 'Content-Type': 'application/x-ndjson' },
+      })
+    );
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    // Act 1: Submit search -> shows initial indeterminate connecting progress
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Live Discovery Progress')).toBeInTheDocument();
+    });
+    const spinner = screen.getByRole('progressbar', { name: 'Museum discovery in progress' });
+    expect(spinner).not.toHaveAttribute('value');
+    const overallBar = screen.getByLabelText(/Connecting to museum APIs.../i);
+    expect(overallBar.tagName).toBe('PROGRESS');
+    expect(overallBar).not.toHaveAttribute('value');
+
+    // Act 2: Emit search_started + museum_started + keyword_searching + split JSON line
+    const candidateLine = JSON.stringify({
+      type: 'candidate_found',
+      museum_id: 'met',
+      museum_name: 'The Metropolitan Museum of Art',
+      object_type: 'Gold-Glass Fragment',
+      matched_keyword: 'glass',
+      fetched_count: 1,
+      new_count: 1,
+      duplicates_skipped: 0,
+      message: 'Found "Gold-Glass Fragment" at The Metropolitan Museum of Art',
+    });
+    const splitAt = Math.floor(candidateLine.length / 2);
+
+    streamController.enqueue(
+      encoder.encode(
+        [
+          JSON.stringify({
+            type: 'search_started',
+            museums: [
+              { museum_id: 'met', museum_name: 'The Metropolitan Museum of Art' },
+              { museum_id: 'cma', museum_name: 'Cleveland Museum of Art' },
+            ],
+            total_museums: 2,
+            total_keywords: 2,
+            message: 'Starting discovery across 2 museum(s)...',
+          }),
+          JSON.stringify({
+            type: 'museum_started',
+            museum_id: 'met',
+            museum_name: 'The Metropolitan Museum of Art',
+            museum_index: 1,
+            total_museums: 2,
+            total_keywords: 2,
+            message: 'Connecting to The Metropolitan Museum of Art (1/2)...',
+          }),
+          JSON.stringify({
+            type: 'keyword_searching',
+            museum_id: 'met',
+            museum_name: 'The Metropolitan Museum of Art',
+            keyword: 'glass',
+            keyword_index: 1,
+            total_keywords: 2,
+            fetched_count: 1,
+            new_count: 0,
+            duplicates_skipped: 1,
+            message: 'The Metropolitan Museum of Art: searching "glass" (1/2)',
+          }),
+        ].join('\n') + '\n' + candidateLine.slice(0, splitAt)
+      )
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/The Metropolitan Museum of Art: searching "glass" \(1\/2\)/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Searching')).toBeInTheDocument();
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+
+    // Finish split chunk + emit final complete event
+    const finalPayload = {
+      candidates: [
+        {
+          museum_id: 'met',
+          museum_name: 'The Metropolitan Museum of Art',
+          source_record_id: '555001',
+          object_type: 'Gold-Glass Fragment',
+          present_location: 'The Metropolitan Museum of Art, New York',
+          findspot: 'Rome',
+          material: 'Glass',
+          date_display: '4th century CE',
+          date_start: 300,
+          date_end: 399,
+          inventory_number: '17.194.100',
+          assembled_caption: 'Gold-Glass Fragment, Rome',
+          tags: ['Roman'],
+          images: [{ file_url: 'https://images.metmuseum.org/CRDImages/md/original/DP123.jpg', image_sequence: 1 }],
+          filled_fields_count: 10,
+        },
+      ],
+      total_new: 1,
+      total_duplicates_skipped: 1,
+      museum_reports: [
+        { museum_id: 'met', museum_name: 'The Metropolitan Museum of Art', fetched_count: 1, new_count: 1, duplicates_skipped: 1, error: null },
+        { museum_id: 'cma', museum_name: 'Cleveland Museum of Art', fetched_count: 0, new_count: 0, duplicates_skipped: 0, error: null },
+      ],
+    };
+
+    streamController.enqueue(
+      encoder.encode(
+        candidateLine.slice(splitAt) + '\n' + JSON.stringify({
+          type: 'complete',
+          total_new: 1,
+          total_duplicates_skipped: 1,
+          result: finalPayload,
+          message: 'Discovery complete: 1 new artifact(s) found, 1 duplicate(s) skipped.',
+        }) + '\n'
+      )
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Live Activity Feed/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Found "Gold-Glass Fragment" at The Metropolitan Museum of Art/i)).toBeInTheDocument();
+
+    streamController.close();
+
+    // Assert final transition to candidates section
+    await waitFor(() => {
+      expect(screen.getByText(/Discovered Candidates \(1 new\)/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Live Discovery Progress')).not.toBeInTheDocument();
+  });
+
+  it('edge_cancelActiveStreamAbortsRequestWithoutErrorAndReducesProgressCleanly', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    let capturedSignal = null;
+    globalThis.fetch = vi.fn().mockImplementationOnce((_url, options) => {
+      capturedSignal = options.signal;
+      return new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        });
+      });
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    const cancelBtn = await screen.findByRole('button', { name: 'Cancel Search' });
+
+    // Act
+    fireEvent.click(cancelBtn);
+
+    // Assert
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(await screen.findByRole('status')).toHaveTextContent('Discovery search cancelled.');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Pure utility coverage (elapsed timer formatting + reducer progression)
+    expect(formatElapsedTime(0)).toBe('0:00');
+    expect(formatElapsedTime(5)).toBe('0:05');
+    expect(formatElapsedTime(65)).toBe('1:05');
+    expect(formatElapsedTime(-3)).toBe('0:00');
+
+    let state = createInitialProgressState(['met'], MOCK_MUSEUMS, 2);
+    expect(state.percent).toBeNull();
+    state = reduceDiscoveryProgress(state, {
+      type: 'detail_fetching',
+      museum_id: 'met',
+      detail_index: 1,
+      detail_total: 2,
+      fetched_count: 2,
+      new_count: 1,
+      duplicates_skipped: 1,
+      message: 'The Metropolitan Museum of Art: inspecting record 1 of 2...',
+    });
+    expect(state.percent).toBe(80);
+    expect(state.museums[0].currentStage).toBe('Inspecting record 1/2');
+    state = reduceDiscoveryProgress(state, {
+      type: 'complete',
+      message: 'Discovery complete',
+    });
+    expect(state.percent).toBe(100);
+    expect(state.phase).toBe('complete');
+  });
+
+  it('extraordinary_streamErrorEventAndHttp500RenderVisibleAlerts', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    globalThis.fetch
+      .mockResolvedValueOnce(
+        createNdjsonStreamResponse([
+          JSON.stringify({ type: 'error', message: 'Upstream museum API rate limited' }) + '\n',
+        ])
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: 'Gateway failure' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    // Act 1: Terminal NDJSON error event
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Upstream museum API rate limited');
+
+    // Act 2: HTTP 500 error JSON detail
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Gateway failure');
   });
 });

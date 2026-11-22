@@ -7,8 +7,9 @@ imported records in the pending Review Queue.
 from __future__ import annotations
 
 import re
+import threading
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -24,6 +25,7 @@ from ..models import DiscoveryKeyword, Image, Object, Source, Tag
 from ..schemas import (
     DiscoveryCandidate,
     DiscoverySearchRequest,
+    DiscoverySearchResponse,
     MuseumKey,
 )
 from ..url_validator import ALLOWED_API_DOMAINS, is_safe_image_url, validate_url
@@ -32,6 +34,13 @@ from .s3_service import download_and_store_image
 
 MAX_SAVED_KEYWORDS = 200
 USER_AGENT = "AcademicArtifactDB/1.0 (Research Project)"
+ProgressCallback = Callable[[Dict[str, Any]], None]
+
+
+def _emit_progress(progress_callback: Optional[ProgressCallback], event: Dict[str, Any]) -> None:
+    """Safely deliver a progress update when a streaming callback is registered."""
+    if progress_callback is not None:
+        progress_callback(event)
 DEFAULT_KEYWORDS: List[str] = [
     "craftsman",
     "glass",
@@ -480,6 +489,8 @@ class MetMuseumAdapter:
         date_end: int,
         limit: int,
         index: ExistingArtifactIndex,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Tuple[List[Dict[str, Any]], int, int]:
         candidates: List[Dict[str, Any]] = []
         fetched_count = 0
@@ -488,10 +499,25 @@ class MetMuseumAdapter:
         queued_ids: List[Tuple[int, str]] = []
         seen_oids: Set[int] = set()
         detail_cap = min(limit * 4, 40)
+        total_keywords = len(keywords)
 
-        for kw in keywords:
+        for kw_idx, kw in enumerate(keywords, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             if len(queued_ids) >= detail_cap:
                 break
+            _emit_progress(progress_callback, {
+                "type": "keyword_searching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "keyword": kw,
+                "keyword_index": kw_idx,
+                "total_keywords": total_keywords,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
+            })
             data = _request_json(
                 "GET",
                 self.search_url,
@@ -517,9 +543,23 @@ class MetMuseumAdapter:
                 if len(queued_ids) >= detail_cap:
                     break
 
-        for oid, matched_kw in queued_ids:
+        detail_total = len(queued_ids)
+        for detail_idx, (oid, matched_kw) in enumerate(queued_ids, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             if len(candidates) >= limit:
                 break
+            _emit_progress(progress_callback, {
+                "type": "detail_fetching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "detail_index": detail_idx,
+                "detail_total": detail_total,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f"{self.museum_name}: inspecting record {detail_idx} of {detail_total}...",
+            })
             obj_data = _request_json(
                 "GET",
                 f"{self.object_url}/{oid}",
@@ -567,6 +607,17 @@ class MetMuseumAdapter:
                 date_display=parsed.get("date_display"),
             )
             candidates.append(parsed)
+            _emit_progress(progress_callback, {
+                "type": "candidate_found",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "object_type": parsed["object_type"],
+                "matched_keyword": matched_kw,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+            })
 
         return candidates, fetched_count, duplicates_skipped
 
@@ -702,14 +753,31 @@ class ClevelandMuseumAdapter:
         date_end: int,
         limit: int,
         index: ExistingArtifactIndex,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Tuple[List[Dict[str, Any]], int, int]:
         candidates: List[Dict[str, Any]] = []
         fetched_count = 0
         duplicates_skipped = 0
+        total_keywords = len(keywords)
 
-        for kw in keywords:
+        for kw_idx, kw in enumerate(keywords, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             if len(candidates) >= limit:
                 break
+            _emit_progress(progress_callback, {
+                "type": "keyword_searching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "keyword": kw,
+                "keyword_index": kw_idx,
+                "total_keywords": total_keywords,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
+            })
             data = _request_json(
                 "GET",
                 self.search_url,
@@ -724,6 +792,8 @@ class ClevelandMuseumAdapter:
                 timeout=10,
             ) or {}
             for item in data.get("data") or []:
+                if cancel_event and cancel_event.is_set():
+                    break
                 if len(candidates) >= limit:
                     break
                 fetched_count += 1
@@ -762,6 +832,17 @@ class ClevelandMuseumAdapter:
                     date_display=parsed.get("date_display"),
                 )
                 candidates.append(parsed)
+                _emit_progress(progress_callback, {
+                    "type": "candidate_found",
+                    "museum_id": self.museum_id,
+                    "museum_name": self.museum_name,
+                    "object_type": parsed["object_type"],
+                    "matched_keyword": kw,
+                    "fetched_count": fetched_count,
+                    "new_count": len(candidates),
+                    "duplicates_skipped": duplicates_skipped,
+                    "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+                })
 
         return candidates, fetched_count, duplicates_skipped
 
@@ -920,14 +1001,31 @@ class ArtInstituteChicagoAdapter:
         date_end: int,
         limit: int,
         index: ExistingArtifactIndex,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Tuple[List[Dict[str, Any]], int, int]:
         candidates: List[Dict[str, Any]] = []
         fetched_count = 0
         duplicates_skipped = 0
+        total_keywords = len(keywords)
 
-        for kw in keywords:
+        for kw_idx, kw in enumerate(keywords, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             if len(candidates) >= limit:
                 break
+            _emit_progress(progress_callback, {
+                "type": "keyword_searching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "keyword": kw,
+                "keyword_index": kw_idx,
+                "total_keywords": total_keywords,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
+            })
             body = {
                 "q": kw,
                 "query": {
@@ -946,6 +1044,8 @@ class ArtInstituteChicagoAdapter:
             iiif_base = ((data.get("config") or {}).get("iiif_url") or "https://www.artic.edu/iiif/2").rstrip("/")
 
             for item in data.get("data") or []:
+                if cancel_event and cancel_event.is_set():
+                    break
                 if len(candidates) >= limit:
                     break
                 fetched_count += 1
@@ -984,6 +1084,17 @@ class ArtInstituteChicagoAdapter:
                     date_display=parsed.get("date_display"),
                 )
                 candidates.append(parsed)
+                _emit_progress(progress_callback, {
+                    "type": "candidate_found",
+                    "museum_id": self.museum_id,
+                    "museum_name": self.museum_name,
+                    "object_type": parsed["object_type"],
+                    "matched_keyword": kw,
+                    "fetched_count": fetched_count,
+                    "new_count": len(candidates),
+                    "duplicates_skipped": duplicates_skipped,
+                    "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+                })
 
         return candidates, fetched_count, duplicates_skipped
 
@@ -1095,6 +1206,8 @@ class VamMuseumAdapter:
         date_end: int,
         limit: int,
         index: ExistingArtifactIndex,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Tuple[List[Dict[str, Any]], int, int]:
         candidates: List[Dict[str, Any]] = []
         fetched_count = 0
@@ -1102,10 +1215,25 @@ class VamMuseumAdapter:
         queued: List[Tuple[str, str]] = []
         seen_sys: Set[str] = set()
         detail_cap = min(limit * 3, 30)
+        total_keywords = len(keywords)
 
-        for kw in keywords:
+        for kw_idx, kw in enumerate(keywords, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             if len(queued) >= detail_cap:
                 break
+            _emit_progress(progress_callback, {
+                "type": "keyword_searching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "keyword": kw,
+                "keyword_index": kw_idx,
+                "total_keywords": total_keywords,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
+            })
             data = _request_json(
                 "GET",
                 self.search_url,
@@ -1132,9 +1260,23 @@ class VamMuseumAdapter:
                 if len(queued) >= detail_cap:
                     break
 
-        for sn, matched_kw in queued:
+        detail_total = len(queued)
+        for detail_idx, (sn, matched_kw) in enumerate(queued, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             if len(candidates) >= limit:
                 break
+            _emit_progress(progress_callback, {
+                "type": "detail_fetching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "detail_index": detail_idx,
+                "detail_total": detail_total,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f"{self.museum_name}: inspecting record {detail_idx} of {detail_total}...",
+            })
             detail = _request_json("GET", f"{self.detail_url}/{sn}", timeout=8, allow_404=True)
             if not detail or not isinstance(detail.get("record"), dict):
                 continue
@@ -1177,6 +1319,17 @@ class VamMuseumAdapter:
                 date_display=parsed.get("date_display"),
             )
             candidates.append(parsed)
+            _emit_progress(progress_callback, {
+                "type": "candidate_found",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "object_type": parsed["object_type"],
+                "matched_keyword": matched_kw,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+            })
 
         return candidates, fetched_count, duplicates_skipped
 
@@ -1450,16 +1603,50 @@ class MuseumDiscoveryService:
         saved_keywords = self.get_saved_keywords()
         return [{**museum, "default_keywords": list(saved_keywords)} for museum in PREDEFINED_MUSEUMS]
 
-    def discover(self, request: DiscoverySearchRequest) -> Dict[str, Any]:
-        """Persist new search keywords, query selected predefined museums, and skip duplicates."""
+    def prepare_discovery(self, request: DiscoverySearchRequest) -> ExistingArtifactIndex:
+        """Persist new search keywords and snapshot the deduplication index before streaming."""
         self.save_keywords(request.keywords)
-        index = ExistingArtifactIndex(self.db)
+        return ExistingArtifactIndex(self.db)
+
+    @staticmethod
+    def discover_with_index(
+        request: DiscoverySearchRequest,
+        index: ExistingArtifactIndex,
+        *,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
+    ) -> Dict[str, Any]:
+        """Query selected predefined museums using a prepared index and emit live progress."""
         all_candidates: List[Dict[str, Any]] = []
         reports: List[Dict[str, Any]] = []
         total_duplicates = 0
+        total_museums = len(request.museums)
 
-        for museum_id in request.museums:
+        _emit_progress(progress_callback, {
+            "type": "search_started",
+            "museums": [
+                {"museum_id": mid, "museum_name": ADAPTERS[mid].museum_name}
+                for mid in request.museums
+            ],
+            "total_museums": total_museums,
+            "total_keywords": len(request.keywords),
+            "limit_per_museum": request.limit_per_museum,
+            "message": f"Starting discovery across {total_museums} museum(s)...",
+        })
+
+        for museum_idx, museum_id in enumerate(request.museums, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
             adapter = ADAPTERS[museum_id]
+            _emit_progress(progress_callback, {
+                "type": "museum_started",
+                "museum_id": museum_id,
+                "museum_name": adapter.museum_name,
+                "museum_index": museum_idx,
+                "total_museums": total_museums,
+                "total_keywords": len(request.keywords),
+                "message": f"Connecting to {adapter.museum_name} ({museum_idx}/{total_museums})...",
+            })
             try:
                 found, fetched, dupes = adapter.discover(
                     keywords=request.keywords,
@@ -1467,6 +1654,8 @@ class MuseumDiscoveryService:
                     date_end=request.date_end,
                     limit=request.limit_per_museum,
                     index=index,
+                    progress_callback=progress_callback,
+                    cancel_event=cancel_event,
                 )
                 all_candidates.extend(found)
                 total_duplicates += dupes
@@ -1478,6 +1667,21 @@ class MuseumDiscoveryService:
                     "duplicates_skipped": dupes,
                     "error": None,
                 })
+                _emit_progress(progress_callback, {
+                    "type": "museum_completed",
+                    "museum_id": museum_id,
+                    "museum_name": adapter.museum_name,
+                    "museum_index": museum_idx,
+                    "total_museums": total_museums,
+                    "fetched_count": fetched,
+                    "new_count": len(found),
+                    "duplicates_skipped": dupes,
+                    "error": None,
+                    "message": (
+                        f"{adapter.museum_name}: finished — {len(found)} new, "
+                        f"{dupes} skipped ({fetched} checked)"
+                    ),
+                })
             except Exception as exc:
                 app_logger.warning(
                     "Museum discovery failed for %s: %s",
@@ -1485,22 +1689,64 @@ class MuseumDiscoveryService:
                     exc,
                     exc_info=True,
                 )
+                err_msg = f"Failed querying {adapter.museum_name}: {exc}"
                 reports.append({
                     "museum_id": museum_id,
                     "museum_name": adapter.museum_name,
                     "fetched_count": 0,
                     "new_count": 0,
                     "duplicates_skipped": 0,
-                    "error": f"Failed querying {adapter.museum_name}: {exc}",
+                    "error": err_msg,
+                })
+                _emit_progress(progress_callback, {
+                    "type": "museum_completed",
+                    "museum_id": museum_id,
+                    "museum_name": adapter.museum_name,
+                    "museum_index": museum_idx,
+                    "total_museums": total_museums,
+                    "fetched_count": 0,
+                    "new_count": 0,
+                    "duplicates_skipped": 0,
+                    "error": err_msg,
+                    "message": err_msg,
                 })
 
         all_candidates.sort(key=lambda c: ((c.get("object_type") or "").lower(), c.get("museum_id", "")))
-        return {
+        result = {
             "candidates": all_candidates,
             "total_new": len(all_candidates),
             "total_duplicates_skipped": total_duplicates,
             "museum_reports": reports,
         }
+        if not (cancel_event and cancel_event.is_set()):
+            serialized_result = DiscoverySearchResponse.model_validate(result).model_dump(mode="json")
+            _emit_progress(progress_callback, {
+                "type": "complete",
+                "total_new": serialized_result["total_new"],
+                "total_duplicates_skipped": serialized_result["total_duplicates_skipped"],
+                "result": serialized_result,
+                "message": (
+                    f"Discovery complete: {serialized_result['total_new']} new artifact(s) found, "
+                    f"{serialized_result['total_duplicates_skipped']} duplicate(s) skipped."
+                ),
+            })
+        return result
+
+    def discover(
+        self,
+        request: DiscoverySearchRequest,
+        *,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
+    ) -> Dict[str, Any]:
+        """Persist new search keywords, query selected predefined museums, and skip duplicates."""
+        index = self.prepare_discovery(request)
+        return self.discover_with_index(
+            request,
+            index,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
 
     def _get_or_create_source(self, citation_text: str) -> Source:
         clean = citation_text.strip()

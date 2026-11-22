@@ -1,3 +1,6 @@
+import asyncio
+import json
+import threading
 import time
 import uuid
 from pathlib import Path, PurePosixPath
@@ -436,6 +439,88 @@ async def search_discovery_museums(
 ):
     service = MuseumDiscoveryService(db)
     return await run_in_threadpool(service.discover, search_request)
+
+
+@app.post("/admin/discovery/search/stream")
+async def stream_discovery_museums(
+    search_request: DiscoverySearchRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    """Stream real-time NDJSON progress events while searching predefined museums."""
+    service = MuseumDiscoveryService(db)
+    index = await run_in_threadpool(service.prepare_discovery, search_request)
+
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=512)
+    sentinel = object()
+    cancel_event = threading.Event()
+    must_deliver_types = frozenset({"search_started", "museum_completed", "complete", "error"})
+
+    def _enqueue(payload) -> None:
+        if payload is sentinel or (isinstance(payload, dict) and payload.get("type") in must_deliver_types):
+            while queue.full():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+            queue.put_nowait(payload)
+            return
+        if not queue.full():
+            queue.put_nowait(payload)
+
+    def _push_event(event: dict) -> None:
+        loop.call_soon_threadsafe(_enqueue, event)
+
+    def _run_worker() -> None:
+        try:
+            MuseumDiscoveryService.discover_with_index(
+                search_request,
+                index,
+                progress_callback=_push_event,
+                cancel_event=cancel_event,
+            )
+        except Exception as exc:
+            app_logger.error("Unexpected discovery stream failure: %s", exc, exc_info=True)
+            _push_event({
+                "type": "error",
+                "message": f"Discovery stream failed: {exc}",
+            })
+        finally:
+            _push_event(sentinel)
+
+    worker_future = loop.run_in_executor(None, _run_worker)
+
+    async def event_stream():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    cancel_event.set()
+                    break
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
+                if item is sentinel:
+                    break
+                yield json.dumps(item, ensure_ascii=False) + "\n"
+        finally:
+            cancel_event.set()
+            try:
+                await worker_future
+            except Exception as exc:
+                app_logger.debug("Discovery stream worker cleanup finished with: %s", exc)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @app.post("/admin/discovery/import", response_model=DiscoveryImportResponse)

@@ -47,6 +47,7 @@
 ## 2. Reverse Proxy & Dynamic DNS Resolution
 - **Dynamic DNS Discovery:** [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/Dockerfile) extracts nameservers from `/etc/resolv.conf` at container boot and injects Railway's IPv6 internal DNS (`[fd12::10]`) and Docker DNS (`127.0.0.11`) into `$RESOLVER` via `envsubst`.
 - **Variable `proxy_pass` Path Forwarding:** [nginx.conf.template](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/nginx.conf.template) uses named regex capture `location ~ ^/api/?(?<path>.*)$` with `proxy_pass $backend_target/$path$is_args$args;` so Nginx re-resolves DNS per TTL (`valid=10s`) without truncating the URI path.
+- **Unbuffered Discovery Streaming Route:** [nginx.conf.template](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/frontend/nginx.conf.template) defines an exact-match `location = /api/admin/discovery/search/stream` block before the generic `/api/` regex with `proxy_buffering off;`, `proxy_cache off;`, and `proxy_read_timeout 300s;` so real-time NDJSON progress chunks flush immediately to the admin browser.
 - **IPv6 Dual-Stack Binding:** [Dockerfile](file:///Users/asafkedar/Documents/WSU/year%204/Semester%202/CPT_S-421/Cpts421Project/code/backend/Dockerfile) starts Uvicorn with `--host '::'` so it accepts both IPv6 Railway WireGuard mesh connections and IPv4 Docker bridge traffic.
 
 ---

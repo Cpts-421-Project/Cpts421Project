@@ -231,9 +231,17 @@ const SearchPage = () => {
                     {/* Results Section */}
                     <section>
                         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-                            <h2 className="text-lg font-semibold text-gray-800">
-                                Search Results ({artifacts ? artifacts.length : 0})
-                            </h2>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-lg font-semibold text-gray-800">
+                                    Search Results ({artifacts ? artifacts.length : 0})
+                                </h2>
+                                {loading && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                                        <progress aria-label="Searching catalog" className="loading-spinner loading-spinner--xs" />
+                                        Searching...
+                                    </span>
+                                )}
+                            </div>
 
                             <div className="flex items-center gap-2">
                                 <label htmlFor="artifact-sort" className="text-sm font-medium text-gray-600">

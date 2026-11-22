@@ -68,7 +68,31 @@ const ArtifactCard = ({ artifact }) => {
 };
 
 const ArtifactGrid = ({ artifacts, loading, error }) => {
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading artifacts...</div>;
+    if (loading) {
+        return (
+            <div className="space-y-6 p-4">
+                <div className="flex flex-col items-center justify-center gap-3 py-4 text-center">
+                    <progress aria-label="Loading artifacts" className="loading-spinner" />
+                    <p className="text-sm font-medium text-gray-600">Loading artifacts...</p>
+                </div>
+                <div aria-hidden="true" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4].map((slot) => (
+                        <div
+                            key={slot}
+                            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden motion-safe:animate-pulse"
+                        >
+                            <div className="h-48 bg-gray-200" />
+                            <div className="p-4 space-y-2.5">
+                                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                                <div className="h-3 bg-gray-100 rounded w-1/2" />
+                                <div className="h-3 bg-gray-100 rounded w-2/3" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
     if (error) return <div className="p-8 text-center text-red-500">Error loading artifacts.</div>;
     if (!artifacts || artifacts.length === 0) return <div className="p-8 text-center text-gray-500">No artifacts found.</div>;
 

@@ -1,7 +1,13 @@
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    createInitialProgressState,
+    formatElapsedTime,
+    reduceDiscoveryProgress,
+    streamDiscoverySearch,
+} from '../utils/discoveryStream';
 
 const DEFAULT_KEYWORDS = [
     'craftsman',
@@ -82,6 +88,8 @@ const DiscoveryPage = () => {
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
     const formHeadingId = useId();
+    const progressBarId = useId();
+    const abortControllerRef = useRef(null);
 
     const [museums, setMuseums] = useState([]);
     const [loadingMuseums, setLoadingMuseums] = useState(true);
@@ -97,11 +105,27 @@ const DiscoveryPage = () => {
     const [validationErrors, setValidationErrors] = useState({});
     const [apiError, setApiError] = useState('');
     const [searching, setSearching] = useState(false);
+    const [searchProgress, setSearchProgress] = useState(null);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [searchAnnouncement, setSearchAnnouncement] = useState('');
     const [importing, setImporting] = useState(false);
 
     const [searchResult, setSearchResult] = useState(null);
     const [selectedKeys, setSelectedKeys] = useState([]);
     const [importResult, setImportResult] = useState(null);
+
+    useEffect(() => () => {
+        abortControllerRef.current?.abort();
+    }, []);
+
+    useEffect(() => {
+        if (!searching) return undefined;
+        setElapsedSeconds(0);
+        const timerId = setInterval(() => {
+            setElapsedSeconds((prev) => prev + 1);
+        }, 1000);
+        return () => clearInterval(timerId);
+    }, [searching]);
 
     useEffect(() => {
         if (!isAdmin) {
@@ -252,10 +276,15 @@ const DiscoveryPage = () => {
         setValidationErrors((prev) => ({ ...prev, dates: errs.dates }));
     };
 
+    const handleCancelSearch = () => {
+        abortControllerRef.current?.abort();
+    };
+
     const handleDiscover = async (e) => {
         e.preventDefault();
         setApiError('');
         setImportResult(null);
+        setSearchAnnouncement('');
 
         let effectiveKeywords = keywords;
         if (keywordInput.trim()) {
@@ -270,23 +299,50 @@ const DiscoveryPage = () => {
             return;
         }
         setValidationErrors({});
+
+        abortControllerRef.current?.abort();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        setSearchResult(null);
+        setSelectedKeys([]);
         setSearching(true);
+        setSearchProgress(createInitialProgressState(selectedMuseums, museums, effectiveKeywords.length));
 
         try {
-            const response = await api.post('/admin/discovery/search', {
-                museums: selectedMuseums,
-                keywords: effectiveKeywords,
-                date_start: Number(dateStart),
-                date_end: Number(dateEnd),
-                limit_per_museum: Number(limitPerMuseum) || 10,
-            });
-            const data = response.data;
+            const data = await streamDiscoverySearch(
+                {
+                    museums: selectedMuseums,
+                    keywords: effectiveKeywords,
+                    date_start: Number(dateStart),
+                    date_end: Number(dateEnd),
+                    limit_per_museum: Number(limitPerMuseum) || 10,
+                },
+                {
+                    signal: controller.signal,
+                    onEvent: (evt) => {
+                        setSearchProgress((prev) => reduceDiscoveryProgress(prev, evt));
+                    },
+                }
+            );
+            if (controller.signal.aborted) return;
             setSearchResult(data);
             setSelectedKeys((data.candidates || []).map(getCandidateKey));
+            setSearchAnnouncement(
+                `Discovery complete: ${data.total_new ?? 0} new artifact(s) found, ${data.total_duplicates_skipped ?? 0} duplicate(s) skipped.`
+            );
         } catch (err) {
-            setApiError(err.response?.data?.detail || err.message || 'Discovery search failed.');
+            if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED' || controller.signal.aborted) {
+                setSearchAnnouncement('Discovery search cancelled.');
+            } else {
+                setApiError(err.response?.data?.detail || err.message || 'Discovery search failed.');
+            }
         } finally {
+            if (abortControllerRef.current === controller) {
+                abortControllerRef.current = null;
+            }
             setSearching(false);
+            setSearchProgress(null);
         }
     };
 
@@ -670,13 +726,150 @@ const DiscoveryPage = () => {
                             <button
                                 type="submit"
                                 disabled={searching}
-                                className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition shadow-sm"
+                                className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition shadow-sm"
                             >
+                                {searching && (
+                                    <span aria-hidden="true" className="w-2 h-2 rounded-full bg-white motion-safe:animate-pulse" />
+                                )}
                                 {searching ? 'Searching Museums...' : 'Discover New Artifacts'}
                             </button>
                         </div>
                     </form>
                 </search>
+
+                {searchAnnouncement && !searching && !searchResult && (
+                    <div role="status" aria-live="polite" className="p-4 rounded-lg bg-slate-100 border border-slate-200 text-sm text-slate-800">
+                        {searchAnnouncement}
+                    </div>
+                )}
+
+                {/* Live Discovery Progress Panel */}
+                {searching && searchProgress && (
+                    <section
+                        aria-labelledby={`${progressBarId}-heading`}
+                        className="bg-white rounded-lg shadow-sm border border-blue-200 p-5 space-y-4"
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                            <div className="flex items-center gap-3">
+                                <progress aria-label="Museum discovery in progress" className="loading-spinner loading-spinner--sm" />
+                                <div>
+                                    <h2 id={`${progressBarId}-heading`} className="text-base font-semibold text-gray-900">
+                                        Live Discovery Progress
+                                    </h2>
+                                    <p className="text-xs text-gray-600">
+                                        Scanning {searchProgress.totalMuseums} museum(s) across {searchProgress.totalKeywords} keyword(s)
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                    {formatElapsedTime(elapsedSeconds)}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleCancelSearch}
+                                    className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+                                >
+                                    Cancel Search
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <label htmlFor={progressBarId} className="font-medium text-gray-700">
+                                    {searchProgress.statusMessage}
+                                </label>
+                                <span className="font-semibold text-blue-700 tabular-nums">
+                                    {searchProgress.percent !== null ? `${searchProgress.percent}%` : 'Connecting...'}
+                                </span>
+                            </div>
+                            <progress
+                                id={progressBarId}
+                                max={100}
+                                {...(searchProgress.percent !== null ? { value: searchProgress.percent } : {})}
+                                className="discovery-progress w-full"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="p-2.5 rounded-md bg-slate-50 border border-slate-200">
+                                <p className="text-[11px] uppercase tracking-wider text-gray-500">Museums</p>
+                                <p className="text-base font-semibold text-gray-900 tabular-nums">
+                                    {searchProgress.completedMuseums}/{searchProgress.totalMuseums}
+                                </p>
+                            </div>
+                            <div className="p-2.5 rounded-md bg-slate-50 border border-slate-200">
+                                <p className="text-[11px] uppercase tracking-wider text-gray-500">Checked</p>
+                                <p className="text-base font-semibold text-gray-900 tabular-nums">
+                                    {searchProgress.totalChecked}
+                                </p>
+                            </div>
+                            <div className="p-2.5 rounded-md bg-emerald-50 border border-emerald-200">
+                                <p className="text-[11px] uppercase tracking-wider text-emerald-700">New Found</p>
+                                <p className="text-base font-semibold text-emerald-900 tabular-nums">
+                                    {searchProgress.totalNew}
+                                </p>
+                            </div>
+                            <div className="p-2.5 rounded-md bg-amber-50 border border-amber-200">
+                                <p className="text-[11px] uppercase tracking-wider text-amber-700">Duplicates Skipped</p>
+                                <p className="text-base font-semibold text-amber-900 tabular-nums">
+                                    {searchProgress.totalSkipped}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {searchProgress.museums.map((m) => {
+                                const statusStyles = {
+                                    queued: 'bg-gray-100 text-gray-700 border-gray-200',
+                                    searching: 'bg-blue-100 text-blue-800 border-blue-200',
+                                    done: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                                    error: 'bg-red-100 text-red-800 border-red-200',
+                                };
+                                const statusLabels = {
+                                    queued: 'Queued',
+                                    searching: 'Searching',
+                                    done: 'Complete',
+                                    error: 'Error',
+                                };
+                                return (
+                                    <div
+                                        key={m.museum_id}
+                                        className={`p-3 rounded-md border text-xs space-y-1 ${
+                                            m.status === 'searching'
+                                                ? 'border-blue-300 bg-blue-50/40'
+                                                : 'border-gray-200 bg-gray-50/60'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-semibold text-gray-900 truncate">{m.museum_name}</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusStyles[m.status] || statusStyles.queued}`}>
+                                                {statusLabels[m.status] || 'Queued'}
+                                            </span>
+                                        </div>
+                                        <p className="text-gray-600 truncate">
+                                            {m.currentStage} · {m.new_count} new · {m.duplicates_skipped} skipped ({m.fetched_count} checked)
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {searchProgress.activityLog.length > 0 && (
+                            <div className="border-t border-gray-100 pt-3 space-y-1.5">
+                                <p className="text-xs font-semibold text-gray-700">Live Activity Feed</p>
+                                <ul className="max-h-36 overflow-y-auto space-y-1 text-xs text-gray-600 bg-slate-50 rounded-md p-2.5 border border-slate-200">
+                                    {searchProgress.activityLog.map((entry) => (
+                                        <li key={entry.id} className="truncate">
+                                            {entry.message}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </section>
+                )}
 
                 {/* Results Panel */}
                 {searchResult && (
