@@ -22,7 +22,7 @@ os.environ.setdefault("MINIO_ACCESS_KEY", "minioadmin")
 os.environ.setdefault("MINIO_SECRET_KEY", "minioadmin")
 os.environ.setdefault("MINIO_BUCKET_NAME", "artifacts")
 
-from src.main import app
+from src.main import app, _rate_limit_store
 from src.bot_defense import (
     BotJail,
     LoginRateLimiter,
@@ -61,6 +61,7 @@ def override_get_db():
 def setup_test_env():
     """Reset database and in-memory defense stores before every test."""
     reset_bot_defense_state()
+    _rate_limit_store.clear()
     app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=test_engine)
 
@@ -80,6 +81,7 @@ def setup_test_env():
 
     Base.metadata.drop_all(bind=test_engine)
     reset_bot_defense_state()
+    _rate_limit_store.clear()
 
 
 # ==============================================================================

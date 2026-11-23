@@ -14,12 +14,21 @@ ALLOWED_IMAGE_DOMAINS = frozenset({
     "media.britishmuseum.org",
     "www.britishmuseum.org",
     "www.metmuseum.org",
+    "openaccess-cdn.clevelandart.org",
+    "www.artic.edu",
+    "framemark.vam.ac.uk",
+    "upload.wikimedia.org",
 })
 
 # Allowlisted domains for API data fetches
 ALLOWED_API_DOMAINS = frozenset({
     "collectionapi.metmuseum.org",
     "www.britishmuseum.org",
+    "openaccess-api.clevelandart.org",
+    "api.artic.edu",
+    "api.vam.ac.uk",
+    "www.wikidata.org",
+    "commons.wikimedia.org",
 })
 
 ALLOWED_SCHEMES = frozenset({"https"})

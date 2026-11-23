@@ -6,7 +6,7 @@ const Layout = () => {
 
     return (
         <div className="flex h-screen flex-col">
-            <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10 shadow-sm">
+            <header className="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10 shadow-sm">
                 <div className="flex items-center space-x-8">
                     <h1 className="text-xl font-bold text-gray-800">Academic Artifact Database</h1>
                     <nav className="flex space-x-4">
@@ -16,6 +16,7 @@ const Layout = () => {
                         {isAdmin && (
                             <>
                                 <Link to="/objects/new" className="text-blue-600 hover:text-blue-800 font-medium ml-4">+ Add Artifact</Link>
+                                <Link to="/admin/discover" className="text-emerald-600 hover:text-emerald-800 font-medium ml-4">Discover Artifacts</Link>
                                 <Link to="/admin/review" className="text-purple-600 hover:text-purple-800 font-medium ml-4">Review Queue</Link>
                             </>
                         )}
@@ -33,7 +34,7 @@ const Layout = () => {
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 min-h-0 overflow-hidden">
                 <Outlet />
             </div>
 

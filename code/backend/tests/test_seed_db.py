@@ -335,3 +335,170 @@ def test_updateLegacyImageUrls_edgeAlreadyInternal_skipsUpdate(sqlite_test_engin
     # Assert: zero rows updated
     assert updated == 0
 
+
+def test_executeSqlFile_productionSeedExecutedTwice_isIdempotentAndPopulatesVerifiedMetadata(sqlite_test_engine):
+    # Arrange
+    from sqlalchemy import text
+
+    engine = sqlite_test_engine
+    sql_path = find_default_sql_file()
+    assert sql_path == BACKEND_DIR / "data" / "filtered_small.sql"
+
+    # Act: run production seed SQL twice
+    execute_sql_file(engine, sql_path)
+    execute_sql_file(engine, sql_path)
+
+    # Assert: exact totals and verified field completeness without fabrication
+    with engine.connect() as conn:
+        total_objs = conn.execute(text("SELECT COUNT(*) FROM objects")).scalar()
+        total_imgs = conn.execute(text("SELECT COUNT(*) FROM images")).scalar()
+        unk_dates = conn.execute(text("SELECT COUNT(*) FROM objects WHERE date_display = 'Unknown'")).scalar()
+        mat_count = conn.execute(text("SELECT COUNT(*) FROM objects WHERE material IS NOT NULL")).scalar()
+        loc_count = conn.execute(text("SELECT COUNT(*) FROM objects WHERE present_location IS NOT NULL")).scalar()
+        basis_count = conn.execute(text("SELECT COUNT(*) FROM objects WHERE date_basis IS NOT NULL")).scalar()
+        dims_count = conn.execute(text("SELECT COUNT(*) FROM objects WHERE dimensions_display IS NOT NULL")).scalar()
+        met_urls = conn.execute(
+            text("SELECT COUNT(*) FROM objects WHERE external_url LIKE 'https://www.metmuseum.org/art/collection/search/%'")
+        ).scalar()
+        kg_weights = conn.execute(text("SELECT COUNT(*) FROM objects WHERE weight LIKE '% kg'")).scalar()
+        null_seq = conn.execute(text("SELECT COUNT(*) FROM images WHERE image_sequence IS NULL")).scalar()
+        src_ident_count = conn.execute(text("SELECT COUNT(*) FROM images WHERE source_identifier IS NOT NULL")).scalar()
+
+        assert total_objs == 61
+        assert total_imgs == 63
+        assert unk_dates == 0
+        assert mat_count == 61
+        assert loc_count == 61
+        assert basis_count == 61
+        assert dims_count == 61
+        assert met_urls == 39
+        assert kg_weights == 7
+        assert null_seq == 0
+        assert src_ident_count == 62
+
+        # Verify unverified fields stay NULL (never fabricated)
+        lamp = conn.execute(text("SELECT findspot, latitude, longitude FROM objects WHERE inventory_number = '241792'")).mappings().one()
+        assert lamp["findspot"] is None
+        assert lamp["latitude"] is None
+        assert lamp["longitude"] is None
+
+        vatican = conn.execute(
+            text("SELECT material, findspot, production_location, weight, dimensions_display FROM objects WHERE inventory_number = '60788'")
+        ).mappings().one()
+        assert vatican["material"] == "Glass, gold leaf (gold-glass)"
+        assert vatican["findspot"] == "Catacomb of San Saturnino (Via Salaria), Rome"
+        assert vatican["production_location"] is None
+        assert vatican["weight"] is None
+        assert vatican["dimensions_display"] == "Diam. 16.0 cm (160 mm)"
+
+        bm_stele = conn.execute(
+            text("SELECT inscription_present, inscription_1, publications, external_url FROM objects WHERE inventory_number = '1805,0703.183'")
+        ).mappings().one()
+        assert bool(bm_stele["inscription_present"]) is True
+        assert bm_stele["inscription_1"] == "Ξάνθιππος"
+        assert "IG I³ 1282bis" in bm_stele["publications"]
+        assert bm_stele["external_url"] is None
+
+
+def test_executeSqlFile_preservesAdminCustomMetadataOnReseed(sqlite_test_engine):
+    # Arrange
+    from sqlalchemy import text
+
+    engine = sqlite_test_engine
+    sql_path = find_default_sql_file()
+    execute_sql_file(engine, sql_path)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE objects SET material = 'Admin Edited Material', publications = 'Custom Study 2026' WHERE inventory_number = '241792'")
+        )
+
+    # Act: re-run production seed SQL
+    execute_sql_file(engine, sql_path)
+
+    # Assert: COALESCE guards preserve admin edits on existing records
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT material, publications FROM objects WHERE inventory_number = '241792'")
+        ).mappings().one()
+        assert row["material"] == "Admin Edited Material"
+        assert row["publications"] == "Custom Study 2026"
+
+
+def test_executeSqlFile_preservesPendingAndRejectedReviewQueueItemsOnReseed(sqlite_test_engine):
+    # Arrange: run initial production seed
+    from sqlalchemy import text
+
+    engine = sqlite_test_engine
+    sql_path = find_default_sql_file()
+    execute_sql_file(engine, sql_path)
+
+    with engine.begin() as conn:
+        # Discovered pending item, rejected item, legacy pending_date_check item, and admin-demoted seed items
+        conn.execute(
+            text(
+                """
+                INSERT INTO objects (object_type, inventory_number, date_display, date_start, date_end, review_status)
+                VALUES
+                    ('Discovered Glass Cup', 'CMA-9999', '300 CE', 300, 300, 'pending'),
+                    ('Rejected Shard', 'REJ-9999', '250 CE', 250, 250, 'rejected'),
+                    ('Legacy Scraper Lamp', 'LEGACY-9999', '200 CE', 200, 200, 'pending_date_check')
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE objects SET review_status = 'pending' WHERE inventory_number IN ('20.3.11', '60788')"
+            )
+        )
+        conn.execute(
+            text(
+                "UPDATE objects SET review_status = 'rejected' WHERE inventory_number = 'EA37976'"
+            )
+        )
+
+    # Act: simulate system update / container restart re-running filtered_small.sql
+    execute_sql_file(engine, sql_path)
+
+    # Assert: pending & rejected items stay in their review states; only legacy pending_date_check upgrades
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT inventory_number, review_status
+                FROM objects
+                WHERE inventory_number IN ('CMA-9999', 'REJ-9999', 'LEGACY-9999', '20.3.11', 'EA37976', '60788')
+                """
+            )
+        ).mappings().all()
+        status_by_inv = {r["inventory_number"]: r["review_status"] for r in rows}
+
+        assert status_by_inv["CMA-9999"] == "pending"
+        assert status_by_inv["REJ-9999"] == "rejected"
+        assert status_by_inv["20.3.11"] == "pending"
+        assert status_by_inv["60788"] == "pending"
+        assert status_by_inv["EA37976"] == "rejected"
+        assert status_by_inv["LEGACY-9999"] == "accepted"
+
+
+def test_seedSqlFiles_neverUseWildcardPendingAutoAccept():
+    # Arrange
+    repo_root = BACKEND_DIR.parent.parent
+    sql_files = [
+        BACKEND_DIR / "data" / "filtered_small.sql",
+        BACKEND_DIR / "data" / "met_ancient_workers.sql",
+        BACKEND_DIR / "data" / "bm_ancient_workers.sql",
+        repo_root / "data" / "reduced_dataset" / "filtered_small.sql",
+    ]
+
+    # Act & Assert
+    for sql_file in sql_files:
+        content = sql_file.read_text(encoding="utf-8")
+        lowered = content.lower()
+        assert "like 'pending%'" not in lowered, f"Wildcard pending auto-accept found in {sql_file}"
+        assert "review_status = excluded.review_status" not in lowered, (
+            f"Unconditional review_status overwrite found in {sql_file}"
+        )
+
+
+

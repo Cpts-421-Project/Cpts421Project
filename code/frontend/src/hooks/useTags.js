@@ -10,7 +10,10 @@ const useTags = () => {
         const fetchTags = async () => {
             try {
                 const response = await api.get('/tags');
-                setTags(response.data);
+                const sortedTags = Array.isArray(response.data)
+                    ? [...response.data].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+                    : [];
+                setTags(sortedTags);
                 setLoading(false);
             } catch (err) {
                 console.error("Failed to fetch tags:", err);

@@ -1,7 +1,10 @@
+import asyncio
+import json
+import threading
 import time
 import uuid
 from pathlib import Path, PurePosixPath
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import timedelta
 
 from fastapi import FastAPI, HTTPException, Query, Depends, Request, Response, UploadFile, File, status
@@ -14,8 +17,26 @@ from sqlalchemy.orm import Session
 from botocore.exceptions import ClientError
 from .config import config
 from .database import get_db, get_engine, Base
-from .schemas import ObjectDetailResponse, ObjectMapResponse, UserLogin, ObjectCreate, ObjectUpdate, ReviewUpdate
+from .schemas import (
+    ObjectDetailResponse,
+    ObjectMapResponse,
+    UserLogin,
+    ObjectCreate,
+    ObjectUpdate,
+    ReviewUpdate,
+    PredefinedMuseumResponse,
+    DiscoveryPresetResponse,
+    DiscoverySearchRequest,
+    DiscoverySearchResponse,
+    DiscoveryImportRequest,
+    DiscoveryImportResponse,
+    DiscoveryRejectRequest,
+    DiscoveryRejectResponse,
+    DiscoveryKeywordCreate,
+    DiscoveryKeywordResponse,
+)
 from .services.object_service import ObjectService
+from .services.museum_discovery_service import MuseumDiscoveryService
 from .services.s3_service import upload_file_to_minio, get_s3_client, validate_magic_bytes
 from .auth import verify_password, create_access_token, get_current_user, get_current_admin_user, ACCESS_TOKEN_EXPIRE_MINUTES
 from .models import User
@@ -364,7 +385,7 @@ async def create_object(object_data: ObjectCreate, db: Session = Depends(get_db)
 @app.put("/objects/{object_id}", response_model=ObjectDetailResponse)
 async def update_object(object_id: int, object_data: ObjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = ObjectService(db)
-    return await run_in_threadpool(service.update_object, object_id, object_data.model_dump())
+    return await run_in_threadpool(service.update_object, object_id, object_data.model_dump(exclude_unset=True))
 
 
 @app.delete("/objects/{object_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -380,36 +401,237 @@ async def get_pending_objects(db: Session = Depends(get_db), current_user: User 
     return await run_in_threadpool(service.get_pending_objects)
 
 
+@app.get("/admin/discovery/museums", response_model=List[PredefinedMuseumResponse])
+async def get_discovery_museums(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.list_museums)
+
+
+@app.get("/admin/discovery/presets", response_model=List[DiscoveryPresetResponse])
+async def list_discovery_presets(
+    current_user: User = Depends(get_current_admin_user),
+):
+    return MuseumDiscoveryService.list_presets()
+
+
+@app.get("/admin/discovery/keywords", response_model=List[str])
+async def get_discovery_keywords(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.get_saved_keywords)
+
+
+@app.post("/admin/discovery/keywords", response_model=DiscoveryKeywordResponse)
+async def add_discovery_keyword(
+    keyword_request: DiscoveryKeywordCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.add_keyword, keyword_request.keyword)
+
+
+@app.delete("/admin/discovery/keywords", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_discovery_keyword(
+    keyword: str = Query(..., min_length=1, max_length=80),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    await run_in_threadpool(service.delete_keyword, keyword)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/admin/discovery/search", response_model=DiscoverySearchResponse)
+async def search_discovery_museums(
+    search_request: DiscoverySearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.discover, search_request)
+
+
+@app.post("/admin/discovery/search/stream")
+async def stream_discovery_museums(
+    search_request: DiscoverySearchRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    """Stream real-time NDJSON progress events while searching predefined museums."""
+    service = MuseumDiscoveryService(db)
+    index = await run_in_threadpool(service.prepare_discovery, search_request)
+
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=512)
+    sentinel = object()
+    cancel_event = threading.Event()
+    must_deliver_types = frozenset({"search_started", "museum_completed", "complete", "error"})
+
+    def _enqueue(payload) -> None:
+        if payload is sentinel or (isinstance(payload, dict) and payload.get("type") in must_deliver_types):
+            while queue.full():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+            queue.put_nowait(payload)
+            return
+        if not queue.full():
+            queue.put_nowait(payload)
+
+    def _push_event(event: dict) -> None:
+        loop.call_soon_threadsafe(_enqueue, event)
+
+    def _run_worker() -> None:
+        try:
+            MuseumDiscoveryService.discover_with_index(
+                search_request,
+                index,
+                progress_callback=_push_event,
+                cancel_event=cancel_event,
+            )
+        except Exception as exc:
+            app_logger.error("Unexpected discovery stream failure: %s", exc, exc_info=True)
+            _push_event({
+                "type": "error",
+                "message": f"Discovery stream failed: {exc}",
+            })
+        finally:
+            _push_event(sentinel)
+
+    worker_future = loop.run_in_executor(None, _run_worker)
+
+    async def event_stream():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    cancel_event.set()
+                    break
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
+                if item is sentinel:
+                    break
+                yield json.dumps(item, ensure_ascii=False) + "\n"
+        finally:
+            cancel_event.set()
+            try:
+                await worker_future
+            except Exception as exc:
+                app_logger.debug("Discovery stream worker cleanup finished with: %s", exc)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.post("/admin/discovery/import", response_model=DiscoveryImportResponse)
+async def import_discovered_artifacts(
+    import_request: DiscoveryImportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.import_candidates, import_request.candidates)
+
+
+@app.post("/admin/discovery/reject", response_model=DiscoveryRejectResponse)
+async def reject_discovered_artifacts(
+    reject_request: DiscoveryRejectRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.reject_candidates, reject_request.candidates)
+
+
+@app.delete("/admin/discovery/rejected/{rejected_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unreject_discovered_artifact(
+    rejected_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    await run_in_threadpool(service.unreject_artifact, rejected_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @app.patch("/objects/{object_id}/review", response_model=ObjectDetailResponse)
 async def review_object(object_id: int, review_data: ReviewUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = ObjectService(db)
-    result = await run_in_threadpool(service.update_object, object_id, {"review_status": review_data.status})
-    if not result:
-        raise HTTPException(status_code=404, detail="Object not found")
-        
-    if review_data.status == "rejected":
-        # Keep only 3 most recent rejected, hard delete older
-        from .models import Object
-        rejected_objs = db.query(Object).filter(Object.review_status == 'rejected').order_by(Object.id.desc()).all()
-        if len(rejected_objs) > 3:
-            for obj_to_delete in rejected_objs[3:]:
-                await run_in_threadpool(service.delete_object, obj_to_delete.id)
-                
-    return result
+    return await run_in_threadpool(service.review_object, object_id, review_data.status)
+
+
+@app.post("/objects/{object_id}/recover-images", response_model=ObjectDetailResponse)
+async def recover_object_images(
+    object_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.recover_object_images, object_id)
 
 
 # Existing Endpoints
+MAX_FILTER_IDS = 500
+
+
+def _parse_object_id_filters(ids_params: Optional[List[str]]) -> Optional[List[int]]:
+    """Parse repeated or comma-separated positive artifact IDs with upper bound enforcement."""
+    if not ids_params:
+        return None
+    seen = set()
+    parsed: List[int] = []
+    for raw in ids_params:
+        for token in str(raw).split(","):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+            try:
+                val = int(cleaned)
+            except ValueError:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Invalid artifact ID filter; expected positive integers.",
+                )
+            if val <= 0:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Invalid artifact ID filter; expected positive integers.",
+                )
+            if val not in seen:
+                seen.add(val)
+                parsed.append(val)
+                if len(parsed) > MAX_FILTER_IDS:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Too many artifact IDs requested (maximum {MAX_FILTER_IDS}).",
+                    )
+    return parsed or None
+
+
 @app.get("/objects/search", response_model=List[ObjectDetailResponse])
 async def search_objects(
     search: Optional[str] = Query(None, description="General search query across name, description, material, findspot, inventory number, tags"),
     q: Optional[str] = Query(None, description="Alias for search query"),
     tags: Optional[List[str]] = Query(None, description="Filter by tag names (matches objects containing any of the selected tags)"),
     tag: Optional[str] = Query(None, description="Single tag or comma-separated tags filter"),
+    ids: Optional[List[str]] = Query(None, description="Filter to specific artifact IDs (repeated or comma-separated)"),
     tag_mode: str = Query("any", pattern="^(any|all)$", description="Match 'any' (OR) or 'all' (AND) selected tags"),
     material: Optional[str] = Query(None, max_length=255),
     year: Optional[int] = Query(None, description="Fuzzy date search year"),
     date_start: Optional[int] = None,
     date_end: Optional[int] = None,
+    sort_by: Literal["title", "date", "location", "material"] = Query("title", description="Sort results by title, date, location, or material"),
+    sort_order: Literal["asc", "desc"] = Query("asc", description="Sort direction: asc or desc"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
@@ -423,6 +645,8 @@ async def search_objects(
     if tag:
         parsed_tags.extend([item.strip() for item in tag.split(",") if item.strip()])
 
+    parsed_ids = _parse_object_id_filters(ids)
+
     service = ObjectService(db)
     return await run_in_threadpool(
         service.search,
@@ -432,7 +656,10 @@ async def search_objects(
         date_end=date_end,
         search=query_term,
         tags=parsed_tags if parsed_tags else None,
+        object_ids=parsed_ids,
         tag_mode=tag_mode,
+        sort_by=sort_by,
+        sort_order=sort_order,
         skip=skip,
         limit=limit,
     )
@@ -484,10 +711,26 @@ async def serve_image(key: str):
     # 1. Attempt to stream from S3 / MinIO
     try:
         s3 = get_s3_client()
-        response = await run_in_threadpool(s3.get_object, Bucket=bucket, Key=s3_key)
-        content_type = response.get("ContentType", "image/jpeg")
+        s3_response = await run_in_threadpool(s3.get_object, Bucket=bucket, Key=s3_key)
+        content_type = s3_response.get("ContentType", "image/jpeg")
+        body = s3_response["Body"]
+
+        def _stream_s3_body():
+            try:
+                if hasattr(body, "iter_chunks"):
+                    for chunk in body.iter_chunks(chunk_size=65536):
+                        if chunk:
+                            yield chunk
+                else:
+                    for chunk in body:
+                        if chunk:
+                            yield chunk
+            finally:
+                if hasattr(body, "close"):
+                    body.close()
+
         return StreamingResponse(
-            response["Body"],
+            _stream_s3_body(),
             media_type=content_type,
             headers={
                 "Cache-Control": "public, max-age=86400",
@@ -496,8 +739,8 @@ async def serve_image(key: str):
         )
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
-        if error_code not in ("NoSuchKey", "404", "AccessDenied", "NoSuchBucket"):
-            app_logger.warning("S3 ClientError while serving %s: %s", s3_key, e)
+        if error_code not in ("NoSuchKey", "404"):
+            app_logger.warning("S3 ClientError while serving %s (%s): %s", s3_key, error_code, e)
     except Exception as exc:
         app_logger.warning("Error fetching %s from S3: %s", s3_key, exc)
 

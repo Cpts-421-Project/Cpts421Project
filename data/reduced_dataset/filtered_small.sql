@@ -12,7 +12,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sources WHERE citation_text = 'Metropolitan Muse
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', NULL, NULL, '241792', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241792.jpg'
@@ -45,7 +45,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: slave
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Marble funerary inscription', NULL, NULL, '256773', 'The plaque was set up by Satria Epicharis for her slave Antoninus, who died aged twelve.', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_256773.jpg'
@@ -78,7 +78,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Sea Lion Hunt Bottle', NULL, NULL, '310521', 'This Moche bottle depicts a hunting scene with human hunters wearing loincloths, turbans, and bags tied around their waists. They hold sticks or long...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_310521.jpg'
@@ -104,7 +104,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: physician
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Sarcophagus with a Greek Physician', NULL, NULL, '468268', 'Trattoria della Barcaccia, via Condotti, Rome (by 1794–at least 1822); Giuseppe Balestra, Villa Balestra, Monti Paroli, Rome (by 1881–at least 1900); Prince Giovanni Del Drago ; [ Veneziani, Rome (sold 1931)]; [ Brummer Gallery, Paris and New York (1931–1948)]', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_468268.jpg'
@@ -130,7 +130,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', NULL, NULL, '241511', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: poorly-executed naked man facing front but moving to right, holding large bulbous jar in right...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241511.jpg'
@@ -163,7 +163,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', NULL, NULL, '241789', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in right hand and with an...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241789.jpg'
@@ -196,7 +196,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', NULL, NULL, '241790', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: standing man, holding large bulbous jar in right hand and an amphora in left; letters (?) to...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241790.jpg'
@@ -229,7 +229,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', NULL, NULL, '241791', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241791.jpg'
@@ -262,7 +262,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: mold
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Terracotta oil lamp', NULL, NULL, '241793', 'Vessberg Type 18. Unpierced handle. Mold-made. Discus: naked man facing front but moving to right, holding large bulbous jar in lowered right hand and...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_241793.jpg'
@@ -295,7 +295,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: craftsman
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Bottle with Runners', NULL, NULL, '308507', 'This ceramic bottle was made by a master craftsman of the Moche culture, which thrived on Peru’s North Coast between the third and ninth centuries A. D....', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_308507.jpg'
@@ -321,7 +321,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: maker
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Pulque Maker', NULL, NULL, '318960', 'Pulque Maker 100 BCE–300 CE Mexico, Mesoamerica, Jalisco Jalisco Ceramic H. 21 1/4 × W. 14 1/2 × D. 10 15/16 in. (54 × 36.8 × 27.8 cm)...', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_318960.jpg'
@@ -347,7 +347,7 @@ ON CONFLICT DO NOTHING;
 -- matched worker terms: scene
 INSERT INTO objects (object_type, material, findspot, inventory_number, description,
                      date_display, date_start, date_end, height, width, depth, unit, review_status)
-VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'pending_date_check')
+VALUES ('Hemispherical bowl with scenes of wine making', NULL, NULL, '326008', '[By April 1967, Mehdi Mahboubian, Mahboubian Gallery of Ancient Art, New York]; by December 1969, Bernard H. Barnett, Louisville, KY; acquired by the Museum in 1970, purchased from Bernard H. Barnett, Louisville, KY', 'Unknown', 200, 800, NULL, NULL, NULL, 'cm', 'accepted')
 ON CONFLICT (inventory_number) DO NOTHING;
 INSERT INTO images (object_id, source_id, image_type, view_type, file_url)
 SELECT o.id, (SELECT id FROM sources WHERE citation_text = 'Metropolitan Museum of Art. “The Met Collection.” New York: The Metropolitan Museum of Art. https://www.metmuseum.org/art/collection. Accessed October 13, 2026.'), 'Photograph', 'Front', '/api/images/met_326008.jpg'
@@ -368,7 +368,7 @@ JOIN tags t ON t.tag_name = 'scene'
 WHERE o.inventory_number = '326008'
 ON CONFLICT DO NOTHING;
 
-UPDATE objects SET review_status = 'accepted' WHERE review_status LIKE 'pending%';
+UPDATE objects SET review_status = 'accepted' WHERE review_status = 'pending_date_check';
 
 COMMIT;
 

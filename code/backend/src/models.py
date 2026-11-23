@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Numeric, ForeignKey, Table, Boolean
+from sqlalchemy import Column, Integer, String, Date, DateTime, Numeric, ForeignKey, Table, Boolean, func
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -35,6 +35,8 @@ class Image(Base):
     source_id = Column(Integer, ForeignKey("sources.id", ondelete="SET NULL"))
     image_type = Column(String(50))
     view_type = Column(String(50))
+    image_sequence = Column(Integer)
+    source_identifier = Column(String(255))
     file_url = Column(String, nullable=False)
 
     # Relationships
@@ -47,6 +49,8 @@ class Object(Base):
     object_type = Column(String(255), nullable=False)
     material = Column(String(255))
     findspot = Column(String(255))
+    present_location = Column(String(255), index=True)
+    production_location = Column(String(255))
     latitude = Column(Numeric(9, 6))
     longitude = Column(Numeric(9, 6))
     date_discovered = Column(Date)
@@ -57,16 +61,49 @@ class Object(Base):
     date_display = Column(String(255), nullable=False)
     date_start = Column(Integer, nullable=False, index=True)
     date_end = Column(Integer, nullable=False, index=True)
+    date_basis = Column(String)
     
-    # Dimensions
+    # Dimensions & Physical Attributes
     width = Column(Numeric(10, 2))
     height = Column(Numeric(10, 2))
     depth = Column(Numeric(10, 2))
     unit = Column(String(20), default='cm')
+    dimensions_display = Column(String(255))
+    weight = Column(String(100))
+    completeness = Column(String(255))
+
+    # Inscriptions, Group & Scholarly References
+    inscription_present = Column(Boolean)
+    inscription_1 = Column(String)
+    inscription_2 = Column(String)
+    object_group = Column(String(255))
+    publications = Column(String)
+    caption = Column(String)
+    external_url = Column(String(500))
 
     # Review Feature (Admin-only queue)
     review_status = Column(String(50), default="pending", index=True)
 
     # Relationships
     images = relationship("Image", backref="object", cascade="all, delete-orphan")
+
+
+class DiscoveryKeyword(Base):
+    __tablename__ = "discovery_keywords"
+    id = Column(Integer, primary_key=True, index=True)
+    keyword = Column(String(80), unique=True, nullable=False, index=True)
+    is_default = Column(Boolean, nullable=False, default=False)
+
+
+class RejectedArtifact(Base):
+    __tablename__ = "rejected_artifacts"
+    id = Column(Integer, primary_key=True, index=True)
+    museum_id = Column(String(32), index=True)
+    source_record_id = Column(String(100), index=True)
+    inventory_number = Column(String(100), index=True)
+    external_url = Column(String(500), index=True)
+    object_type = Column(String(255))
+    present_location = Column(String(255))
+    date_display = Column(String(255))
+    rejected_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

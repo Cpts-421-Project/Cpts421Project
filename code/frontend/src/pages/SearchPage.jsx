@@ -1,63 +1,126 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import FilterSidebar from '../components/FilterSidebar';
 import ArtifactGrid from '../components/ArtifactGrid';
 import useArtifacts from '../hooks/useArtifacts';
 
+const hasValue = (val) => val !== null && val !== undefined && val !== '';
+
 const SearchPage = () => {
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
+    const [statusNotice, setStatusNotice] = useState(() =>
+        location.state?.deletedArtifactTitle
+            ? `Deleted artifact "${location.state.deletedArtifactTitle}".`
+            : ''
+    );
 
     // Initialize filters from URL parameters if present
     const [filters, setFilters] = useState(() => {
         const initialSearch = searchParams.get('search') || searchParams.get('q') || '';
-        const initialTag = searchParams.get('tag') || searchParams.get('tags') || '';
+        const rawTags = [
+            ...searchParams.getAll('tag'),
+            ...searchParams.getAll('tags'),
+        ];
+        const initialTags = [...new Set(
+            rawTags
+                .flatMap((t) => t.split(','))
+                .map((t) => t.trim())
+                .filter(Boolean)
+        )];
+        const rawIds = searchParams.getAll('ids');
+        const initialIds = [...new Set(
+            rawIds
+                .flatMap((v) => v.split(','))
+                .map((v) => parseInt(v.trim(), 10))
+                .filter((n) => Number.isInteger(n) && n > 0)
+        )];
+        const initialMapLabel = searchParams.get('map_label') || '';
         const start = searchParams.get('date_start');
         const end = searchParams.get('date_end');
+        const parsedStart = hasValue(start) ? parseInt(start, 10) : null;
+        const parsedEnd = hasValue(end) ? parseInt(end, 10) : null;
 
         return {
             search: initialSearch,
-            selectedTags: initialTag ? [initialTag] : [],
-            startDate: start ? parseInt(start, 10) : null,
-            endDate: end ? parseInt(end, 10) : null,
+            selectedTags: initialTags,
+            selectedIds: initialIds,
+            mapClusterLabel: initialMapLabel,
+            startDate: Number.isNaN(parsedStart) ? null : parsedStart,
+            endDate: Number.isNaN(parsedEnd) ? null : parsedEnd,
+            sortBy: searchParams.get('sort_by') || 'title',
+            sortOrder: searchParams.get('sort_order') || 'asc',
         };
     });
 
     const { artifacts, loading, error } = useArtifacts(filters);
 
-    // Sync URL when filters change
+    // Sync URL when filters or sort change
     useEffect(() => {
         const params = new URLSearchParams();
         if (filters.search) params.set('search', filters.search);
         if (filters.selectedTags && filters.selectedTags.length > 0) {
-            filters.selectedTags.forEach(t => params.append('tag', t));
+            filters.selectedTags.forEach((t) => params.append('tag', t));
         }
-        if (filters.startDate) params.set('date_start', filters.startDate.toString());
-        if (filters.endDate) params.set('date_end', filters.endDate.toString());
+        if (filters.selectedIds && filters.selectedIds.length > 0) {
+            params.set('ids', filters.selectedIds.join(','));
+            if (filters.mapClusterLabel) {
+                params.set('map_label', filters.mapClusterLabel);
+            }
+        }
+        if (hasValue(filters.startDate)) params.set('date_start', filters.startDate.toString());
+        if (hasValue(filters.endDate)) params.set('date_end', filters.endDate.toString());
+        if (filters.sortBy && filters.sortBy !== 'title') params.set('sort_by', filters.sortBy);
+        if (filters.sortOrder && filters.sortOrder !== 'asc') params.set('sort_order', filters.sortOrder);
 
         setSearchParams(params, { replace: true });
     }, [filters, setSearchParams]);
 
     const handleRemoveTag = (tagToRemove) => {
-        setFilters(prev => ({
+        setFilters((prev) => ({
             ...prev,
-            selectedTags: prev.selectedTags.filter(t => t !== tagToRemove)
+            selectedTags: prev.selectedTags.filter((t) => t !== tagToRemove),
+        }));
+    };
+
+    const handleClearMapSelection = () => {
+        setFilters((prev) => ({
+            ...prev,
+            selectedIds: [],
+            mapClusterLabel: '',
         }));
     };
 
     const handleClearAll = () => {
-        setFilters({
+        setFilters((prev) => ({
+            ...prev,
             search: '',
             selectedTags: [],
+            selectedIds: [],
+            mapClusterLabel: '',
             startDate: null,
-            endDate: null
-        });
+            endDate: null,
+        }));
     };
 
+    const handleSortChange = (e) => {
+        const [sortBy, sortOrder] = e.target.value.split(':');
+        setFilters((prev) => ({
+            ...prev,
+            sortBy: sortBy || 'title',
+            sortOrder: sortOrder || 'asc',
+        }));
+    };
+
+    const hasStartDate = hasValue(filters.startDate);
+    const hasEndDate = hasValue(filters.endDate);
+    const hasMapCluster = Boolean(filters.selectedIds && filters.selectedIds.length > 0);
     const hasActiveFilters = Boolean(
         filters.search ||
         (filters.selectedTags && filters.selectedTags.length > 0) ||
-        filters.startDate ||
-        filters.endDate
+        hasMapCluster ||
+        hasStartDate ||
+        hasEndDate
     );
 
     return (
@@ -66,6 +129,24 @@ const SearchPage = () => {
 
             <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
                 <div className="max-w-7xl mx-auto space-y-6">
+                    {statusNotice && (
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 flex items-center justify-between gap-4"
+                        >
+                            <span>{statusNotice}</span>
+                            <button
+                                type="button"
+                                onClick={() => setStatusNotice('')}
+                                aria-label="Dismiss notification"
+                                className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 underline"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    )}
+
                     {/* Search Input Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                         <div className="w-full md:w-2/3 relative">
@@ -76,14 +157,15 @@ const SearchPage = () => {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Search by name, description, material, findspot, or tag..."
+                                placeholder="Search by name, description, collection, material, findspot, or tag..."
                                 className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 text-sm"
-                                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
                                 value={filters.search}
                             />
                             {filters.search && (
                                 <button
-                                    onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                                    type="button"
+                                    onClick={() => setFilters((prev) => ({ ...prev, search: '' }))}
                                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                                     title="Clear search"
                                 >
@@ -104,7 +186,9 @@ const SearchPage = () => {
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
                                     Search: "{filters.search}"
                                     <button
-                                        onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                                        type="button"
+                                        aria-label="Remove search filter"
+                                        onClick={() => setFilters((prev) => ({ ...prev, search: '' }))}
                                         className="hover:text-blue-900 focus:outline-none"
                                     >
                                         &times;
@@ -112,13 +196,30 @@ const SearchPage = () => {
                                 </span>
                             )}
 
-                            {filters.selectedTags.map(tag => (
+                            {hasMapCluster && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-900 border border-emerald-200">
+                                    Map Cluster: {filters.mapClusterLabel || 'Selected Area'} ({filters.selectedIds.length}{' '}
+                                    {filters.selectedIds.length === 1 ? 'artifact' : 'artifacts'})
+                                    <button
+                                        type="button"
+                                        aria-label="Remove map cluster filter"
+                                        onClick={handleClearMapSelection}
+                                        className="hover:text-emerald-950 focus:outline-none"
+                                    >
+                                        &times;
+                                    </button>
+                                </span>
+                            )}
+
+                            {filters.selectedTags.map((tag) => (
                                 <span
                                     key={tag}
                                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200"
                                 >
                                     Tag: {tag}
                                     <button
+                                        type="button"
+                                        aria-label={`Remove tag ${tag} filter`}
                                         onClick={() => handleRemoveTag(tag)}
                                         className="hover:text-indigo-900 focus:outline-none"
                                     >
@@ -127,11 +228,13 @@ const SearchPage = () => {
                                 </span>
                             ))}
 
-                            {(filters.startDate || filters.endDate) && (
+                            {(hasStartDate || hasEndDate) && (
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
-                                    Years: {filters.startDate || 'Any'} – {filters.endDate || 'Any'}
+                                    Years: {hasStartDate ? filters.startDate : 'Any'} – {hasEndDate ? filters.endDate : 'Any'}
                                     <button
-                                        onClick={() => setFilters(prev => ({ ...prev, startDate: null, endDate: null }))}
+                                        type="button"
+                                        aria-label="Remove year range filter"
+                                        onClick={() => setFilters((prev) => ({ ...prev, startDate: null, endDate: null }))}
                                         className="hover:text-amber-900 focus:outline-none"
                                     >
                                         &times;
@@ -140,6 +243,7 @@ const SearchPage = () => {
                             )}
 
                             <button
+                                type="button"
                                 onClick={handleClearAll}
                                 className="text-xs text-red-600 hover:text-red-800 font-medium ml-2 underline"
                             >
@@ -150,10 +254,38 @@ const SearchPage = () => {
 
                     {/* Results Section */}
                     <section>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-semibold text-gray-800">
-                                Search Results ({artifacts ? artifacts.length : 0})
-                            </h2>
+                        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-lg font-semibold text-gray-800">
+                                    Search Results ({artifacts ? artifacts.length : 0})
+                                </h2>
+                                {loading && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
+                                        <progress aria-label="Searching catalog" className="loading-spinner loading-spinner--xs" />
+                                        Searching...
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="artifact-sort" className="text-sm font-medium text-gray-600">
+                                    Sort by
+                                </label>
+                                <select
+                                    id="artifact-sort"
+                                    aria-label="Sort by"
+                                    value={`${filters.sortBy || 'title'}:${filters.sortOrder || 'asc'}`}
+                                    onChange={handleSortChange}
+                                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="title:asc">Title (A–Z)</option>
+                                    <option value="title:desc">Title (Z–A)</option>
+                                    <option value="date:asc">Date (Earliest First)</option>
+                                    <option value="date:desc">Date (Latest First)</option>
+                                    <option value="location:asc">Geographic Location (A–Z)</option>
+                                    <option value="material:asc">Medium / Material (A–Z)</option>
+                                </select>
+                            </div>
                         </div>
 
                         {!loading && !error && (!artifacts || artifacts.length === 0) ? (
@@ -167,6 +299,7 @@ const SearchPage = () => {
                                 </p>
                                 {hasActiveFilters && (
                                     <button
+                                        type="button"
                                         onClick={handleClearAll}
                                         className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm"
                                     >

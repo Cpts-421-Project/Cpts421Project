@@ -1,1 +1,254 @@
 @import "tailwindcss";
+
+/* Modal Lightbox Top-Layer Scroll Containment & Backdrop */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+dialog.image-lightbox[open] {
+  display: flex;
+}
+
+/* Fused Map Cluster Markers & High-Contrast Keyboard Focus */
+.map-cluster-icon {
+  background: transparent;
+  border: none;
+}
+
+.map-cluster-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #ffffff;
+  background-color: #1d4ed8;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.28), 0 4px 10px rgba(15, 23, 42, 0.3);
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.map-cluster-badge--md {
+  background-color: #1e40af;
+}
+
+.map-cluster-badge--lg {
+  background-color: #3730a3;
+  font-size: 0.9375rem;
+}
+
+.leaflet-marker-icon.map-cluster-icon:hover .map-cluster-badge {
+  transform: scale(1.08);
+  background-color: #1e3a8a;
+}
+
+.leaflet-marker-icon:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 3px;
+  border-radius: 9999px;
+}
+
+/* Native <progress> Spinner & Discovery Progress Bar */
+@property --arc-start {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --arc-end {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --progress-dash-animation {
+  syntax: "*";
+  inherits: false;
+  initial-value: , progress-dash 3s ease-in-out infinite;
+}
+
+progress.discovery-progress {
+  appearance: none;
+  border: 0 solid;
+  overflow: clip;
+  container-type: inline-size;
+  --progress-bar-radius: 1e5px;
+  --progress-bar-indeterminate-size: 30%;
+  --progress-bar-indeterminate-animation-duration: 1.5s;
+  border-radius: var(--progress-bar-radius);
+  background: #e2e8f0;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.1);
+  height: 0.75rem;
+}
+
+progress.discovery-progress:dir(rtl) {
+  --progress-bar-indeterminate-animation: progress-bar-indeterminate var(--progress-bar-indeterminate-animation-duration) infinite linear reverse;
+}
+
+progress.discovery-progress:indeterminate {
+  --progress-bar-animation: var(
+    --progress-bar-indeterminate-animation,
+    progress-bar-indeterminate var(--progress-bar-indeterminate-animation-duration) infinite linear
+  );
+}
+
+progress.discovery-progress::-webkit-progress-bar {
+  background: transparent;
+}
+
+progress.discovery-progress::-webkit-progress-value {
+  background: var(--progress-bar-fill, #2563eb);
+  border-radius: var(--progress-bar-radius);
+  transition: inline-size 0.3s;
+  animation: var(--progress-bar-animation, revert-rule);
+}
+
+progress.discovery-progress::-moz-progress-bar {
+  background: var(--progress-bar-fill, #2563eb);
+  border-radius: var(--progress-bar-radius);
+  transition: inline-size 0.3s;
+  animation: var(--progress-bar-animation, revert-rule);
+}
+
+@keyframes progress-bar-indeterminate {
+  from, to {
+    inline-size: var(--progress-bar-indeterminate-size);
+    margin-right: auto;
+  }
+  from {
+    translate: -100%;
+  }
+  to {
+    translate: 100cqi;
+  }
+}
+
+progress.loading-spinner:indeterminate {
+  --_from: calc(90deg + var(--arc-start, 0deg));
+  --_to: calc(90deg + var(--arc-end, 158deg));
+  --size: 28px;
+  --thickness: 3px;
+  --spinner-color: #2563eb;
+  --track-color: #e2e8f0;
+  --spinner-duration: 1.5s;
+  --_used-spinner-duration: var(--spinner-duration);
+
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  appearance: none;
+  border: 0;
+  background: conic-gradient(
+      from var(--_from),
+      var(--spinner-color) calc(var(--_to) - var(--_from)),
+      transparent 0
+    )
+    var(--track-color);
+  animation:
+    progress-spin var(--_used-spinner-duration) linear infinite
+    var(--progress-dash-animation, );
+}
+
+progress.loading-spinner--sm:indeterminate {
+  --size: 20px;
+  --thickness: 2.5px;
+}
+
+progress.loading-spinner--xs:indeterminate {
+  --size: 16px;
+  --thickness: 2px;
+}
+
+progress.loading-spinner:indeterminate::-webkit-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate::-webkit-progress-value {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate::-moz-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate::slider-fill {
+  display: none;
+  background: none;
+}
+
+@supports (background-clip: border-area) {
+  progress.loading-spinner:indeterminate {
+    background-clip: border-area;
+    border: var(--thickness) solid transparent;
+    background-origin: border-box;
+  }
+}
+
+@supports not (background-clip: border-area) {
+  progress.loading-spinner:indeterminate {
+    --clip-boundary: calc(100% - var(--thickness));
+    mask-image: radial-gradient(
+      farthest-side,
+      transparent var(--clip-boundary),
+      black var(--clip-boundary)
+    );
+    border: 0;
+  }
+}
+
+@keyframes progress-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@keyframes progress-dash {
+  from {
+    --arc-start: 0deg;
+    --arc-end: 3deg;
+  }
+  50% {
+    --arc-start: 100deg;
+    --arc-end: 358deg;
+  }
+  to {
+    --arc-start: 360deg;
+    --arc-end: 363deg;
+  }
+}
+
+@media (forced-colors: active) {
+  progress.loading-spinner:indeterminate {
+    forced-color-adjust: none;
+    --spinner-color: CanvasText;
+    --track-color: Canvas;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  progress.discovery-progress {
+    --progress-bar-indeterminate-animation-duration: 10s;
+  }
+
+  progress.loading-spinner:indeterminate {
+    --_used-spinner-duration: 6s;
+    --progress-dash-animation: ;
+    --arc-end: 158deg;
+  }
+}

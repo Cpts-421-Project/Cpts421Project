@@ -7,16 +7,25 @@ const useArtifacts = (filters) => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchArtifacts = async () => {
             setLoading(true);
+            setError(null);
             try {
-                const params = {};
+                const params = {
+                    sort_by: filters.sortBy || 'title',
+                    sort_order: filters.sortOrder || 'asc',
+                };
 
                 if (filters.search && filters.search.trim()) {
                     params.search = filters.search.trim();
                 }
                 if (filters.selectedTags && filters.selectedTags.length > 0) {
                     params.tags = filters.selectedTags;
+                }
+                if (filters.selectedIds && filters.selectedIds.length > 0) {
+                    params.ids = filters.selectedIds.join(',');
                 }
                 if (filters.startDate !== null && filters.startDate !== undefined && filters.startDate !== '') {
                     params.date_start = filters.startDate;
@@ -25,10 +34,23 @@ const useArtifacts = (filters) => {
                     params.date_end = filters.endDate;
                 }
 
-                const response = await api.get('/objects/search', { params });
-                setArtifacts(response.data);
-                setLoading(false);
+                const response = await api.get('/objects/search', {
+                    params,
+                    signal: controller.signal,
+                });
+                if (!controller.signal.aborted) {
+                    setArtifacts(response.data);
+                    setLoading(false);
+                }
             } catch (err) {
+                if (
+                    err?.name === 'CanceledError' ||
+                    err?.name === 'AbortError' ||
+                    err?.code === 'ERR_CANCELED' ||
+                    controller.signal.aborted
+                ) {
+                    return;
+                }
                 console.error("Failed to fetch artifacts:", err);
                 setError(err);
                 setLoading(false);
@@ -36,6 +58,10 @@ const useArtifacts = (filters) => {
         };
 
         fetchArtifacts();
+
+        return () => {
+            controller.abort();
+        };
     }, [filters]); // Re-run when filters change
 
     return { artifacts, loading, error };

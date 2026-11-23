@@ -4,7 +4,9 @@ Unified interface for uploading, validating, and caching artifact photos in our 
 Enforces SSRF prevention, MIME magic-byte verification, and strict payload size limits.
 """
 import uuid
+from pathlib import PurePosixPath
 from typing import Any, Optional, Tuple
+from urllib.parse import unquote, urlparse
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
@@ -22,7 +24,8 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-USER_AGENT = "AcademicArtifactDB/1.0 (Research Project)"
+USER_AGENT = "AcademicArtifactDB/1.0 (https://github.com/Cpts-421-Project/Cpts421Project; Academic Research Project)"
+IMAGE_ACCEPT_HEADER = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
 
 IMAGE_MAGIC_BYTES = {
     b'\xff\xd8\xff': ('jpg', 'image/jpeg'),
@@ -37,16 +40,25 @@ def get_s3_client():
     """Initializes and caches the Boto3 S3 client using application config."""
     global s3_client
     if s3_client is None:
+        try:
+            boto_config = Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'},
+                request_checksum_calculation='when_required',
+                response_checksum_validation='when_required',
+            )
+        except TypeError:
+            boto_config = Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'},
+            )
         s3_client = boto3.client(
             's3',
             endpoint_url=config.MINIO_ENDPOINT,
             aws_access_key_id=config.MINIO_ACCESS_KEY,
             aws_secret_access_key=config.MINIO_SECRET_KEY,
             region_name=config.AWS_REGION,
-            config=Config(
-                signature_version='s3v4',
-                s3={'addressing_style': 'path'}
-            )
+            config=boto_config,
         )
     return s3_client
 
@@ -68,6 +80,93 @@ def validate_magic_bytes(content: bytes) -> Tuple[str, str]:
         f"Content does not match any allowed image signature (JPEG, PNG, WebP, GIF). "
         f"Header hex: {content[:8].hex()}"
     )
+
+
+def _is_safe_proxy_key(key: str) -> bool:
+    """Validate that an S3 object key is non-empty and free of path traversal."""
+    unquoted_key = unquote(key)
+    if (
+        not key
+        or "\x00" in key
+        or "\x00" in unquoted_key
+        or "\\" in key
+        or "\\" in unquoted_key
+        or key.startswith("~")
+        or unquoted_key.startswith("~")
+    ):
+        return False
+    posix_path = PurePosixPath(unquoted_key)
+    if posix_path.is_absolute() or ".." in posix_path.parts:
+        return False
+    return True
+
+
+def normalize_bucket_url_to_proxy(url: Optional[str]) -> Optional[str]:
+    """
+    Normalize direct S3/MinIO/Tigris bucket URLs or bare /images/ paths to our
+    same-origin /api/images/{key} proxy path so browser <img> tags never hit
+    private bucket endpoints or CSP-blocked HTTP URLs.
+    """
+    if not url or not isinstance(url, str):
+        return url
+
+    stripped = url.strip()
+    if not stripped:
+        return url
+
+    if stripped.startswith("/api/images/"):
+        return stripped
+
+    if stripped.startswith("/images/"):
+        key = stripped[len("/images/"):].lstrip("/")
+        if _is_safe_proxy_key(key):
+            return f"/api/images/{key}"
+        return stripped
+
+    parsed = urlparse(stripped)
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+        return stripped
+
+    netloc_lower = parsed.netloc.lower()
+    hostname_lower = (parsed.hostname or "").lower()
+
+    configured_hosts = set()
+    configured_netlocs = set()
+    for base in (config.MINIO_ENDPOINT, config.MINIO_PUBLIC_URL):
+        if base and isinstance(base, str) and base.strip().lower().startswith(("http://", "https://")):
+            b_parsed = urlparse(base.strip())
+            if b_parsed.hostname:
+                configured_hosts.add(b_parsed.hostname.lower())
+            if b_parsed.netloc:
+                configured_netlocs.add(b_parsed.netloc.lower())
+
+    is_bucket_host = (
+        hostname_lower in configured_hosts
+        or netloc_lower in configured_netlocs
+        or netloc_lower in {"minio:9000", "localhost:9000", "127.0.0.1:9000"}
+        or hostname_lower == "storageapi.dev"
+        or hostname_lower.endswith(".storageapi.dev")
+        or hostname_lower == "storage.railway.app"
+        or hostname_lower.endswith(".storage.railway.app")
+    )
+    if not is_bucket_host:
+        return stripped
+
+    key = parsed.path.lstrip("/")
+    bucket_prefixes = {
+        b.strip().lower()
+        for b in (config.MINIO_BUCKET or "uploads", "uploads")
+        if b and b.strip()
+    }
+    for bkt in bucket_prefixes:
+        if key.lower().startswith(f"{bkt}/"):
+            key = key[len(bkt) + 1:]
+            break
+
+    if not _is_safe_proxy_key(key):
+        return stripped
+
+    return f"/api/images/{key}"
 
 
 def is_bucket_url(url: Optional[str]) -> bool:
@@ -108,7 +207,7 @@ def upload_bytes_to_minio(
     prefix: str = "obj"
 ) -> str:
     """
-    Uploads raw binary content to our storage bucket and returns the public bucket URL.
+    Uploads raw binary content to our storage bucket and returns our internal image proxy URL.
     """
     if len(content) > MAX_FILE_SIZE_BYTES:
         app_logger.warning("Upload rejected: File size exceeded limit")
@@ -133,9 +232,6 @@ def upload_bytes_to_minio(
             Body=content,
             ContentType=final_mime
         )
-        if config.MINIO_PUBLIC_URL and config.MINIO_PUBLIC_URL.startswith("http"):
-            base_url = config.MINIO_PUBLIC_URL.rstrip('/')
-            return f"{base_url}/{config.MINIO_BUCKET}/{file_name}"
         return f"/api/images/{file_name}"
     except ClientError as e:
         app_logger.error("Boto3 ClientError during upload", exc_info=True)
@@ -173,6 +269,52 @@ def upload_file_to_minio(file: UploadFile) -> str:
     return upload_bytes_to_minio(content, content_type=detected_mime, file_name=file_name)
 
 
+def _fetch_validated_image_bytes(image_url: str) -> Optional[Tuple[bytes, str, str]]:
+    """Download an SSRF-validated external image with size limits and magic-byte verification."""
+    if not is_safe_image_url(image_url):
+        app_logger.warning("External download rejected by SSRF allowlist", extra={"url": image_url})
+        return None
+
+    response = requests.get(
+        image_url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": IMAGE_ACCEPT_HEADER,
+        },
+        timeout=15,
+        stream=True,
+    )
+    try:
+        final_url = getattr(response, "url", None)
+        if isinstance(final_url, str) and final_url and not is_safe_image_url(final_url):
+            app_logger.warning(
+                "External download redirect rejected by SSRF allowlist",
+                extra={"url": final_url},
+            )
+            return None
+
+        response.raise_for_status()
+
+        # SEC-07: Stream with size limit
+        chunks = []
+        total = 0
+        for chunk in response.iter_content(chunk_size=8192):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > MAX_FILE_SIZE_BYTES:
+                app_logger.warning("Image download exceeded size limit", extra={"url": image_url})
+                return None
+            chunks.append(chunk)
+
+        content = b"".join(chunks)
+        detected_ext, detected_mime = validate_magic_bytes(content)
+        return content, detected_ext, detected_mime
+    finally:
+        if hasattr(response, "close"):
+            response.close()
+
+
 def download_and_store_image(
     image_url: str,
     object_identifier: Any = None,
@@ -181,7 +323,7 @@ def download_and_store_image(
 ) -> Optional[str]:
     """
     Downloads an image from a validated external URL (SSRF & DoS safe),
-    uploads it to our own bucket, and returns our bucket public URL.
+    uploads it to our own bucket, and returns our internal proxy URL.
     Returns None if validation, download, or upload fails.
     """
     if not image_url or not isinstance(image_url, str):
@@ -194,34 +336,40 @@ def download_and_store_image(
         app_logger.warning("External download rejected by SSRF allowlist", extra={"url": image_url})
         return None
 
+    candidate_urls = [image_url]
+    if "images.metmuseum.org" in image_url.lower() and "/original/" in image_url:
+        fallback_url = image_url.replace("/original/", "/web-large/", 1)
+        if fallback_url != image_url and is_safe_image_url(fallback_url):
+            candidate_urls.append(fallback_url)
+
+    fetched: Optional[Tuple[bytes, str, str]] = None
+    for idx, candidate_url in enumerate(candidate_urls):
+        try:
+            fetched = _fetch_validated_image_bytes(candidate_url)
+            if fetched is not None:
+                break
+        except Exception as exc:
+            app_logger.warning(
+                "Failed downloading external image candidate (%d/%d): %s",
+                idx + 1,
+                len(candidate_urls),
+                exc,
+                exc_info=True,
+                extra={"url": candidate_url},
+            )
+
+    if fetched is None:
+        return None
+
+    content, detected_ext, detected_mime = fetched
+
+    if custom_filename:
+        file_name = custom_filename if custom_filename.endswith(f".{detected_ext}") else f"{custom_filename}.{detected_ext}"
+    else:
+        safe_id = "".join(c if c.isalnum() else "_" for c in str(object_identifier)) if object_identifier else uuid.uuid4().hex[:8]
+        file_name = f"{prefix}_{safe_id}_{uuid.uuid4().hex[:6]}.{detected_ext}"
+
     try:
-        response = requests.get(
-            image_url,
-            headers={"User-Agent": USER_AGENT},
-            timeout=15,
-            stream=True
-        )
-        response.raise_for_status()
-
-        # SEC-07: Stream with size limit
-        chunks = []
-        total = 0
-        for chunk in response.iter_content(chunk_size=8192):
-            total += len(chunk)
-            if total > MAX_FILE_SIZE_BYTES:
-                app_logger.warning("Image download exceeded size limit", extra={"url": image_url})
-                return None
-            chunks.append(chunk)
-
-        content = b"".join(chunks)
-        detected_ext, detected_mime = validate_magic_bytes(content)
-
-        if custom_filename:
-            file_name = custom_filename if custom_filename.endswith(f".{detected_ext}") else f"{custom_filename}.{detected_ext}"
-        else:
-            safe_id = "".join(c if c.isalnum() else "_" for c in str(object_identifier)) if object_identifier else uuid.uuid4().hex[:8]
-            file_name = f"{prefix}_{safe_id}_{uuid.uuid4().hex[:6]}.{detected_ext}"
-
         return upload_bytes_to_minio(
             content=content,
             content_type=detected_mime,
