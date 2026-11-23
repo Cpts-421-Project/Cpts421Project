@@ -128,7 +128,9 @@ class ReviewUpdate(BaseModel):
     status: Literal["accepted", "rejected", "pending"]
 
 
-MuseumKey = Literal["met", "cma", "aic", "vam"]
+MuseumKey = Literal["met", "cma", "aic", "vam", "bm"]
+DiscoverySearchMode = Literal["worker_depictions", "broad"]
+WorkerConfidence = Literal["high", "medium", "low", "none"]
 
 
 def _validate_https_url(value: Optional[str]) -> Optional[str]:
@@ -154,6 +156,15 @@ class PredefinedMuseumResponse(BaseModel):
     default_limit: int
 
 
+class DiscoveryPresetResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    keywords: List[str]
+    recommended_date_start: int
+    recommended_date_end: int
+
+
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -170,11 +181,14 @@ def _normalize_keyword(raw: Any) -> str:
 
 
 class DiscoverySearchRequest(BaseModel):
-    museums: List[MuseumKey] = Field(min_length=1, max_length=4)
+    museums: List[MuseumKey] = Field(min_length=1, max_length=5)
     keywords: List[str] = Field(min_length=1, max_length=200)
     date_start: int = Field(0, ge=-5000, le=2026)
     date_end: int = Field(899, ge=-5000, le=2026)
     limit_per_museum: int = Field(10, ge=1, le=25)
+    search_mode: DiscoverySearchMode = "broad"
+    min_worker_score: int = Field(35, ge=0, le=100)
+    save_keywords: bool = True
 
     @field_validator("museums")
     @classmethod
@@ -269,6 +283,9 @@ class DiscoveryCandidate(BaseModel):
     tags: List[str] = []
     images: List[DiscoveryCandidateImage] = []
     filled_fields_count: int = 0
+    worker_relevance_score: int = Field(0, ge=0, le=100)
+    worker_confidence: WorkerConfidence = "none"
+    worker_signals: List[str] = Field(default_factory=list)
 
     @field_validator("external_url")
     @classmethod
@@ -282,6 +299,8 @@ class MuseumDiscoveryReport(BaseModel):
     fetched_count: int = 0
     new_count: int = 0
     duplicates_skipped: int = 0
+    rejected_skipped: int = 0
+    filtered_non_worker: int = 0
     error: Optional[str] = None
 
 
@@ -289,11 +308,77 @@ class DiscoverySearchResponse(BaseModel):
     candidates: List[DiscoveryCandidate]
     total_new: int
     total_duplicates_skipped: int
+    total_rejected_skipped: int = 0
+    total_filtered_non_worker: int = 0
+    search_mode: DiscoverySearchMode = "broad"
     museum_reports: List[MuseumDiscoveryReport]
 
 
 class DiscoveryImportRequest(BaseModel):
     candidates: List[DiscoveryCandidate] = Field(min_length=1, max_length=100)
+
+
+class DiscoveryRejectItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    museum_id: MuseumKey
+    source_record_id: str = Field(..., min_length=1, max_length=100)
+    inventory_number: Optional[str] = Field(None, max_length=100)
+    external_url: Optional[str] = Field(None, max_length=500)
+    object_type: Optional[str] = Field(None, max_length=255)
+    present_location: Optional[str] = Field(None, max_length=255)
+    date_display: Optional[str] = Field(None, max_length=255)
+
+    @field_validator("source_record_id")
+    @classmethod
+    def validate_source_record_id(cls, v: str) -> str:
+        if _CONTROL_CHAR_RE.search(v):
+            raise ValueError("source_record_id contains invalid control characters.")
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("source_record_id cannot be empty.")
+        return cleaned
+
+    @field_validator("inventory_number", "object_type", "present_location", "date_display")
+    @classmethod
+    def sanitize_optional_text(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        if _CONTROL_CHAR_RE.search(v):
+            raise ValueError("Field contains invalid control characters.")
+        cleaned = re.sub(r"\s+", " ", v).strip()
+        return cleaned or None
+
+    @field_validator("external_url")
+    @classmethod
+    def validate_reject_external_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        if _CONTROL_CHAR_RE.search(v):
+            raise ValueError("external_url contains invalid control characters.")
+        return _validate_https_url(v)
+
+
+class DiscoveryRejectRequest(BaseModel):
+    candidates: List[DiscoveryRejectItem] = Field(min_length=1, max_length=100)
+
+
+class RejectedArtifactItem(BaseModel):
+    id: int
+    museum_id: Optional[str] = None
+    source_record_id: Optional[str] = None
+    inventory_number: Optional[str] = None
+    external_url: Optional[str] = None
+    object_type: Optional[str] = None
+    present_location: Optional[str] = None
+    date_display: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DiscoveryRejectResponse(BaseModel):
+    rejected_count: int
+    already_rejected_count: int
+    rejected_items: List[RejectedArtifactItem]
 
 
 class DiscoveryImportedItem(BaseModel):

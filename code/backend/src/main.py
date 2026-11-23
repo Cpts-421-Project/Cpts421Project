@@ -25,10 +25,13 @@ from .schemas import (
     ObjectUpdate,
     ReviewUpdate,
     PredefinedMuseumResponse,
+    DiscoveryPresetResponse,
     DiscoverySearchRequest,
     DiscoverySearchResponse,
     DiscoveryImportRequest,
     DiscoveryImportResponse,
+    DiscoveryRejectRequest,
+    DiscoveryRejectResponse,
     DiscoveryKeywordCreate,
     DiscoveryKeywordResponse,
 )
@@ -404,6 +407,13 @@ async def get_discovery_museums(db: Session = Depends(get_db), current_user: Use
     return await run_in_threadpool(service.list_museums)
 
 
+@app.get("/admin/discovery/presets", response_model=List[DiscoveryPresetResponse])
+async def list_discovery_presets(
+    current_user: User = Depends(get_current_admin_user),
+):
+    return MuseumDiscoveryService.list_presets()
+
+
 @app.get("/admin/discovery/keywords", response_model=List[str])
 async def get_discovery_keywords(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = MuseumDiscoveryService(db)
@@ -533,22 +543,31 @@ async def import_discovered_artifacts(
     return await run_in_threadpool(service.import_candidates, import_request.candidates)
 
 
+@app.post("/admin/discovery/reject", response_model=DiscoveryRejectResponse)
+async def reject_discovered_artifacts(
+    reject_request: DiscoveryRejectRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    return await run_in_threadpool(service.reject_candidates, reject_request.candidates)
+
+
+@app.delete("/admin/discovery/rejected/{rejected_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unreject_discovered_artifact(
+    rejected_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    service = MuseumDiscoveryService(db)
+    await run_in_threadpool(service.unreject_artifact, rejected_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @app.patch("/objects/{object_id}/review", response_model=ObjectDetailResponse)
 async def review_object(object_id: int, review_data: ReviewUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     service = ObjectService(db)
-    result = await run_in_threadpool(service.update_object, object_id, {"review_status": review_data.status})
-    if not result:
-        raise HTTPException(status_code=404, detail="Object not found")
-        
-    if review_data.status == "rejected":
-        # Keep only 3 most recent rejected, hard delete older
-        from .models import Object
-        rejected_objs = db.query(Object).filter(Object.review_status == 'rejected').order_by(Object.id.desc()).all()
-        if len(rejected_objs) > 3:
-            for obj_to_delete in rejected_objs[3:]:
-                await run_in_threadpool(service.delete_object, obj_to_delete.id)
-                
-    return result
+    return await run_in_threadpool(service.review_object, object_id, review_data.status)
 
 
 @app.post("/objects/{object_id}/recover-images", response_model=ObjectDetailResponse)

@@ -12,6 +12,7 @@ import time
 
 from src.database import SessionLocal
 from src.models import Object
+from src.services.rejection_service import RejectionService, extract_museum_provenance
 from .s3_utils import download_and_upload_to_minio
 from .ingestion_utils import (
     reset_sequences,
@@ -228,6 +229,7 @@ def ingest_data():
 
     try:
         reset_sequences(db)
+        rejection_service = RejectionService(db)
 
         driver = _launch_chrome()
         if not driver:
@@ -260,6 +262,18 @@ def ingest_data():
                 if object_url and not object_url.startswith("http"):
                     object_url = "https://www.britishmuseum.org" + object_url
 
+                _, bm_source_id = extract_museum_provenance(external_url=object_url)
+                if rejection_service.is_rejected(
+                    museum_id="bm",
+                    source_record_id=bm_source_id,
+                    inventory_number=str(inventory_num),
+                    external_url=object_url,
+                    object_type=title,
+                    present_location="The British Museum",
+                    date_display=str(date),
+                ):
+                    continue
+
                 img_urls = _extract_image_urls(item)
                 if not img_urls:
                     continue
@@ -273,6 +287,8 @@ def ingest_data():
                 # Handle existing objects
                 existing_obj = db.query(Object).filter_by(inventory_number=str(inventory_num)).first()
                 if existing_obj:
+                    if existing_obj.review_status == "rejected":
+                        continue
                     retro_cache_existing_images(db, existing_obj, source, str(desc_text)[:2000], prefix="BM")
                     continue
 

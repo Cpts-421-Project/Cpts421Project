@@ -233,3 +233,65 @@ class TestCacheUtils:
 
     def test_noneUrl_returnsFalse(self):
         assert is_locally_cached(None) is False
+
+
+class TestIngestionRejectionFiltering:
+    """Verify offline ingestion pipelines skip persisted rejections and rejected DB rows."""
+
+    @patch("datacollection.data_ingest.retro_cache_existing_images")
+    @patch("datacollection.data_ingest.requests.get")
+    @patch("datacollection.data_ingest._search_object_ids", return_value={555001, 555002})
+    @patch("datacollection.data_ingest._load_keywords", return_value=["glass"])
+    @patch("datacollection.data_ingest.time.sleep")
+    def test_metIngest_skipsRejectedTombstonesAndRejectedDbObjects(
+        self, _mock_sleep, _mock_kws, _mock_search, mock_get, mock_retro, db, monkeypatch
+    ):
+        # Arrange: tombstone for Met 555001 and existing rejected DB row for INV-MET-REJ (555002)
+        from datacollection import data_ingest
+        from src.services.rejection_service import RejectionService
+
+        monkeypatch.setattr(data_ingest, "SessionLocal", TestSession)
+        RejectionService(db).record_rejection(
+            museum_id="met",
+            source_record_id="555001",
+            object_type="Rejected Tombstone",
+            commit=True,
+        )
+        db.add(
+            Object(
+                object_type="Existing Rejected Met Piece",
+                date_display="200 CE",
+                date_start=200,
+                date_end=200,
+                inventory_number="INV-MET-REJ",
+                review_status="rejected",
+            )
+        )
+        db.commit()
+
+        fetched_urls = []
+
+        def fake_get(url, timeout=10, headers=None):
+            fetched_urls.append(url)
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = {
+                "objectID": 555002,
+                "accessionNumber": "INV-MET-REJ",
+                "objectBeginDate": 250,
+                "objectEndDate": 350,
+                "objectURL": "https://www.metmuseum.org/art/collection/search/555002",
+                "title": "Existing Rejected Met Piece",
+                "primaryImage": "https://images.metmuseum.org/test.jpg",
+            }
+            return resp
+
+        mock_get.side_effect = fake_get
+
+        # Act
+        data_ingest.ingest_data()
+
+        # Assert: 555001 skipped before HTTP GET; 555002 skipped without retro-caching
+        assert not any(url.endswith("/555001") for url in fetched_urls)
+        mock_retro.assert_not_called()
+

@@ -35,6 +35,8 @@ export function createInitialProgressState(selectedMuseumIds, museumsCatalog = [
         fetched_count: 0,
         new_count: 0,
         duplicates_skipped: 0,
+        rejected_skipped: 0,
+        filtered_non_worker: 0,
         error: null,
         progressFraction: 0,
     }));
@@ -51,6 +53,8 @@ export function createInitialProgressState(selectedMuseumIds, museumsCatalog = [
         totalChecked: 0,
         totalNew: 0,
         totalSkipped: 0,
+        totalRejectedSkipped: 0,
+        totalFilteredNonWorker: 0,
         museums: museumList,
         activityLog: [],
     };
@@ -108,6 +112,8 @@ export function reduceDiscoveryProgress(prev, event) {
                     fetched_count: existingMap.get(m.museum_id)?.fetched_count || 0,
                     new_count: existingMap.get(m.museum_id)?.new_count || 0,
                     duplicates_skipped: existingMap.get(m.museum_id)?.duplicates_skipped || 0,
+                    rejected_skipped: existingMap.get(m.museum_id)?.rejected_skipped || 0,
+                    filtered_non_worker: existingMap.get(m.museum_id)?.filtered_non_worker || 0,
                     error: existingMap.get(m.museum_id)?.error || null,
                     progressFraction: existingMap.get(m.museum_id)?.progressFraction || 0,
                 }));
@@ -138,6 +144,8 @@ export function reduceDiscoveryProgress(prev, event) {
                 nextMuseums[idx].fetched_count = event.fetched_count ?? nextMuseums[idx].fetched_count;
                 nextMuseums[idx].new_count = event.new_count ?? nextMuseums[idx].new_count;
                 nextMuseums[idx].duplicates_skipped = event.duplicates_skipped ?? nextMuseums[idx].duplicates_skipped;
+                nextMuseums[idx].rejected_skipped = event.rejected_skipped ?? nextMuseums[idx].rejected_skipped;
+                nextMuseums[idx].filtered_non_worker = event.filtered_non_worker ?? nextMuseums[idx].filtered_non_worker;
                 // Reserve upper portion for record inspection when adapters enter detail phase
                 nextMuseums[idx].progressFraction = Math.max(nextMuseums[idx].progressFraction, 0.08 + kwRatio * 0.55);
             }
@@ -155,6 +163,8 @@ export function reduceDiscoveryProgress(prev, event) {
                 nextMuseums[idx].fetched_count = event.fetched_count ?? nextMuseums[idx].fetched_count;
                 nextMuseums[idx].new_count = event.new_count ?? nextMuseums[idx].new_count;
                 nextMuseums[idx].duplicates_skipped = event.duplicates_skipped ?? nextMuseums[idx].duplicates_skipped;
+                nextMuseums[idx].rejected_skipped = event.rejected_skipped ?? nextMuseums[idx].rejected_skipped;
+                nextMuseums[idx].filtered_non_worker = event.filtered_non_worker ?? nextMuseums[idx].filtered_non_worker;
                 nextMuseums[idx].progressFraction = Math.max(nextMuseums[idx].progressFraction, 0.65 + detRatio * 0.30);
             }
             break;
@@ -168,6 +178,8 @@ export function reduceDiscoveryProgress(prev, event) {
                 nextMuseums[idx].fetched_count = event.fetched_count ?? nextMuseums[idx].fetched_count;
                 nextMuseums[idx].new_count = event.new_count ?? nextMuseums[idx].new_count;
                 nextMuseums[idx].duplicates_skipped = event.duplicates_skipped ?? nextMuseums[idx].duplicates_skipped;
+                nextMuseums[idx].rejected_skipped = event.rejected_skipped ?? nextMuseums[idx].rejected_skipped;
+                nextMuseums[idx].filtered_non_worker = event.filtered_non_worker ?? nextMuseums[idx].filtered_non_worker;
                 nextMuseums[idx].currentStage = `Found "${event.object_type}"`;
             }
             break;
@@ -179,6 +191,8 @@ export function reduceDiscoveryProgress(prev, event) {
                 nextMuseums[idx].fetched_count = event.fetched_count ?? nextMuseums[idx].fetched_count;
                 nextMuseums[idx].new_count = event.new_count ?? nextMuseums[idx].new_count;
                 nextMuseums[idx].duplicates_skipped = event.duplicates_skipped ?? nextMuseums[idx].duplicates_skipped;
+                nextMuseums[idx].rejected_skipped = event.rejected_skipped ?? nextMuseums[idx].rejected_skipped;
+                nextMuseums[idx].filtered_non_worker = event.filtered_non_worker ?? nextMuseums[idx].filtered_non_worker;
                 nextMuseums[idx].error = event.error || null;
                 nextMuseums[idx].currentStage = event.error ? 'Error' : 'Complete';
                 nextMuseums[idx].progressFraction = 1;
@@ -205,6 +219,8 @@ export function reduceDiscoveryProgress(prev, event) {
     const totalChecked = nextMuseums.reduce((sum, m) => sum + (m.fetched_count || 0), 0);
     const totalNew = nextMuseums.reduce((sum, m) => sum + (m.new_count || 0), 0);
     const totalSkipped = nextMuseums.reduce((sum, m) => sum + (m.duplicates_skipped || 0), 0);
+    const totalRejectedSkipped = nextMuseums.reduce((sum, m) => sum + (m.rejected_skipped || 0), 0);
+    const totalFilteredNonWorker = nextMuseums.reduce((sum, m) => sum + (m.filtered_non_worker || 0), 0);
     const completedMuseums = nextMuseums.filter((m) => m.status === 'done' || m.status === 'error').length;
     const percent = event.type === 'search_started' && prev.percent === null
         ? 2
@@ -223,6 +239,8 @@ export function reduceDiscoveryProgress(prev, event) {
         totalChecked,
         totalNew,
         totalSkipped,
+        totalRejectedSkipped,
+        totalFilteredNonWorker,
         museums: nextMuseums,
         activityLog: appendActivityLog(prev.activityLog, event),
     };
@@ -255,6 +273,8 @@ export async function streamDiscoverySearch(payload, { onEvent, signal } = {}) {
             candidates: [],
             total_new: 0,
             total_duplicates_skipped: 0,
+            total_rejected_skipped: 0,
+            total_filtered_non_worker: 0,
             museum_reports: [],
         };
     }

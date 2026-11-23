@@ -383,6 +383,15 @@ class TestS3ClientAndProxyNormalization:
         traversal = "http://localhost:9000/uploads/../../etc/passwd"
         assert normalize_bucket_url_to_proxy(traversal) == traversal
 
+    def test_isSafeImageUrl_wikimediaAllowlistAndStrictHttps(self):
+        # Arrange
+        from src.url_validator import is_safe_image_url
+
+        # Act & Assert: Normal HTTPS Wikimedia Commons passes; HTTP and lookalike hosts fail
+        assert is_safe_image_url("https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test.jpg/1000px-Test.jpg") is True
+        assert is_safe_image_url("http://upload.wikimedia.org/wikipedia/commons/a/ab/Test.jpg") is False
+        assert is_safe_image_url("https://upload.wikimedia.org.evil.com/Test.jpg") is False
+
 
 # =====================================================================
 # 5. ObjectService Bucket Enforcement Tests

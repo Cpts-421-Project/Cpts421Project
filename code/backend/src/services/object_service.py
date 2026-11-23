@@ -6,12 +6,13 @@ Owns the bibliography aggregation logic that was previously duplicated in 3 plac
 import re
 from pathlib import Path
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 from ..repositories.object_repository import ObjectRepository
 from ..models import Object
 from ..logger import app_logger
 from ..exceptions import EntityNotFoundError, BaseAppException
+from .rejection_service import RejectionService
 from .s3_service import ensure_stored_in_bucket, normalize_bucket_url_to_proxy
 
 
@@ -318,3 +319,40 @@ class ObjectService:
         except SQLAlchemyError as e:
             app_logger.error("Failed to delete object", exc_info=True)
             raise BaseAppException("Internal database error during deletion", 500)
+
+    def review_object(self, object_id: int, new_status: str) -> dict:
+        """Transition review_status, synchronize rejection tombstones, and prune old rejected rows."""
+        try:
+            db_obj = self.repo.update_object(object_id, {"review_status": new_status})
+            if not db_obj:
+                app_logger.warning("Object not found for review", extra={"object_id": object_id})
+                raise EntityNotFoundError("Object", object_id)
+
+            rejection_service = RejectionService(self.repo.db)
+            if new_status == "rejected":
+                rejection_service.record_rejected_object(db_obj, commit=False)
+                other_rejected = (
+                    self.repo.db.query(Object)
+                    .options(joinedload(Object.images))
+                    .filter(Object.review_status == "rejected", Object.id != object_id)
+                    .order_by(Object.id.desc())
+                    .all()
+                )
+                for old_obj in other_rejected[2:]:
+                    rejection_service.record_rejected_object(old_obj, commit=False)
+                    self.repo.db.delete(old_obj)
+                self.repo.db.commit()
+            else:
+                rejection_service.remove_rejection_for_object(db_obj, commit=True)
+
+            refreshed = self.repo.get_by_id(object_id)
+            if not refreshed:
+                raise EntityNotFoundError("Object", object_id)
+            app_logger.info("Reviewed object", extra={"object_id": object_id, "review_status": new_status})
+            return _enrich_object_dict(refreshed)
+        except EntityNotFoundError:
+            raise
+        except SQLAlchemyError:
+            self.repo.db.rollback()
+            app_logger.error("Failed to review object", exc_info=True)
+            raise BaseAppException("Internal database error during review", 500)

@@ -24,7 +24,7 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-USER_AGENT = "AcademicArtifactDB/1.0 (Research Project)"
+USER_AGENT = "AcademicArtifactDB/1.0 (https://github.com/Cpts-421-Project/Cpts421Project; Academic Research Project)"
 IMAGE_ACCEPT_HEADER = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
 
 IMAGE_MAGIC_BYTES = {

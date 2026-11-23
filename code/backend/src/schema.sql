@@ -108,3 +108,22 @@ CREATE TABLE discovery_keywords (
     keyword VARCHAR(80) UNIQUE NOT NULL,
     is_default BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- 1.8 REJECTED_ARTIFACTS
+-- Persistent tombstones of rejected museum/review artifacts so future searches skip them
+CREATE TABLE rejected_artifacts (
+    id SERIAL PRIMARY KEY,
+    museum_id VARCHAR(32),
+    source_record_id VARCHAR(100),
+    inventory_number VARCHAR(100),
+    external_url VARCHAR(500),
+    object_type VARCHAR(255),
+    present_location VARCHAR(255),
+    date_display VARCHAR(255),
+    rejected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ix_rejected_artifacts_museum_id ON rejected_artifacts(museum_id);
+CREATE INDEX ix_rejected_artifacts_source_record_id ON rejected_artifacts(source_record_id);
+CREATE INDEX ix_rejected_artifacts_inventory_number ON rejected_artifacts(inventory_number);
+CREATE INDEX ix_rejected_artifacts_external_url ON rejected_artifacts(external_url);

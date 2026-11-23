@@ -74,7 +74,17 @@ def setup_database():
             external_url="https://clevelandart.org/art/2009.474",
             review_status="accepted",
         )
-        db.add_all([existing_met, existing_cma])
+        existing_bm = Object(
+            object_type="Gold-Glass Medallion",
+            present_location="The British Museum, London",
+            date_display="4th century CE",
+            date_start=301,
+            date_end=400,
+            inventory_number="1958,1202.1",
+            external_url="https://www.britishmuseum.org/collection/object/G_1958-1202-1",
+            review_status="accepted",
+        )
+        db.add_all([existing_met, existing_cma, existing_bm])
 
         import bcrypt
         hashed_pw = bcrypt.hashpw("TestAdminPass!2026".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -127,7 +137,7 @@ class TestDiscoveryAuthAndCatalog:
         }).status_code == 401
         assert client.post("/admin/discovery/import", json={"candidates": []}).status_code in (401, 422)
 
-    def test_listMuseums_authenticatedAdmin_returnsFourPredefinedMuseums(self, client):
+    def test_listMuseums_authenticatedAdmin_returnsFivePredefinedMuseums(self, client):
         # Arrange
         _login_admin(client)
 
@@ -137,7 +147,10 @@ class TestDiscoveryAuthAndCatalog:
         # Assert
         assert res.status_code == 200
         museums = res.json()
-        assert [m["id"] for m in museums] == ["met", "cma", "aic", "vam"]
+        assert [m["id"] for m in museums] == ["met", "cma", "aic", "vam", "bm"]
+        bm_entry = next(m for m in museums if m["id"] == "bm")
+        assert bm_entry["name"] == "The British Museum"
+        assert bm_entry["present_location"] == "The British Museum, London"
         for m in museums:
             assert m["default_date_start"] == 0
             assert m["default_date_end"] == 899
@@ -145,15 +158,16 @@ class TestDiscoveryAuthAndCatalog:
 
 
 class TestMuseumAdaptersAndFullFields:
-    """Verify full 2_excel field mapping & deduplication across all 4 museum adapters."""
+    """Verify full 2_excel field mapping & deduplication across all 5 museum adapters."""
 
     @patch("src.services.museum_discovery_service.requests.post")
     @patch("src.services.museum_discovery_service.requests.get")
-    def test_search_allFourMuseums_extractsFullMetadataAndSkipsDuplicates(self, mock_get, mock_post, client):
+    def test_search_allFiveMuseums_extractsFullMetadataAndSkipsDuplicates(self, mock_get, mock_post, client):
         # Arrange
         _login_admin(client)
 
         def fake_get(url, params=None, headers=None, timeout=10):
+            params = params or {}
             if "collectionapi.metmuseum.org/public/collection/v1.1/search" in url:
                 # 241792 already exists in DB (should be skipped before detail fetch!)
                 return _mock_response({"total": 2, "objectIDs": [241792, 555001]})
@@ -242,6 +256,90 @@ class TestMuseumAdaptersAndFullFields:
                         "categories": [{"text": "Glass"}],
                     }
                 })
+            if "www.wikidata.org/w/api.php" in url:
+                if params.get("list") == "search":
+                    assert "haswbstatement:P195=Q6373|P276=Q6373" in params.get("srsearch", "")
+                    return _mock_response({
+                        "query": {
+                            "search": [
+                                {"title": "Q900001"},  # Duplicate inv 1958,1202.1
+                                {"title": "Q2457011"},  # New BM artifact
+                            ]
+                        }
+                    })
+                if params.get("action") == "wbgetentities" and "claims" in params.get("props", ""):
+                    return _mock_response({
+                        "entities": {
+                            "Q900001": {
+                                "id": "Q900001",
+                                "labels": {"en": {"value": "Gold-Glass Medallion"}},
+                                "claims": {
+                                    "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q3305213"}}}}],
+                                    "P217": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "1958,1202.1"}}}],
+                                    "P571": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0400-01-01T00:00:00Z", "precision": 7}}}}],
+                                    "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Gold_glass_bm.jpg"}}}],
+                                },
+                            },
+                            "Q2457011": {
+                                "id": "Q2457011",
+                                "labels": {"en": {"value": "Vindolanda Copper-Alloy Stylus"}},
+                                "descriptions": {"en": {"value": "Roman writing stylus found at Vindolanda"}},
+                                "claims": {
+                                    "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q220659"}}}}],
+                                    "P186": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q39782"}}}}],
+                                    "P189": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q1775225"}}}}],
+                                    "P1071": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q1747689"}}}}],
+                                    "P2596": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q1747689"}}}}],
+                                    "P2348": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q1747689"}}}}],
+                                    "P571": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0200-01-01T00:00:00Z", "precision": 7}}}}],
+                                    "P217": [{
+                                        "rank": "normal",
+                                        "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "1986,1001.15"}},
+                                        "qualifiers": {"P195": [{"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q6373"}}}]},
+                                    }],
+                                    "P2048": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "quantity", "value": {"amount": "+125", "unit": "http://www.wikidata.org/entity/Q174789"}}}}],
+                                    "P2049": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "quantity", "value": {"amount": "+0.8", "unit": "http://www.wikidata.org/entity/Q174728"}}}}],
+                                    "P2067": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "quantity", "value": {"amount": "+18.5", "unit": "http://www.wikidata.org/entity/Q41803"}}}}],
+                                    "P1684": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "monolingualtext", "value": {"text": "ME FECIT", "language": "la"}}}}],
+                                    "P1343": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q110001"}}}}],
+                                    "P625": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "globecoordinate", "value": {"latitude": 54.9912, "longitude": -2.3607}}}}],
+                                    "P973": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "https://www.britishmuseum.org/collection/object/H_1986-1001-15"}}}],
+                                    "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Vindolanda_stylus_BM.jpg"}}}],
+                                },
+                            },
+                        }
+                    })
+                if params.get("action") == "wbgetentities":
+                    return _mock_response({
+                        "entities": {
+                            "Q220659": {"id": "Q220659", "labels": {"en": {"value": "archaeological artifact"}}},
+                            "Q39782": {"id": "Q39782", "labels": {"en": {"value": "bronze"}}},
+                            "Q1775225": {"id": "Q1775225", "labels": {"en": {"value": "Vindolanda"}}},
+                            "Q1747689": {"id": "Q1747689", "labels": {"en": {"value": "Ancient Rome"}}},
+                            "Q110001": {"id": "Q110001", "labels": {"en": {"value": "Britannia Roman Catalogue 1990"}}},
+                            "Q3305213": {"id": "Q3305213", "labels": {"en": {"value": "medallion"}}},
+                        }
+                    })
+            if "commons.wikimedia.org/w/api.php" in url:
+                return _mock_response({
+                    "query": {
+                        "normalized": [
+                            {"from": "File:Vindolanda_stylus_BM.jpg", "to": "File:Vindolanda stylus BM.jpg"},
+                        ],
+                        "pages": {
+                            "101": {
+                                "title": "File:Vindolanda stylus BM.jpg",
+                                "imageinfo": [{
+                                    "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Vindolanda_stylus_BM.jpg",
+                                    "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Vindolanda_stylus_BM.jpg/1000px-Vindolanda_stylus_BM.jpg",
+                                    "extmetadata": {
+                                        "ImageDescription": {"value": "<p>Iron and bronze writing stylus from Vindolanda.</p>"},
+                                    },
+                                }],
+                            }
+                        },
+                    }
+                })
             raise AssertionError(f"Unexpected GET URL: {url}")
 
         def fake_post(url, json=None, headers=None, timeout=10):
@@ -276,7 +374,7 @@ class TestMuseumAdaptersAndFullFields:
 
         # Act
         res = client.post("/admin/discovery/search", json={
-            "museums": ["met", "cma", "aic", "vam"],
+            "museums": ["met", "cma", "aic", "vam", "bm"],
             "keywords": ["glass"],
             "date_start": 0,
             "date_end": 899,
@@ -286,11 +384,11 @@ class TestMuseumAdaptersAndFullFields:
         # Assert
         assert res.status_code == 200
         data = res.json()
-        assert data["total_new"] == 4
-        assert data["total_duplicates_skipped"] == 2  # 241792 + 2009.474
+        assert data["total_new"] == 5
+        assert data["total_duplicates_skipped"] == 3  # 241792 + 2009.474 + 1958,1202.1
 
         by_museum = {c["museum_id"]: c for c in data["candidates"]}
-        assert set(by_museum.keys()) == {"met", "cma", "aic", "vam"}
+        assert set(by_museum.keys()) == {"met", "cma", "aic", "vam", "bm"}
 
         # Met assertions
         met = by_museum["met"]
@@ -321,6 +419,28 @@ class TestMuseumAdaptersAndFullFields:
         assert vam["height"] == 8.2
         assert vam["publications"] == "Erdmann 1961, p. 33"
         assert vam["images"][0]["file_url"] == "https://framemark.vam.ac.uk/collections/2006AF6997/full/!800,800/0/default.jpg"
+
+        # British Museum (Wikidata + Wikimedia Commons) assertions
+        bm = by_museum["bm"]
+        assert bm["inventory_number"] == "1986,1001.15"
+        assert bm["present_location"] == "The British Museum, London"
+        assert bm["date_display"] == "2nd century CE"
+        assert bm["date_start"] == 101
+        assert bm["date_end"] == 200
+        assert bm["material"] == "bronze"
+        assert bm["findspot"] == "Vindolanda"
+        assert bm["height"] == 12.5
+        assert bm["width"] == 0.8
+        assert bm["weight"] == "18.5 g"
+        assert bm["inscription_present"] is True
+        assert bm["inscription_1"] == "ME FECIT"
+        assert bm["publications"] == "Britannia Roman Catalogue 1990"
+        assert bm["latitude"] == 54.9912
+        assert bm["longitude"] == -2.3607
+        assert bm["external_url"] == "https://www.britishmuseum.org/collection/object/H_1986-1001-15"
+        assert bm["images"][0]["file_url"] == "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Vindolanda_stylus_BM.jpg/1000px-Vindolanda_stylus_BM.jpg"
+        assert bm["images"][0]["source_identifier"] == "BM Q2457011 / File:Vindolanda_stylus_BM.jpg"
+        assert "Iron and bronze writing stylus from Vindolanda." in bm["description"]
 
     @patch("src.services.museum_discovery_service.requests.get")
     def test_search_withinBatchCrossKeywordDuplicate_isDeduplicated(self, mock_get, client):
@@ -1000,3 +1120,1242 @@ class TestReviewQueueImageFallbackAndRecovery:
         res = client.post(f"/objects/{obj_id}/recover-images")
         assert res.status_code == 200
         assert res.json()["images"][0]["file_url"] == ""
+
+
+class TestRejectedPiecesSkippedInFutureSearches:
+    """Normal, Edge, and Extraordinary tests verifying rejected artifacts stay skipped."""
+
+    @patch("src.services.museum_discovery_service.download_and_store_image", return_value="/api/images/met_17_194_100.jpg")
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_reviewQueueRejection_skipsFutureDiscoverySearchStreamAndImportWithoutDetailFetch(
+        self, mock_get, _mock_store, client
+    ):
+        # Arrange: import a Met candidate (555001) and reject it via Review Queue
+        _login_admin(client)
+        candidate = {
+            "museum_id": "met",
+            "museum_name": "The Metropolitan Museum of Art",
+            "source_record_id": "555001",
+            "object_type": "Gold-Glass Roundel Fragment",
+            "present_location": "The Metropolitan Museum of Art, New York",
+            "inventory_number": "17.194.100",
+            "date_display": "4th century CE",
+            "date_start": 300,
+            "date_end": 399,
+            "external_url": "https://www.metmuseum.org/art/collection/search/555001",
+            "images": [{
+                "file_url": "https://images.metmuseum.org/CRDImages/md/original/DP123.jpg",
+                "image_sequence": 1,
+                "source_identifier": "Met Object ID 555001",
+            }],
+        }
+        imp_res = client.post("/admin/discovery/import", json={"candidates": [candidate]})
+        assert imp_res.status_code == 200
+        obj_id = imp_res.json()["imported_objects"][0]["id"]
+
+        rev_res = client.patch(f"/objects/{obj_id}/review", json={"status": "rejected"})
+        assert rev_res.status_code == 200
+        assert rev_res.json()["review_status"] == "rejected"
+
+        detail_urls_called = []
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            if "metmuseum.org/public/collection/v1.1/search" in url:
+                return _mock_response({"total": 1, "objectIDs": [555001]})
+            detail_urls_called.append(url)
+            raise AssertionError(f"Detail endpoint should not be fetched for skipped Met ID: {url}")
+
+        mock_get.side_effect = fake_get
+
+        # Act 1: Standard discovery search skips 555001 before any detail GET
+        search_res = client.post("/admin/discovery/search", json={
+            "museums": ["met"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+        assert search_res.status_code == 200
+        data = search_res.json()
+        assert data["total_new"] == 0
+        assert data["total_duplicates_skipped"] == 1
+        assert data["total_rejected_skipped"] == 1
+        assert data["museum_reports"][0]["rejected_skipped"] == 1
+        assert detail_urls_called == []
+
+        # Act 2: Streaming search emits rejected_skipped counts cleanly
+        with client.stream("POST", "/admin/discovery/search/stream", json={
+            "museums": ["met"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        }) as stream_res:
+            assert stream_res.status_code == 200
+            events = [json.loads(line) for line in stream_res.iter_lines() if line]
+
+        complete_evt = events[-1]
+        assert complete_evt["type"] == "complete"
+        assert complete_evt["total_rejected_skipped"] == 1
+        assert complete_evt["result"]["total_rejected_skipped"] == 1
+
+        # Act 3: Stale import of the rejected candidate is also skipped
+        reimport_res = client.post("/admin/discovery/import", json={"candidates": [candidate]})
+        assert reimport_res.status_code == 200
+        assert reimport_res.json()["imported_count"] == 0
+        assert reimport_res.json()["duplicates_skipped"] == 1
+
+    @patch("src.services.museum_discovery_service.requests.post")
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_pruningOverThreeRejected_retainsJustRejectedLowerIdAndSkipsAllFiveForever(
+        self, mock_get, mock_post, client
+    ):
+        # Arrange: seed 5 pending objects in ascending ID order across museums
+        from src.models import RejectedArtifact
+
+        _login_admin(client)
+        db = TestingSessionLocal()
+        try:
+            objs = [
+                Object(
+                    object_type="Met Item 1 (Lowest ID)",
+                    present_location="The Metropolitan Museum of Art, New York",
+                    date_display="200 CE",
+                    date_start=200,
+                    date_end=200,
+                    inventory_number="MET-LOW-1",
+                    external_url="https://www.metmuseum.org/art/collection/search/700001",
+                    review_status="pending",
+                ),
+                Object(
+                    object_type="Met Item 2",
+                    present_location="The Metropolitan Museum of Art, New York",
+                    date_display="250 CE",
+                    date_start=250,
+                    date_end=250,
+                    inventory_number="MET-2",
+                    external_url="https://www.metmuseum.org/art/collection/search/700002",
+                    review_status="pending",
+                ),
+                Object(
+                    object_type="CMA Item 3",
+                    present_location="The Cleveland Museum of Art, Cleveland",
+                    date_display="300 CE",
+                    date_start=300,
+                    date_end=300,
+                    inventory_number="CMA-700003",
+                    external_url="https://clevelandart.org/art/CMA-700003",
+                    review_status="pending",
+                ),
+                Object(
+                    object_type="AIC Item 4",
+                    present_location="The Art Institute of Chicago, Chicago",
+                    date_display="350 CE",
+                    date_start=350,
+                    date_end=350,
+                    inventory_number="1990.4",
+                    external_url="https://www.artic.edu/artworks/700004",
+                    review_status="pending",
+                ),
+                Object(
+                    object_type="VAM Item 5",
+                    present_location="Victoria and Albert Museum, London",
+                    date_display="400 CE",
+                    date_start=400,
+                    date_end=400,
+                    inventory_number="VAM-5",
+                    external_url="https://collections.vam.ac.uk/item/O700005",
+                    review_status="pending",
+                ),
+            ]
+            db.add_all(objs)
+            db.commit()
+            ids = [o.id for o in objs]
+        finally:
+            db.close()
+
+        # Act 1: Reject items 2..5 first, then reject item 1 (lowest ID) LAST
+        for oid in [ids[1], ids[2], ids[3], ids[4], ids[0]]:
+            res = client.patch(f"/objects/{oid}/review", json={"status": "rejected"})
+            assert res.status_code == 200
+            assert res.json()["review_status"] == "rejected"
+
+        # Assert: 3 rejected Object rows kept (including lowest ID just rejected!), 5 tombstones saved
+        db = TestingSessionLocal()
+        try:
+            kept_ids = {o.id for o in db.query(Object).filter(Object.review_status == "rejected").all()}
+            assert len(kept_ids) == 3
+            assert ids[0] in kept_ids  # Just-rejected lower-ID item was NOT immediately deleted
+            assert db.query(RejectedArtifact).count() == 5
+        finally:
+            db.close()
+
+        # Act 2: Future discovery across all 4 museums skips all 5 even after 2 were pruned
+        def fake_get(url, params=None, headers=None, timeout=10):
+            if "metmuseum.org/public/collection/v1.1/search" in url:
+                return _mock_response({"objectIDs": [700001, 700002]})
+            if "openaccess-api.clevelandart.org" in url:
+                return _mock_response({
+                    "data": [{
+                        "id": 700003,
+                        "accession_number": None,
+                        "title": "CMA Item 3",
+                        "creation_date": "300 CE",
+                        "creation_date_earliest": 300,
+                        "creation_date_latest": 300,
+                        "url": "https://clevelandart.org/art/CMA-700003",
+                        "images": {"web": {"url": "https://openaccess-cdn.clevelandart.org/700003/web.jpg"}},
+                    }]
+                })
+            if "api.vam.ac.uk/v2/objects/search" in url:
+                return _mock_response({"records": [{"systemNumber": "O700005", "accessionNumber": "VAM-5"}]})
+            raise AssertionError(f"Detail endpoint called unexpectedly for rejected ID: {url}")
+
+        mock_get.side_effect = fake_get
+        mock_post.return_value = _mock_response({
+            "config": {"iiif_url": "https://www.artic.edu/iiif/2"},
+            "data": [{
+                "id": 700004,
+                "title": "AIC Item 4",
+                "date_display": "350 CE",
+                "date_start": 350,
+                "date_end": 350,
+                "main_reference_number": "1990.4",
+                "image_id": "img-700004",
+                "is_public_domain": True,
+            }],
+        })
+
+        search_res = client.post("/admin/discovery/search", json={
+            "museums": ["met", "cma", "aic", "vam"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+        assert search_res.status_code == 200
+        body = search_res.json()
+        assert body["total_new"] == 0
+        assert body["total_rejected_skipped"] == 5
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_directDiscoveryRejectAndUndo204_togglesSearchSkip(self, mock_get, client):
+        # Arrange
+        _login_admin(client)
+        mock_get.return_value = _mock_response({
+            "data": [{
+                "id": 199001,
+                "accession_number": "1985.12",
+                "title": "Blown Glass Unguentarium",
+                "creation_date": "2nd–3rd century CE",
+                "creation_date_earliest": 100,
+                "creation_date_latest": 299,
+                "url": "https://clevelandart.org/art/1985.12",
+                "images": {"web": {"url": "https://openaccess-cdn.clevelandart.org/1985.12/web.jpg"}},
+            }]
+        })
+
+        # Act 1: Reject directly from Discovery results
+        rej_res = client.post("/admin/discovery/reject", json={
+            "candidates": [{
+                "museum_id": "cma",
+                "source_record_id": "199001",
+                "inventory_number": "1985.12",
+                "external_url": "https://clevelandart.org/art/1985.12",
+                "object_type": "Blown Glass Unguentarium",
+                "present_location": "The Cleveland Museum of Art, Cleveland",
+                "date_display": "2nd–3rd century CE",
+            }]
+        })
+        assert rej_res.status_code == 200
+        rej_data = rej_res.json()
+        assert rej_data["rejected_count"] == 1
+        assert rej_data["already_rejected_count"] == 0
+        rejected_id = rej_data["rejected_items"][0]["id"]
+
+        # Assert 1: Next search skips rejected CMA record
+        search1 = client.post("/admin/discovery/search", json={
+            "museums": ["cma"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        }).json()
+        assert search1["total_new"] == 0
+        assert search1["total_rejected_skipped"] == 1
+
+        # Act 2: Undo direct rejection (HTTP 204 empty body)
+        undo_res = client.delete(f"/admin/discovery/rejected/{rejected_id}")
+        assert undo_res.status_code == 204
+        assert undo_res.content == b""
+
+        # Assert 2: Candidate is discoverable again
+        search2 = client.post("/admin/discovery/search", json={
+            "museums": ["cma"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        }).json()
+        assert search2["total_new"] == 1
+        assert search2["total_rejected_skipped"] == 0
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_edge_reviewUndoRemovesTombstoneIdempotentRejectPaginationAndPublicExclusion(
+        self, mock_get, client
+    ):
+        # Arrange: seed pending object and test Review Queue reject -> undo -> public exclusion
+        from src.models import RejectedArtifact
+
+        _login_admin(client)
+        db = TestingSessionLocal()
+        try:
+            pending_obj = Object(
+                object_type="Undoable Glass Cup",
+                present_location="The Metropolitan Museum of Art, New York",
+                findspot="Rome",
+                latitude=41.9,
+                longitude=12.5,
+                date_display="200 CE",
+                date_start=200,
+                date_end=200,
+                inventory_number="MET-UNDO-1",
+                external_url="https://www.metmuseum.org/art/collection/search/888001",
+                review_status="pending",
+            )
+            db.add(pending_obj)
+            db.commit()
+            obj_id = pending_obj.id
+        finally:
+            db.close()
+
+        # Reject -> tombstone exists & excluded from public search/map/pending
+        assert client.patch(f"/objects/{obj_id}/review", json={"status": "rejected"}).status_code == 200
+        assert all(o["id"] != obj_id for o in client.get("/objects/search").json())
+        assert all(o["id"] != obj_id for o in client.get("/objects/map").json())
+        assert all(o["id"] != obj_id for o in client.get("/objects/pending").json())
+
+        db = TestingSessionLocal()
+        try:
+            assert db.query(RejectedArtifact).filter(RejectedArtifact.source_record_id == "888001").count() == 1
+        finally:
+            db.close()
+
+        # Undo in Review Queue -> tombstone removed and back in pending queue
+        assert client.patch(f"/objects/{obj_id}/review", json={"status": "pending"}).status_code == 200
+        db = TestingSessionLocal()
+        try:
+            assert db.query(RejectedArtifact).filter(RejectedArtifact.source_record_id == "888001").count() == 0
+        finally:
+            db.close()
+        assert any(o["id"] == obj_id for o in client.get("/objects/pending").json())
+
+        # Duplicate direct reject is idempotent
+        dup_payload = {
+            "candidates": [{
+                "museum_id": "cma",
+                "source_record_id": "900001",
+                "inventory_number": "1999.1",
+                "external_url": "https://clevelandart.org/art/1999.1",
+                "object_type": "Rejected CMA Piece",
+                "date_display": "100 CE",
+            }]
+        }
+        assert client.post("/admin/discovery/reject", json=dup_payload).json()["rejected_count"] == 1
+        dup_res = client.post("/admin/discovery/reject", json=dup_payload).json()
+        assert dup_res["rejected_count"] == 0
+        assert dup_res["already_rejected_count"] == 1
+
+        # Reject 6 Met IDs and 4 CMA IDs so page 1 is completely rejected -> adapter advances to page 2
+        met_reject_payload = {
+            "candidates": [
+                {"museum_id": "met", "source_record_id": str(oid), "object_type": f"Met Rej {oid}"}
+                for oid in range(910001, 910007)
+            ]
+            + [
+                {"museum_id": "cma", "source_record_id": str(cid), "inventory_number": f"CMA-R-{cid}", "object_type": f"CMA Rej {cid}"}
+                for cid in range(920001, 920005)
+            ]
+        }
+        assert client.post("/admin/discovery/reject", json=met_reject_payload).status_code == 200
+
+        def paginated_get(url, params=None, headers=None, timeout=10):
+            if "metmuseum.org/public/collection/v1.1/search" in url:
+                offset = (params or {}).get("offset", 0)
+                if offset == 0:
+                    return _mock_response({"objectIDs": list(range(910001, 910007))})
+                return _mock_response({"objectIDs": [910007]})
+            if url.endswith("/objects/910007"):
+                return _mock_response({
+                    "objectID": 910007,
+                    "isPublicDomain": True,
+                    "accessionNumber": "99.107",
+                    "title": "Fresh Page 2 Met Lamp",
+                    "objectDate": "300 CE",
+                    "objectBeginDate": 300,
+                    "objectEndDate": 300,
+                    "objectURL": "https://www.metmuseum.org/art/collection/search/910007",
+                    "primaryImage": "https://images.metmuseum.org/CRDImages/md/original/fresh.jpg",
+                })
+            if "openaccess-api.clevelandart.org" in url:
+                skip = (params or {}).get("skip", 0)
+                if skip == 0:
+                    return _mock_response({
+                        "data": [
+                            {
+                                "id": cid,
+                                "accession_number": f"CMA-R-{cid}",
+                                "title": f"CMA Rej {cid}",
+                                "creation_date": "200 CE",
+                                "creation_date_earliest": 200,
+                                "creation_date_latest": 200,
+                                "images": {"web": {"url": f"https://openaccess-cdn.clevelandart.org/{cid}/web.jpg"}},
+                            }
+                            for cid in range(920001, 920005)
+                        ]
+                    })
+                return _mock_response({
+                    "data": [{
+                        "id": 920005,
+                        "accession_number": "CMA-FRESH-5",
+                        "title": "Fresh Page 2 CMA Bowl",
+                        "creation_date": "250 CE",
+                        "creation_date_earliest": 250,
+                        "creation_date_latest": 250,
+                        "url": "https://clevelandart.org/art/CMA-FRESH-5",
+                        "images": {"web": {"url": "https://openaccess-cdn.clevelandart.org/920005/web.jpg"}},
+                    }]
+                })
+            raise AssertionError(f"Unexpected URL: {url}")
+
+        mock_get.side_effect = paginated_get
+        paged_res = client.post("/admin/discovery/search", json={
+            "museums": ["met", "cma"],
+            "keywords": ["lamp"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 2,
+        })
+        assert paged_res.status_code == 200
+        paged_data = paged_res.json()
+        assert paged_data["total_new"] == 2
+        assert paged_data["total_rejected_skipped"] == 10
+        titles = {c["object_type"] for c in paged_data["candidates"]}
+        assert titles == {"Fresh Page 2 Met Lamp", "Fresh Page 2 CMA Bowl"}
+
+    def test_extraordinary_rejectAuthValidationAndNotFoundErrors(self, client):
+        # Act 1: Unauthenticated -> 401
+        assert client.post("/admin/discovery/reject", json={
+            "candidates": [{"museum_id": "met", "source_record_id": "123"}]
+        }).status_code == 401
+        assert client.delete("/admin/discovery/rejected/1").status_code == 401
+
+        # Act 2: Non-admin -> 403
+        import bcrypt
+
+        db = TestingSessionLocal()
+        try:
+            hashed = bcrypt.hashpw("UserPass!2026".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            db.add(User(email="viewer@example.com", username="viewer", password_hash=hashed, is_admin=False))
+            db.commit()
+        finally:
+            db.close()
+        assert client.post("/auth/login", json={"username": "viewer", "password": "UserPass!2026"}).status_code == 200
+        assert client.post("/admin/discovery/reject", json={
+            "candidates": [{"museum_id": "met", "source_record_id": "123"}]
+        }).status_code == 403
+        assert client.delete("/admin/discovery/rejected/1").status_code == 403
+
+        # Act 3: Admin invalid payloads -> 422; missing/zero ID -> 404
+        _login_admin(client)
+        assert client.post("/admin/discovery/reject", json={"candidates": []}).status_code == 422
+        assert client.post("/admin/discovery/reject", json={
+            "candidates": [{"museum_id": "invalid_museum", "source_record_id": "123"}]
+        }).status_code == 422
+        assert client.post("/admin/discovery/reject", json={
+            "candidates": [{"museum_id": "met", "source_record_id": "   "}]
+        }).status_code == 422
+        assert client.post("/admin/discovery/reject", json={
+            "candidates": [{"museum_id": "met", "source_record_id": "123", "external_url": "http://insecure.example.com/1"}]
+        }).status_code == 422
+        assert client.delete("/admin/discovery/rejected/0").status_code == 404
+        assert client.delete("/admin/discovery/rejected/99999").status_code == 404
+
+
+
+class TestBritishMuseumAdapterDetails:
+    """Dedicated Normal, Edge, and Extraordinary tests for BritishMuseumAdapter and BM recovery."""
+
+    def test_wikibaseTimeAndDates_normalAndEdgePrecisions_parseAccurately(self):
+        # Arrange
+        from src.services.museum_discovery_service import BritishMuseumAdapter
+
+        # Act & Assert: Century precision (7) CE & BCE
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "+0400-01-01T00:00:00Z", "precision": 7}
+        ) == (301, 400, "4th century CE")
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "-0400-01-01T00:00:00Z", "precision": 7}
+        ) == (-400, -301, "4th century BCE")
+
+        # Decade precision (8) CE & BCE
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "+0320-01-01T00:00:00Z", "precision": 8}
+        ) == (320, 329, "320s CE")
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "-0320-01-01T00:00:00Z", "precision": 8}
+        ) == (-329, -320, "320s BCE")
+
+        # Year precision (9), including boundary year 0 CE
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "+0000-01-01T00:00:00Z", "precision": 9}
+        ) == (0, 0, "0 CE")
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "-0196-01-01T00:00:00Z", "precision": 9}
+        ) == (-196, -196, "196 BCE")
+
+        # Millennium precision (6)
+        assert BritishMuseumAdapter._parse_wikibase_time(
+            {"time": "+0500-01-01T00:00:00Z", "precision": 6}
+        ) == (1, 1000, "1st millennium CE")
+
+        # P571 somevalue with P1319 / P1326 + P1480 circa qualifier
+        circa_claims = {
+            "P571": [{
+                "rank": "normal",
+                "mainsnak": {"snaktype": "somevalue"},
+                "qualifiers": {
+                    "P1319": [{"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0150-01-01T00:00:00Z", "precision": 9}}}],
+                    "P1326": [{"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0250-01-01T00:00:00Z", "precision": 9}}}],
+                    "P1480": [{"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q5727902"}}}],
+                },
+            }]
+        }
+        assert BritishMuseumAdapter._parse_dates(circa_claims) == (150, 250, "c. 150–250 CE")
+
+        # Fallback to P580 / P582 start/end time
+        span_claims = {
+            "P580": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0300-01-01T00:00:00Z", "precision": 9}}}}],
+            "P582": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0450-01-01T00:00:00Z", "precision": 9}}}}],
+        }
+        assert BritishMuseumAdapter._parse_dates(span_claims) == (300, 450, "300–450 CE")
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_bmFilteringAndSanitization_edgeNonArtifactsOutOfRangeAndDeprecatedSkipped(self, mock_get, client):
+        # Arrange
+        _login_admin(client)
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            params = params or {}
+            if "www.wikidata.org/w/api.php" in url and params.get("list") == "search":
+                # Special CirrusSearch chars must be stripped from srsearch
+                sr = params.get("srsearch", "")
+                assert "OR:" not in sr
+                assert "(" not in sr
+                assert "gold" in sr
+                return _mock_response({
+                    "query": {
+                        "search": [
+                            {"title": "Q111"},  # Q5 human -> excluded
+                            {"title": "Q222"},  # Out-of-range 1800 CE -> excluded
+                            {"title": "Q333"},  # Valid 0 CE artifact
+                        ]
+                    }
+                })
+            if "www.wikidata.org/w/api.php" in url and "claims" in params.get("props", ""):
+                return _mock_response({
+                    "entities": {
+                        "Q111": {
+                            "id": "Q111",
+                            "labels": {"en": {"value": "Roman Potter Person"}},
+                            "claims": {
+                                "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q5"}}}}],
+                                "P571": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0100-01-01T00:00:00Z", "precision": 9}}}}],
+                                "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Human.jpg"}}}],
+                            },
+                        },
+                        "Q222": {
+                            "id": "Q222",
+                            "labels": {"en": {"value": "Victorian Teacup"}},
+                            "claims": {
+                                "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q220659"}}}}],
+                                "P571": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+1850-01-01T00:00:00Z", "precision": 9}}}}],
+                                "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Teacup.jpg"}}}],
+                            },
+                        },
+                        "Q333": {
+                            "id": "Q333",
+                            "labels": {"en": {"value": "Roman Gold-Glass Vessel"}},
+                            "claims": {
+                                "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q220659"}}}}],
+                                "P571": [
+                                    {"rank": "deprecated", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+1900-01-01T00:00:00Z", "precision": 9}}}},
+                                    {"rank": "preferred", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0000-01-01T00:00:00Z", "precision": 9}}}},
+                                ],
+                                "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Gold glass 0CE.jpg"}}}],
+                            },
+                        },
+                    }
+                })
+            if "www.wikidata.org/w/api.php" in url:
+                return _mock_response({
+                    "entities": {
+                        "Q220659": {"id": "Q220659", "labels": {"en": {"value": "archaeological artifact"}}},
+                    }
+                })
+            if "commons.wikimedia.org/w/api.php" in url:
+                return _mock_response({
+                    "query": {
+                        "pages": {
+                            "5": {
+                                "title": "File:Gold glass 0CE.jpg",
+                                "imageinfo": [{
+                                    "url": "https://upload.wikimedia.org/wikipedia/commons/5/55/Gold_glass_0CE.jpg",
+                                    "thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Gold_glass_0CE.jpg/1000px-Gold_glass_0CE.jpg",
+                                }],
+                            }
+                        }
+                    }
+                })
+            raise AssertionError(f"Unexpected GET URL: {url}")
+
+        mock_get.side_effect = fake_get
+
+        # Act
+        res = client.post("/admin/discovery/search", json={
+            "museums": ["bm"],
+            "keywords": ['"gold" (OR:1)'],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+
+        # Assert
+        assert res.status_code == 200
+        data = res.json()
+        assert data["total_new"] == 1
+        cand = data["candidates"][0]
+        assert cand["source_record_id"] == "Q333"
+        assert cand["date_start"] == 0
+        assert cand["date_end"] == 0
+        assert cand["date_display"] == "0 CE"
+        assert cand["external_url"] == "https://www.wikidata.org/wiki/Q333"
+
+    @patch("src.services.museum_discovery_service.download_and_store_image", return_value=None)
+    def test_bmImportWhenBucketFails_stagesPendingAndPreservesWikimediaUrl(self, _mock_store, client):
+        # Arrange
+        _login_admin(client)
+        wikimedia_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Vindolanda_stylus_BM.jpg/1000px-Vindolanda_stylus_BM.jpg"
+        candidate = {
+            "museum_id": "bm",
+            "museum_name": "The British Museum",
+            "source_record_id": "Q2457011",
+            "object_type": "Vindolanda Copper-Alloy Stylus",
+            "present_location": "The British Museum, London",
+            "inventory_number": "1986,1001.15",
+            "date_display": "2nd century CE",
+            "date_start": 101,
+            "date_end": 200,
+            "external_url": "https://www.britishmuseum.org/collection/object/H_1986-1001-15",
+            "images": [{
+                "file_url": wikimedia_url,
+                "image_sequence": 1,
+                "source_identifier": "BM Q2457011 / File:Vindolanda_stylus_BM.jpg",
+            }],
+        }
+
+        # Act
+        imp = client.post("/admin/discovery/import", json={"candidates": [candidate]})
+        assert imp.status_code == 200
+        assert imp.json()["imported_count"] == 1
+
+        pending = client.get("/objects/pending").json()
+        imported = next(item for item in pending if item["inventory_number"] == "1986,1001.15")
+
+        # Assert
+        assert imported["review_status"] == "pending"
+        assert imported["images"][0]["file_url"] == wikimedia_url
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    @patch("src.services.museum_discovery_service.download_and_store_image", return_value=None)
+    def test_recoverObjectImages_bmCommonsAndWikidataPaths_recoversSafely(self, _mock_store, mock_get, client):
+        # Arrange: seed two pending BM objects (one with source_identifier File:, one with Wikidata external_url)
+        _login_admin(client)
+        db = TestingSessionLocal()
+        try:
+            obj_commons = Object(
+                object_type="BM Glass Cup",
+                present_location="The British Museum, London",
+                date_display="4th century CE",
+                date_start=301,
+                date_end=400,
+                inventory_number="BM-REC-1",
+                review_status="pending",
+            )
+            obj_wikidata = Object(
+                object_type="BM Silver Spoon",
+                present_location="The British Museum, London",
+                date_display="4th century CE",
+                date_start=301,
+                date_end=400,
+                inventory_number="BM-REC-2",
+                external_url="https://www.wikidata.org/wiki/Q777888",
+                review_status="pending",
+            )
+            db.add_all([obj_commons, obj_wikidata])
+            db.flush()
+            db.add_all([
+                Image(
+                    object_id=obj_commons.id,
+                    image_sequence=1,
+                    source_identifier="BM Q2457011 / File:Glass_cup.jpg",
+                    file_url="",
+                ),
+                Image(
+                    object_id=obj_wikidata.id,
+                    image_sequence=1,
+                    file_url="",
+                ),
+            ])
+            db.commit()
+            id_commons = obj_commons.id
+            id_wikidata = obj_wikidata.id
+        finally:
+            db.close()
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            if "commons.wikimedia.org/w/api.php" in url:
+                titles = (params or {}).get("titles", "")
+                if "Glass_cup.jpg" in titles:
+                    return _mock_response({
+                        "query": {
+                            "pages": {
+                                "1": {
+                                    "title": "File:Glass cup.jpg",
+                                    "imageinfo": [{"thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Glass_cup.jpg/1000px-Glass_cup.jpg"}],
+                                }
+                            }
+                        }
+                    })
+                return _mock_response({
+                    "query": {
+                        "pages": {
+                            "2": {
+                                "title": "File:Silver spoon.jpg",
+                                "imageinfo": [{"thumburl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Silver_spoon.jpg/1000px-Silver_spoon.jpg"}],
+                            }
+                        }
+                    }
+                })
+            if "www.wikidata.org/w/api.php" in url:
+                return _mock_response({
+                    "entities": {
+                        "Q777888": {
+                            "id": "Q777888",
+                            "claims": {
+                                "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Silver_spoon.jpg"}}}]
+                            },
+                        }
+                    }
+                })
+            raise AssertionError(f"Unexpected GET URL: {url}")
+
+        mock_get.side_effect = fake_get
+
+        # Act
+        res1 = client.post(f"/objects/{id_commons}/recover-images")
+        res2 = client.post(f"/objects/{id_wikidata}/recover-images")
+
+        # Assert
+        assert res1.status_code == 200
+        assert res1.json()["images"][0]["file_url"] == "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Glass_cup.jpg/1000px-Glass_cup.jpg"
+        assert res2.status_code == 200
+        assert res2.json()["images"][0]["file_url"] == "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Silver_spoon.jpg/1000px-Silver_spoon.jpg"
+
+    @patch("src.services.museum_discovery_service.requests.post")
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_bmExtraordinaryTimeoutAndUntrustedImageHosts_handledSafely(self, mock_get, mock_post, client):
+        # Arrange: Wikidata times out while AIC succeeds
+        _login_admin(client)
+        mock_get.side_effect = requests.Timeout("Wikidata timeout")
+        mock_post.return_value = _mock_response({
+            "config": {"iiif_url": "https://www.artic.edu/iiif/2"},
+            "data": [{
+                "id": 888,
+                "title": "Roman Lamp",
+                "date_display": "200 CE",
+                "date_start": 200,
+                "date_end": 200,
+                "main_reference_number": "1950.88",
+                "image_id": "img-888",
+                "is_public_domain": True,
+            }],
+        })
+
+        # Act 1: Partial failure degrades cleanly
+        search_res = client.post("/admin/discovery/search", json={
+            "museums": ["bm", "aic"],
+            "keywords": ["lamp"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+        assert search_res.status_code == 200
+        reports = {r["museum_id"]: r for r in search_res.json()["museum_reports"]}
+        assert "Wikidata timeout" in reports["bm"]["error"]
+        assert reports["aic"]["new_count"] == 1
+
+        # Act 2 & Assert: Non-HTTPS or lookalike upload.wikimedia.org host rejected with 422 on import
+        for bad_url in (
+            "http://upload.wikimedia.org/wikipedia/commons/a/ab/Test.jpg",
+            "https://upload.wikimedia.org.evil.com/Test.jpg",
+        ):
+            imp_res = client.post("/admin/discovery/import", json={
+                "candidates": [{
+                    "museum_id": "bm",
+                    "museum_name": "The British Museum",
+                    "source_record_id": "Q999",
+                    "object_type": "Bad URL Piece",
+                    "date_display": "200 CE",
+                    "date_start": 200,
+                    "date_end": 200,
+                    "images": [{"file_url": bad_url, "image_sequence": 1}],
+                }]
+            })
+            assert imp_res.status_code == 422
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_bmRejectedArtifact_skipsInPhase1BeforeDetailFetchAndExtractsProvenance(self, mock_get, client):
+        # Arrange: reject a BM candidate via /admin/discovery/reject
+        _login_admin(client)
+        from src.services.rejection_service import extract_museum_provenance
+
+        rej_res = client.post("/admin/discovery/reject", json={
+            "candidates": [{
+                "museum_id": "bm",
+                "source_record_id": "Q2457011",
+                "inventory_number": "1986,1001.15",
+                "external_url": "https://www.britishmuseum.org/collection/object/H_1986-1001-15",
+                "object_type": "Vindolanda Copper-Alloy Stylus",
+                "present_location": "The British Museum, London",
+                "date_display": "2nd century CE",
+            }]
+        })
+        assert rej_res.status_code == 200
+        assert rej_res.json()["rejected_count"] == 1
+
+        called_actions = []
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            params = params or {}
+            called_actions.append(params.get("list") or params.get("action"))
+            if "www.wikidata.org/w/api.php" in url and params.get("list") == "search":
+                return _mock_response({"query": {"search": [{"title": "Q2457011"}]}})
+            raise AssertionError(f"Unexpected detail fetch for rejected BM artifact: {url} params={params}")
+
+        mock_get.side_effect = fake_get
+
+        # Act: run discovery search for bm -> Q2457011 must be skipped in Phase 1
+        search_res = client.post("/admin/discovery/search", json={
+            "museums": ["bm"],
+            "keywords": ["stylus"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+        })
+
+        # Assert
+        assert search_res.status_code == 200
+        data = search_res.json()
+        assert data["total_new"] == 0
+        assert data["total_duplicates_skipped"] >= 1
+        assert data["total_rejected_skipped"] >= 1
+        assert called_actions == ["search"]
+
+        # Assert Wikidata Q-ID extraction in extract_museum_provenance
+        assert extract_museum_provenance(
+            external_url="https://www.britishmuseum.org/collection/object/H_1986-1001-15",
+            source_identifiers=["BM Q2457011 / File:Foo.jpg"],
+        ) == ("bm", "Q2457011")
+        assert extract_museum_provenance(
+            external_url="https://www.wikidata.org/wiki/Q2457011",
+            present_location="The British Museum, London",
+        ) == ("bm", "Q2457011")
+
+
+class TestWorkerDepictionDiscoveryMode:
+    """Normal, Edge, and Extraordinary tests for ancient worker depiction discovery mode & presets."""
+
+    def test_presetsEndpoint_authAndStructure_returnsFiveWorkerPresets(self, client):
+        # Arrange / Act: unauthenticated rejected
+        assert client.get("/admin/discovery/presets").status_code == 401
+
+        # Authenticate admin & fetch presets
+        _login_admin(client)
+        res = client.get("/admin/discovery/presets")
+
+        # Assert
+        assert res.status_code == 200
+        presets = res.json()
+        assert len(presets) == 5
+        ids = {p["id"] for p in presets}
+        assert "all_ancient_workers" in ids
+        assert "artisans_workshops" in ids
+        for p in presets:
+            assert p["keywords"]
+            assert p["recommended_date_start"] <= p["recommended_date_end"]
+
+    @patch("src.services.museum_discovery_service.requests.post")
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_workerDepictionsMode_filtersNoiseUsesDepictionQueriesAndSkipsSavingPresetKeywords(
+        self, mock_get, mock_post, client
+    ):
+        # Arrange
+        _login_admin(client)
+        met_search_params = []
+        vam_search_params = []
+        bm_search_queries = []
+        aic_requests = []
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            params = params or {}
+            if "collectionapi.metmuseum.org/public/collection/v1.1/search" in url:
+                met_search_params.append(dict(params))
+                if params.get("tags") == "true" and params.get("q") == "Bakers":
+                    return _mock_response({"objectIDs": [880001, 880002]})
+                return _mock_response({"objectIDs": []})
+            if url.endswith("/objects/880001"):
+                return _mock_response({
+                    "objectID": 880001,
+                    "isPublicDomain": True,
+                    "accessionNumber": "20.3.12",
+                    "title": "Model of a Bakery and Brewery",
+                    "objectName": "Tomb model",
+                    "medium": "Painted wood",
+                    "objectDate": "ca. 1981–1975 BCE",
+                    "objectBeginDate": -1981,
+                    "objectEndDate": -1975,
+                    "objectURL": "https://www.metmuseum.org/art/collection/search/880001",
+                    "primaryImage": "https://images.metmuseum.org/CRDImages/eg/original/bakery.jpg",
+                    "tags": [{"term": "Bakers"}, {"term": "Brewing"}],
+                })
+            if url.endswith("/objects/880002"):
+                return _mock_response({
+                    "objectID": 880002,
+                    "isPublicDomain": True,
+                    "accessionNumber": "91.1.1",
+                    "title": "Roman Mold-Blown Glass Bottle",
+                    "objectName": "Bottle",
+                    "medium": "Mold-blown glass",
+                    "objectDate": "2nd century CE",
+                    "objectBeginDate": 100,
+                    "objectEndDate": 199,
+                    "objectURL": "https://www.metmuseum.org/art/collection/search/880002",
+                    "primaryImage": "https://images.metmuseum.org/CRDImages/gr/original/bottle.jpg",
+                    "tags": [],
+                })
+            if "openaccess-api.clevelandart.org" in url:
+                if params.get("q") == "scribe":
+                    return _mock_response({
+                        "data": [
+                            {
+                                "id": 880003,
+                                "accession_number": "1988.10",
+                                "title": "Wall Relief of Scribes Weighing Gold",
+                                "type": "Relief",
+                                "creation_date": "1350 BCE",
+                                "creation_date_earliest": -1350,
+                                "creation_date_latest": -1340,
+                                "did_you_know": "Depicting royal scribes recording weight in grain.",
+                                "url": "https://clevelandart.org/art/1988.10",
+                                "images": {"web": {"url": "https://openaccess-cdn.clevelandart.org/1988.10/web.jpg"}},
+                            },
+                            {
+                                "id": 880004,
+                                "accession_number": "1988.11",
+                                "title": "Terracotta Neck-Amphora Attributed to the Antimenes Painter",
+                                "type": "Vessel",
+                                "description": "Wheel-thrown ceramic vase with openwork rim.",
+                                "creation_date": "520 BCE",
+                                "creation_date_earliest": -520,
+                                "creation_date_latest": -510,
+                                "url": "https://clevelandart.org/art/1988.11",
+                                "images": {"web": {"url": "https://openaccess-cdn.clevelandart.org/1988.11/web.jpg"}},
+                            },
+                        ]
+                    })
+                return _mock_response({"data": []})
+            if "api.vam.ac.uk/v2/objects/search" in url:
+                vam_search_params.append(dict(params))
+                if params.get("q_object_title") == "weaver":
+                    return _mock_response({
+                        "records": [
+                            {"systemNumber": "O880007", "accessionNumber": "V.1"},
+                            {"systemNumber": "O880008", "accessionNumber": "V.2"},
+                        ]
+                    })
+                return _mock_response({"records": []})
+            if "api.vam.ac.uk/v2/museumobject/O880007" in url:
+                return _mock_response({
+                    "record": {
+                        "systemNumber": "O880007",
+                        "accessionNumber": "V.1",
+                        "objectType": "Relief",
+                        "titles": [{"title": "Weaver at an Upright Loom Relief"}],
+                        "summaryDescription": "Carved plaque depicting women weaving cloth.",
+                        "productionDates": [{"date": {"text": "3rd century CE", "earliest": "0200", "latest": "0299"}}],
+                        "images": ["img-weaver"],
+                        "contentPerson": [{"name": "Weaver"}],
+                        "categories": [{"text": "Weaving"}],
+                    }
+                })
+            if "api.vam.ac.uk/v2/museumobject/O880008" in url:
+                return _mock_response({
+                    "record": {
+                        "systemNumber": "O880008",
+                        "accessionNumber": "V.2",
+                        "objectType": "Saw",
+                        "titles": [{"title": "Iron Saw"}],
+                        "briefDescription": "Heavy iron carpenter's saw blade.",
+                        "productionDates": [{"date": {"text": "2nd century CE", "earliest": "0100", "latest": "0199"}}],
+                        "images": ["img-saw"],
+                        "categories": [{"text": "Tools"}],
+                    }
+                })
+            if "www.wikidata.org/w/api.php" in url:
+                if params.get("list") == "search":
+                    sr = params.get("srsearch", "")
+                    bm_search_queries.append(sr)
+                    if "haswbstatement:P180" in sr and "shoemaker" in sr:
+                        return _mock_response({"query": {"search": [{"title": "Q880009"}, {"title": "Q880010"}]}})
+                    return _mock_response({"query": {"search": []}})
+                if params.get("action") == "wbgetentities" and "claims" in params.get("props", ""):
+                    return _mock_response({
+                        "entities": {
+                            "Q880009": {
+                                "id": "Q880009",
+                                "labels": {"en": {"value": "Grave Stele of Xanthippos"}},
+                                "descriptions": {"en": {"value": "Athenian marble funerary stele depicting a seated shoemaker"}},
+                                "claims": {
+                                    "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q178743"}}}}],
+                                    "P180": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q152355"}}}}],
+                                    "P571": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "-0420-01-01T00:00:00Z", "precision": 8}}}}],
+                                    "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Xanthippos_stele.jpg"}}}],
+                                },
+                            },
+                            "Q880010": {
+                                "id": "Q880010",
+                                "labels": {"en": {"value": "Writing Stylus"}},
+                                "descriptions": {"en": {"value": "Bronze writing stylus"}},
+                                "claims": {
+                                    "P31": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "wikibase-entityid", "value": {"id": "Q500100"}}}}],
+                                    "P571": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "time", "value": {"time": "+0200-01-01T00:00:00Z", "precision": 7}}}}],
+                                    "P18": [{"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"type": "string", "value": "Stylus_bm.jpg"}}}],
+                                },
+                            },
+                        }
+                    })
+                if params.get("action") == "wbgetentities":
+                    return _mock_response({
+                        "entities": {
+                            "Q178743": {"id": "Q178743", "labels": {"en": {"value": "stele"}}},
+                            "Q152355": {"id": "Q152355", "labels": {"en": {"value": "shoemaker"}}},
+                            "Q500100": {"id": "Q500100", "labels": {"en": {"value": "stylus"}}},
+                        }
+                    })
+            if "commons.wikimedia.org/w/api.php" in url:
+                return _mock_response({
+                    "query": {
+                        "normalized": [],
+                        "pages": {
+                            "1": {
+                                "title": "File:Xanthippos_stele.jpg",
+                                "imageinfo": [{"url": "https://upload.wikimedia.org/wikipedia/commons/x/xa/Xanthippos_stele.jpg", "extmetadata": {}}],
+                            },
+                            "2": {
+                                "title": "File:Stylus_bm.jpg",
+                                "imageinfo": [{"url": "https://upload.wikimedia.org/wikipedia/commons/s/st/Stylus_bm.jpg", "extmetadata": {}}],
+                            },
+                        },
+                    }
+                })
+            raise AssertionError(f"Unexpected GET URL: {url} params={params}")
+
+        def fake_post(url, json=None, headers=None, timeout=10):
+            aic_requests.append({"json": json, "headers": headers})
+            query_text = json["query"]["bool"]["must"][0]["multi_match"]["query"]
+            if query_text == "potter":
+                return _mock_response({
+                    "config": {"iiif_url": "https://www.artic.edu/iiif/2"},
+                    "data": [
+                        {
+                            "id": 880005,
+                            "title": "Terracotta Neck-Amphora",
+                            "artwork_type_title": "Vessel",
+                            "date_display": "520 BCE",
+                            "date_start": -525,
+                            "date_end": -515,
+                            "main_reference_number": "1989.5",
+                            "subject_titles": ["Harvesting", "Working"],
+                            "thumbnail": {"alt_text": "Black-figure amphora depicting farmers harvesting olives"},
+                            "image_id": "img-aic-worker",
+                            "is_public_domain": True,
+                        },
+                        {
+                            "id": 880006,
+                            "title": "Terracotta Loom Weight",
+                            "artwork_type_title": "Loom weight",
+                            "description": "Clay weight used for weaving cloth.",
+                            "date_display": "300 BCE",
+                            "date_start": -300,
+                            "date_end": -300,
+                            "main_reference_number": "1989.6",
+                            "subject_titles": [],
+                            "image_id": "img-aic-loom",
+                            "is_public_domain": True,
+                        },
+                    ],
+                })
+            return _mock_response({"config": {"iiif_url": "https://www.artic.edu/iiif/2"}, "data": []})
+
+        mock_get.side_effect = fake_get
+        mock_post.side_effect = fake_post
+
+        # Act
+        res = client.post("/admin/discovery/search", json={
+            "museums": ["met", "cma", "aic", "vam", "bm"],
+            "keywords": ["craftsman", "glass", "potter", "scribe", "shoemaker", "weaver", "baker", "xanthippos-unsaved"],
+            "date_start": -3000,
+            "date_end": 899,
+            "limit_per_museum": 5,
+            "search_mode": "worker_depictions",
+            "min_worker_score": 35,
+            "save_keywords": False,
+        })
+
+        # Assert API query optimizations
+        assert res.status_code == 200
+        assert any(p.get("tags") == "true" for p in met_search_params)
+        assert all(p.get("q") != "glass" for p in met_search_params)
+        assert any(p.get("q_object_title") == "weaver" for p in vam_search_params)
+        assert any("haswbstatement:P180" in q for q in bm_search_queries)
+        assert aic_requests
+        assert "AIC-User-Agent" in (aic_requests[0]["headers"] or {})
+        assert "q" not in aic_requests[0]["json"]
+        assert "subject_titles^5" in aic_requests[0]["json"]["query"]["bool"]["must"][0]["multi_match"]["fields"]
+
+        # Assert filtering & ranking
+        data = res.json()
+        assert data["search_mode"] == "worker_depictions"
+        assert data["total_new"] == 5
+        assert data["total_filtered_non_worker"] >= 5
+        scores = [c["worker_relevance_score"] for c in data["candidates"]]
+        assert scores == sorted(scores, reverse=True)
+        assert all(s >= 35 for s in scores)
+        by_museum = {c["museum_id"]: c for c in data["candidates"]}
+        assert set(by_museum.keys()) == {"met", "cma", "aic", "vam", "bm"}
+        assert "shoemaker" in by_museum["bm"]["tags"]
+
+        # Assert save_keywords=False did NOT persist the transient keyword
+        saved_kws = client.get("/admin/discovery/keywords").json()
+        assert "xanthippos-unsaved" not in saved_kws
+
+    @patch("src.services.museum_discovery_service.requests.get")
+    def test_workerDepictionsMode_filteredItemsNotRegisteredInIndexAndStreamReportsFiltered(
+        self, mock_get, client
+    ):
+        # Arrange: verify direct adapter leaves filtered item unregistered in ExistingArtifactIndex,
+        # and verify stream + min_worker_score boundaries
+        _login_admin(client)
+        from src.services.museum_discovery_service import ExistingArtifactIndex, MetMuseumAdapter
+
+        def fake_get(url, params=None, headers=None, timeout=10):
+            if "metmuseum.org/public/collection/v1.1/search" in url:
+                return _mock_response({"objectIDs": [890001]})
+            if url.endswith("/objects/890001"):
+                return _mock_response({
+                    "objectID": 890001,
+                    "isPublicDomain": True,
+                    "accessionNumber": "99.9.1",
+                    "title": "Plain Glass Jar",
+                    "medium": "Mold-blown glass",
+                    "objectBeginDate": 100,
+                    "objectEndDate": 200,
+                    "objectURL": "https://www.metmuseum.org/art/collection/search/890001",
+                    "primaryImage": "https://images.metmuseum.org/CRDImages/gr/original/jar.jpg",
+                    "tags": [],
+                })
+            raise AssertionError(f"Unexpected URL: {url}")
+
+        mock_get.side_effect = fake_get
+
+        # Edge 1: Adapter filters out non-worker without registering in ExistingArtifactIndex
+        db = TestingSessionLocal()
+        try:
+            idx = ExistingArtifactIndex(db)
+            kept, fetched, dupes, rej, filtered = MetMuseumAdapter().discover(
+                keywords=["glass"],
+                date_start=0,
+                date_end=899,
+                limit=5,
+                index=idx,
+                search_mode="worker_depictions",
+                min_worker_score=35,
+            )
+            assert kept == []
+            assert filtered == 1
+            assert idx.contains(museum_id="met", source_record_id="890001") is False
+        finally:
+            db.close()
+
+        # Edge 2: min_worker_score=0 keeps all items; stream emits filtered_non_worker in worker_depictions mode
+        with client.stream("POST", "/admin/discovery/search/stream", json={
+            "museums": ["met"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+            "search_mode": "worker_depictions",
+            "min_worker_score": 35,
+        }) as res:
+            assert res.status_code == 200
+            events = [json.loads(line) for line in res.iter_lines() if line]
+
+        complete_evt = events[-1]
+        assert complete_evt["type"] == "complete"
+        assert complete_evt["search_mode"] == "worker_depictions"
+        assert complete_evt["total_new"] == 0
+        assert complete_evt["total_filtered_non_worker"] == 1
+
+        broad_keep = client.post("/admin/discovery/search", json={
+            "museums": ["met"],
+            "keywords": ["glass"],
+            "date_start": 0,
+            "date_end": 899,
+            "limit_per_museum": 5,
+            "search_mode": "worker_depictions",
+            "min_worker_score": 0,
+        })
+        assert broad_keep.status_code == 200
+        assert broad_keep.json()["total_new"] == 1
+
+    def test_workerDepictionsMode_extraordinaryInvalidSearchModeAndBounds_return422(self, client):
+        # Arrange
+        _login_admin(client)
+
+        # Act & Assert
+        assert client.post("/admin/discovery/search", json={
+            "museums": ["met"],
+            "keywords": ["potter"],
+            "search_mode": "invalid_mode",
+        }).status_code == 422
+        assert client.post("/admin/discovery/search", json={
+            "museums": ["met"],
+            "keywords": ["potter"],
+            "min_worker_score": -1,
+        }).status_code == 422
+        assert client.post("/admin/discovery/search", json={
+            "museums": ["met"],
+            "keywords": ["potter"],
+            "min_worker_score": 101,
+        }).status_code == 422

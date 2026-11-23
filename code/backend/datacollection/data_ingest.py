@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 from src.database import SessionLocal
 from src.models import Object
+from src.services.rejection_service import RejectionService
 from .s3_utils import download_and_upload_to_minio
 from .ingestion_utils import (
     reset_sequences,
@@ -119,9 +120,13 @@ def ingest_data():
     db = SessionLocal()
     try:
         reset_sequences(db)
+        rejection_service = RejectionService(db)
 
         count = 0
         for oid in list(object_ids):
+            if rejection_service.is_rejected(museum_id="met", source_record_id=str(oid)):
+                continue
+
             time.sleep(1)  # Throttle to avoid rate limits
 
             # Fetch object data from API
@@ -149,6 +154,14 @@ def ingest_data():
             if date_end < 200 or date_begin > 899:
                 continue
 
+            if rejection_service.is_rejected(
+                museum_id="met",
+                source_record_id=str(oid),
+                inventory_number=inventory_num,
+                external_url=obj_data.get("objectURL"),
+            ):
+                continue
+
             citation = _build_citation(obj_data)
             source = get_or_create_source(db, citation)
 
@@ -159,6 +172,8 @@ def ingest_data():
             # Handle existing objects (retro-cache + metadata update)
             existing_obj = db.query(Object).filter_by(inventory_number=inventory_num).first()
             if existing_obj:
+                if existing_obj.review_status == "rejected":
+                    continue
                 print(f"Object {inventory_num} already exists, updating metadata.")
                 retro_cache_existing_images(db, existing_obj, source, desc_text, prefix="MET")
                 continue

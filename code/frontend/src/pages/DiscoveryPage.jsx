@@ -74,8 +74,170 @@ const DEFAULT_KEYWORDS = [
     'Pygmalion',
 ];
 
+const DEFAULT_WORKER_PRESETS = [
+    {
+        id: 'all_ancient_workers',
+        name: 'All Ancient Workers',
+        description: 'High-precision worker roles, workshops, tomb models, and labor scenes across trades.',
+        keywords: [
+            'work scene',
+            'potter',
+            'weaver',
+            'blacksmith',
+            'scribe',
+            'baker',
+            'farmer',
+            'carpenter',
+            'sculptor',
+            'shoemaker',
+            'fisherman',
+            'shepherd',
+            'merchant',
+            'slave',
+            'physician',
+            'glassblower',
+            'ushabti',
+            'hephaestus',
+        ],
+        recommended_date_start: -3000,
+        recommended_date_end: 899,
+    },
+    {
+        id: 'artisans_workshops',
+        name: 'Artisans & Workshops',
+        description: 'Potters, smiths, weavers, sculptors, shoemakers, glassblowers, and ancient workshop scenes.',
+        keywords: [
+            'potter',
+            'blacksmith',
+            'weaver',
+            'sculptor',
+            'carpenter',
+            'shoemaker',
+            'cobbler',
+            'jeweler',
+            'glassblower',
+            'vitrearii',
+            'fuller',
+            'tanner',
+            'stonemason',
+            'carver',
+            'woodworker',
+            'metalworker',
+            'workshop',
+            'ergasterion',
+            'hephaestus',
+            'vulcan',
+        ],
+        recommended_date_start: -2500,
+        recommended_date_end: 899,
+    },
+    {
+        id: 'agriculture_food',
+        name: 'Agriculture & Food Production',
+        description: 'Farmers, harvesters, bakers, brewers, butchers, shepherds, and rural estate labor.',
+        keywords: [
+            'farmer',
+            'baker',
+            'brewer',
+            'butcher',
+            'shepherd',
+            'fisherman',
+            'harvester',
+            'plowman',
+            'winemaker',
+            'miller',
+            'herdsman',
+            'peasant',
+            'bakery',
+            'brewery',
+            'olive harvest',
+            'vintage',
+            'grain harvest',
+        ],
+        recommended_date_start: -3000,
+        recommended_date_end: 899,
+    },
+    {
+        id: 'scribes_trade_maritime',
+        name: 'Scribes, Medicine & Trade',
+        description: 'Scribes, physicians, midwives, merchants, sailors, shipwrights, and market scenes.',
+        keywords: [
+            'scribe',
+            'merchant',
+            'trader',
+            'physician',
+            'midwife',
+            'doctor',
+            'sailor',
+            'rower',
+            'shipwright',
+            'boatbuilder',
+            'banker',
+            'shopkeeper',
+            'caravan',
+            'barber',
+            'weighing',
+        ],
+        recommended_date_start: -3000,
+        recommended_date_end: 899,
+    },
+    {
+        id: 'enslaved_monumental',
+        name: 'Enslaved Labor & Monumental Work',
+        description: 'Enslaved workers, servants, porters, miners, brickmakers, builders, and funerary ushabti figures.',
+        keywords: [
+            'slave',
+            'enslaved',
+            'servant',
+            'attendant',
+            'porter',
+            'bearer',
+            'miner',
+            'brickmaker',
+            'builder',
+            'laborer',
+            'serf',
+            'captive',
+            'ushabti',
+            'shabti',
+            'apprentice',
+        ],
+        recommended_date_start: -3000,
+        recommended_date_end: 899,
+    },
+];
+
+const ERA_PRESETS = [
+    { id: 'focus_0_899', label: '0–899 CE Focus', start: 0, end: 899 },
+    { id: 'ancient_world', label: 'Ancient World (3000 BCE–500 CE)', start: -3000, end: 500 },
+    { id: 'classical_antiquity', label: 'Classical Antiquity (800 BCE–500 CE)', start: -800, end: 500 },
+    { id: 'ancient_early_medieval', label: 'Ancient–Early Medieval (3000 BCE–899 CE)', start: -3000, end: 899 },
+];
+
 const hasNumericValue = (val) => val !== null && val !== undefined && val !== '';
 const getCandidateKey = (cand) => `${cand.museum_id}:${cand.source_record_id}`;
+
+const getWorkerBadgeMeta = (cand) => {
+    const score = cand.worker_relevance_score ?? 0;
+    const confidence = cand.worker_confidence || 'none';
+    if (score === 0 && confidence === 'none') return null;
+    if (confidence === 'high') {
+        return {
+            label: `★ High Worker Match (${score}%)`,
+            className: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+        };
+    }
+    if (confidence === 'medium') {
+        return {
+            label: `● Worker Match (${score}%)`,
+            className: 'bg-amber-100 text-amber-900 border-amber-300',
+        };
+    }
+    return {
+        label: `○ Low Match (${score}%)`,
+        className: 'bg-slate-100 text-slate-700 border-slate-300',
+    };
+};
 
 const formatDimensionsSummary = (cand) => {
     if (cand.dimensions_display) return cand.dimensions_display;
@@ -89,12 +251,20 @@ const DiscoveryPage = () => {
     const { isAdmin } = useAuth();
     const formHeadingId = useId();
     const progressBarId = useId();
+    const workerModeId = useId();
+    const broadModeId = useId();
+    const strictFilterId = useId();
     const abortControllerRef = useRef(null);
 
     const [museums, setMuseums] = useState([]);
     const [loadingMuseums, setLoadingMuseums] = useState(true);
-    const [selectedMuseums, setSelectedMuseums] = useState(['met', 'cma', 'aic', 'vam']);
+    const [selectedMuseums, setSelectedMuseums] = useState(['met', 'cma', 'aic', 'vam', 'bm']);
     const [keywords, setKeywords] = useState(DEFAULT_KEYWORDS);
+    const [presets, setPresets] = useState(DEFAULT_WORKER_PRESETS);
+    const [activePresetId, setActivePresetId] = useState(null);
+    const [searchMode, setSearchMode] = useState('worker_depictions');
+    const [strictWorkerFilter, setStrictWorkerFilter] = useState(false);
+    const [confidenceFilter, setConfidenceFilter] = useState('all');
     const [keywordInput, setKeywordInput] = useState('');
     const [savingKeyword, setSavingKeyword] = useState(false);
     const [keywordStatus, setKeywordStatus] = useState('');
@@ -113,6 +283,9 @@ const DiscoveryPage = () => {
     const [searchResult, setSearchResult] = useState(null);
     const [selectedKeys, setSelectedKeys] = useState([]);
     const [importResult, setImportResult] = useState(null);
+    const [rejectingKeys, setRejectingKeys] = useState({});
+    const [rejectedBanner, setRejectedBanner] = useState(null);
+    const [undoingReject, setUndoingReject] = useState(false);
 
     useEffect(() => () => {
         abortControllerRef.current?.abort();
@@ -158,6 +331,15 @@ const DiscoveryPage = () => {
                 setApiError(err.response?.data?.detail || 'Failed to load predefined museums.');
             } finally {
                 setLoadingMuseums(false);
+            }
+
+            try {
+                const presetResponse = await api.get('/admin/discovery/presets');
+                if (Array.isArray(presetResponse?.data) && presetResponse.data.length > 0) {
+                    setPresets(presetResponse.data);
+                }
+            } catch {
+                // Non-fatal: built-in worker presets remain available when offline or unmocked.
             }
         };
 
@@ -215,6 +397,7 @@ const DiscoveryPage = () => {
                 ? response.data.keywords
                 : [...keywords, trimmed];
             syncSavedKeywords(nextKeywords);
+            setActivePresetId(null);
             setKeywordInput('');
             setKeywordStatus(`Saved "${trimmed}" for future searches.`);
             if (validationErrors.keywords) {
@@ -247,10 +430,30 @@ const DiscoveryPage = () => {
             if (response?.status === 204 || !response || response.status < 300) {
                 const nextKeywords = keywords.filter((kw) => kw !== kwToRemove);
                 syncSavedKeywords(nextKeywords);
+                setActivePresetId(null);
                 setKeywordStatus(`Removed "${kwToRemove}" from saved keywords.`);
             }
         } catch (err) {
             setApiError(err.response?.data?.detail || err.message || 'Failed to remove keyword.');
+        }
+    };
+
+    const handleApplyPreset = (preset) => {
+        setActivePresetId(preset.id);
+        setKeywords([...(preset.keywords || [])]);
+        setKeywordStatus(`Loaded "${preset.name}" preset (${preset.keywords?.length || 0} keywords) for this search (saved list unchanged).`);
+        if (validationErrors.keywords) {
+            setValidationErrors((prev) => ({ ...prev, keywords: undefined }));
+        }
+    };
+
+    const handleUseAllSavedKeywords = () => {
+        const saved = museums[0]?.default_keywords?.length ? museums[0].default_keywords : DEFAULT_KEYWORDS;
+        setActivePresetId(null);
+        setKeywords([...saved]);
+        setKeywordStatus('Using all saved discovery keywords.');
+        if (validationErrors.keywords) {
+            setValidationErrors((prev) => ({ ...prev, keywords: undefined }));
         }
     };
 
@@ -260,8 +463,12 @@ const DiscoveryPage = () => {
         const defaultEnd = museums[0]?.default_date_end ?? 899;
         const defaultLimit = museums[0]?.default_limit ?? 10;
 
-        setSelectedMuseums(museums.length > 0 ? museums.map((m) => m.id) : ['met', 'cma', 'aic', 'vam']);
+        setSelectedMuseums(museums.length > 0 ? museums.map((m) => m.id) : ['met', 'cma', 'aic', 'vam', 'bm']);
         setKeywords([...defaultKeywords]);
+        setActivePresetId(null);
+        setSearchMode('worker_depictions');
+        setStrictWorkerFilter(false);
+        setConfidenceFilter('all');
         setKeywordInput('');
         setKeywordStatus('');
         setDateStart(defaultStart);
@@ -306,6 +513,9 @@ const DiscoveryPage = () => {
 
         setSearchResult(null);
         setSelectedKeys([]);
+        setConfidenceFilter('all');
+        setRejectedBanner(null);
+        setRejectingKeys({});
         setSearching(true);
         setSearchProgress(createInitialProgressState(selectedMuseums, museums, effectiveKeywords.length));
 
@@ -317,6 +527,9 @@ const DiscoveryPage = () => {
                     date_start: Number(dateStart),
                     date_end: Number(dateEnd),
                     limit_per_museum: Number(limitPerMuseum) || 10,
+                    search_mode: searchMode,
+                    min_worker_score: strictWorkerFilter ? 65 : 35,
+                    save_keywords: activePresetId === null,
                 },
                 {
                     signal: controller.signal,
@@ -328,8 +541,10 @@ const DiscoveryPage = () => {
             if (controller.signal.aborted) return;
             setSearchResult(data);
             setSelectedKeys((data.candidates || []).map(getCandidateKey));
+            const filteredCount = data.total_filtered_non_worker ?? 0;
+            const filteredSuffix = filteredCount > 0 ? `, ${filteredCount} non-worker item(s) filtered` : '';
             setSearchAnnouncement(
-                `Discovery complete: ${data.total_new ?? 0} new artifact(s) found, ${data.total_duplicates_skipped ?? 0} duplicate(s) skipped.`
+                `Discovery complete: ${data.total_new ?? 0} new artifact(s) found, ${data.total_duplicates_skipped ?? 0} duplicate(s) skipped${filteredSuffix}.`
             );
         } catch (err) {
             if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED' || controller.signal.aborted) {
@@ -389,7 +604,86 @@ const DiscoveryPage = () => {
         }
     };
 
+    const handleRejectCandidate = async (cand) => {
+        const key = getCandidateKey(cand);
+        if (rejectingKeys[key] || importing || undoingReject) return;
+
+        setRejectingKeys((prev) => ({ ...prev, [key]: true }));
+        setApiError('');
+        setRejectedBanner(null);
+
+        try {
+            const response = await api.post('/admin/discovery/reject', {
+                candidates: [
+                    {
+                        museum_id: cand.museum_id,
+                        source_record_id: String(cand.source_record_id ?? ''),
+                        inventory_number: cand.inventory_number || null,
+                        external_url: cand.external_url || null,
+                        object_type: cand.object_type || null,
+                        present_location: cand.present_location || null,
+                        date_display: cand.date_display || null,
+                    },
+                ],
+            });
+            const savedItem = response?.data?.rejected_items?.[0] || null;
+            setSearchResult((prev) => {
+                if (!prev) return prev;
+                const remaining = (prev.candidates || []).filter((c) => getCandidateKey(c) !== key);
+                return { ...prev, candidates: remaining, total_new: remaining.length };
+            });
+            setSelectedKeys((prev) => prev.filter((k) => k !== key));
+            setRejectedBanner({
+                id: savedItem?.id ?? null,
+                candidate: cand,
+                title: cand.object_type || 'artifact',
+            });
+        } catch (err) {
+            setApiError(err.response?.data?.detail || err.message || 'Failed to reject artifact.');
+        } finally {
+            setRejectingKeys((prev) => {
+                const next = { ...prev };
+                delete next[key];
+                return next;
+            });
+        }
+    };
+
+    const handleUndoReject = async () => {
+        if (!rejectedBanner?.id || undoingReject) return;
+
+        setUndoingReject(true);
+        setApiError('');
+        try {
+            const response = await api.delete(`/admin/discovery/rejected/${rejectedBanner.id}`);
+            if (response?.status === 204 || !response || response.status < 300) {
+                const restored = rejectedBanner.candidate;
+                const key = getCandidateKey(restored);
+                setSearchResult((prev) => {
+                    if (!prev) return prev;
+                    const existing = prev.candidates || [];
+                    if (existing.some((c) => getCandidateKey(c) === key)) {
+                        return prev;
+                    }
+                    const nextCandidates = [restored, ...existing];
+                    return { ...prev, candidates: nextCandidates, total_new: nextCandidates.length };
+                });
+                setSelectedKeys((prev) => (prev.includes(key) ? prev : [key, ...prev]));
+                setRejectedBanner(null);
+            }
+        } catch (err) {
+            setApiError(err.response?.data?.detail || err.message || 'Failed to undo rejection.');
+        } finally {
+            setUndoingReject(false);
+        }
+    };
+
     const candidates = searchResult?.candidates || [];
+    const hasScoredWorkers = candidates.some(
+        (c) => (c.worker_relevance_score ?? 0) > 0 || (c.worker_confidence && c.worker_confidence !== 'none')
+    );
+    const highConfidenceCandidates = candidates.filter((c) => c.worker_confidence === 'high');
+    const displayedCandidates = confidenceFilter === 'high' ? highConfidenceCandidates : candidates;
     const selectedCount = candidates.filter((c) => selectedKeys.includes(getCandidateKey(c))).length;
 
     return (
@@ -399,7 +693,7 @@ const DiscoveryPage = () => {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Discover Artifacts from Predefined Museums</h1>
                         <p className="text-sm text-gray-600 mt-1">
-                            Search curated open-access collections using editable keywords and date ranges. Existing database pieces are skipped automatically, and new discoveries stage in the Review Queue.
+                            Search curated open-access collections using editable keywords and date ranges. Existing database pieces and previously rejected items are skipped automatically, and new discoveries stage in the Review Queue.
                         </p>
                     </div>
                     <Link
@@ -469,6 +763,84 @@ const DiscoveryPage = () => {
                                 Reset Defaults
                             </button>
                         </div>
+
+                        {/* Discovery Focus Mode */}
+                        <fieldset className="space-y-3">
+                            <legend className="text-sm font-semibold text-gray-800">
+                                Discovery Focus Mode
+                            </legend>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div
+                                    className={`p-3 rounded-lg border transition-colors ${
+                                        searchMode === 'worker_depictions'
+                                            ? 'border-blue-400 bg-blue-50/40'
+                                            : 'border-gray-200 bg-white'
+                                    }`}
+                                >
+                                    <div className="flex items-start gap-2.5">
+                                        <input
+                                            id={workerModeId}
+                                            name="search_mode"
+                                            type="radio"
+                                            value="worker_depictions"
+                                            checked={searchMode === 'worker_depictions'}
+                                            onChange={() => setSearchMode('worker_depictions')}
+                                            className="mt-1 border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <label htmlFor={workerModeId} className="cursor-pointer">
+                                            <span className="block text-sm font-semibold text-gray-900">
+                                                Ancient Workers Depictions (Recommended)
+                                            </span>
+                                            <span className="block text-xs text-gray-500 mt-0.5">
+                                                Prioritizes depicted worker roles, workshop scenes, AAT subject tags, and figurative scenes while filtering out plain vessels and tools.
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div
+                                    className={`p-3 rounded-lg border transition-colors ${
+                                        searchMode === 'broad'
+                                            ? 'border-blue-400 bg-blue-50/40'
+                                            : 'border-gray-200 bg-white'
+                                    }`}
+                                >
+                                    <div className="flex items-start gap-2.5">
+                                        <input
+                                            id={broadModeId}
+                                            name="search_mode"
+                                            type="radio"
+                                            value="broad"
+                                            checked={searchMode === 'broad'}
+                                            onChange={() => setSearchMode('broad')}
+                                            className="mt-1 border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <label htmlFor={broadModeId} className="cursor-pointer">
+                                            <span className="block text-sm font-semibold text-gray-900">
+                                                Broad Keyword Search
+                                            </span>
+                                            <span className="block text-xs text-gray-500 mt-0.5">
+                                                Returns all matching museum hits for every keyword without filtering out non-depiction artifacts.
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {searchMode === 'worker_depictions' && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <input
+                                        id={strictFilterId}
+                                        name="strict_worker_filter"
+                                        type="checkbox"
+                                        checked={strictWorkerFilter}
+                                        onChange={(e) => setStrictWorkerFilter(e.target.checked)}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <label htmlFor={strictFilterId} className="text-xs font-medium text-gray-700 cursor-pointer">
+                                        Strict: High-confidence worker depictions only (65+)
+                                    </label>
+                                </div>
+                            )}
+                        </fieldset>
 
                         {/* Predefined Museums */}
                         <fieldset className="space-y-3" aria-describedby={validationErrors.museums ? 'museums-error' : undefined}>
@@ -560,6 +932,43 @@ const DiscoveryPage = () => {
                                 Search Keywords ({keywords.length})
                             </legend>
 
+                            <div className="space-y-1.5">
+                                <p className="text-xs font-medium text-gray-700">Curated Ancient Worker Presets</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {presets.map((preset) => {
+                                        const isActive = activePresetId === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                aria-pressed={isActive}
+                                                title={preset.description}
+                                                onClick={() => handleApplyPreset(preset)}
+                                                className={`px-2.5 py-1 rounded-md text-xs font-medium border transition ${
+                                                    isActive
+                                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                                        : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
+                                                }`}
+                                            >
+                                                {preset.name}
+                                            </button>
+                                        );
+                                    })}
+                                    <button
+                                        type="button"
+                                        aria-pressed={activePresetId === null}
+                                        onClick={handleUseAllSavedKeywords}
+                                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition ${
+                                            activePresetId === null
+                                                ? 'bg-slate-700 text-white border-slate-700'
+                                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        All Saved Keywords
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
                                 <div className="flex-1">
                                     <label htmlFor="keyword-input" className="block text-xs font-medium text-gray-700 mb-1">
@@ -634,17 +1043,29 @@ const DiscoveryPage = () => {
                                 <legend className="text-sm font-semibold text-gray-800">
                                     Date Range &amp; Fetch Limit
                                 </legend>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setDateStart(0);
-                                        setDateEnd(899);
-                                        setValidationErrors((prev) => ({ ...prev, dates: undefined }));
-                                    }}
-                                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                                >
-                                    0–899 CE Focus
-                                </button>
+                                <div className="flex flex-wrap gap-2">
+                                    {ERA_PRESETS.map((era) => {
+                                        const isActiveEra = Number(dateStart) === era.start && Number(dateEnd) === era.end;
+                                        return (
+                                            <button
+                                                key={era.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setDateStart(era.start);
+                                                    setDateEnd(era.end);
+                                                    setValidationErrors((prev) => ({ ...prev, dates: undefined }));
+                                                }}
+                                                className={`text-xs font-medium px-2 py-0.5 rounded border ${
+                                                    isActiveEra
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        : 'text-blue-600 hover:text-blue-800 border-transparent hover:bg-blue-50/50'
+                                                }`}
+                                            >
+                                                {era.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -815,6 +1236,16 @@ const DiscoveryPage = () => {
                                 <p className="text-[11px] uppercase tracking-wider text-amber-700">Duplicates Skipped</p>
                                 <p className="text-base font-semibold text-amber-900 tabular-nums">
                                     {searchProgress.totalSkipped}
+                                    {searchProgress.totalRejectedSkipped > 0 && (
+                                        <span className="ml-1 text-xs font-normal text-amber-700">
+                                            ({searchProgress.totalRejectedSkipped} rejected)
+                                        </span>
+                                    )}
+                                    {searchProgress.totalFilteredNonWorker > 0 && (
+                                        <span className="ml-1 text-xs font-normal text-amber-800">
+                                            · {searchProgress.totalFilteredNonWorker} non-worker filtered
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                         </div>
@@ -849,7 +1280,8 @@ const DiscoveryPage = () => {
                                             </span>
                                         </div>
                                         <p className="text-gray-600 truncate">
-                                            {m.currentStage} · {m.new_count} new · {m.duplicates_skipped} skipped ({m.fetched_count} checked)
+                                            {m.currentStage} · {m.new_count} new · {m.duplicates_skipped} skipped
+                                            {m.filtered_non_worker > 0 ? ` · ${m.filtered_non_worker} filtered` : ''} ({m.fetched_count} checked)
                                         </p>
                                     </div>
                                 );
@@ -872,8 +1304,30 @@ const DiscoveryPage = () => {
                 )}
 
                 {/* Results Panel */}
+                {rejectedBanner && (
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="p-3.5 rounded-lg bg-slate-100 border border-slate-300 text-sm text-slate-900 flex flex-wrap items-center justify-between gap-3"
+                    >
+                        <span>
+                            Rejected &ldquo;{rejectedBanner.title}&rdquo;. It will be skipped in future searches.
+                        </span>
+                        {rejectedBanner.id !== null && rejectedBanner.id !== undefined && (
+                            <button
+                                type="button"
+                                disabled={undoingReject}
+                                onClick={handleUndoReject}
+                                className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded hover:bg-blue-50 disabled:opacity-50"
+                            >
+                                {undoingReject ? 'Undoing...' : 'Undo'}
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {searchResult && (
-                    <section role="status" aria-live="polite" className="space-y-4">
+                    <section aria-label="Discovered candidates" className="space-y-4">
                         <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
@@ -881,12 +1335,54 @@ const DiscoveryPage = () => {
                                         Discovered Candidates ({candidates.length} new)
                                     </h2>
                                     <p className="text-xs text-gray-500">
-                                        {searchResult.total_duplicates_skipped} existing/duplicate item(s) automatically skipped.
+                                        {searchResult.total_duplicates_skipped} existing/duplicate item(s) automatically skipped
+                                        {searchResult.total_rejected_skipped > 0
+                                            ? ` (${searchResult.total_rejected_skipped} previously rejected)`
+                                            : ''}
+                                        {(searchResult.total_filtered_non_worker ?? 0) > 0
+                                            ? ` · ${searchResult.total_filtered_non_worker} non-worker item(s) filtered.`
+                                            : '.'}
                                     </p>
                                 </div>
 
                                 {candidates.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-2">
+                                        {hasScoredWorkers && (
+                                            <div className="flex flex-wrap items-center gap-1.5 mr-2">
+                                                <button
+                                                    type="button"
+                                                    aria-pressed={confidenceFilter === 'all'}
+                                                    onClick={() => setConfidenceFilter('all')}
+                                                    className={`px-2.5 py-1 text-xs font-medium rounded border ${
+                                                        confidenceFilter === 'all'
+                                                            ? 'bg-blue-600 text-white border-blue-600'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    All Results ({candidates.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-pressed={confidenceFilter === 'high'}
+                                                    onClick={() => setConfidenceFilter('high')}
+                                                    className={`px-2.5 py-1 text-xs font-medium rounded border ${
+                                                        confidenceFilter === 'high'
+                                                            ? 'bg-emerald-700 text-white border-emerald-700'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    High Confidence Only ({highConfidenceCandidates.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={highConfidenceCandidates.length === 0}
+                                                    onClick={() => setSelectedKeys(highConfidenceCandidates.map(getCandidateKey))}
+                                                    className="px-2.5 py-1 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded hover:bg-emerald-100 disabled:opacity-50"
+                                                >
+                                                    Select High-Confidence
+                                                </button>
+                                            </div>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => setSelectedKeys(candidates.map(getCandidateKey))}
@@ -929,23 +1425,36 @@ const DiscoveryPage = () => {
                                         <strong>{rep.museum_name}:</strong>{' '}
                                         {rep.error
                                             ? rep.error
-                                            : `${rep.new_count} new · ${rep.duplicates_skipped} skipped (${rep.fetched_count} checked)`}
+                                            : `${rep.new_count} new · ${rep.duplicates_skipped} skipped${rep.rejected_skipped > 0 ? ` (${rep.rejected_skipped} rejected)` : ''}${(rep.filtered_non_worker ?? 0) > 0 ? ` · ${rep.filtered_non_worker} filtered` : ''} (${rep.fetched_count} checked)`}
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         {candidates.length === 0 ? (
-                            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-500">
-                                No new artifacts found outside existing database records for these filters. Try adjusting keywords or expanding the date range.
+                            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-500 space-y-2">
+                                <p>
+                                    No new artifacts found outside existing database records for these filters. Try adjusting keywords or expanding the date range.
+                                </p>
+                                {(searchResult.total_filtered_non_worker ?? 0) > 0 && (
+                                    <p className="text-xs text-amber-800">
+                                        {searchResult.total_filtered_non_worker} record(s) matched your keywords but scored below the worker depiction threshold. Try widening the date range to Ancient World (3000 BCE–500 CE), disabling Strict mode, or switching to Broad Keyword Search.
+                                    </p>
+                                )}
+                            </div>
+                        ) : displayedCandidates.length === 0 ? (
+                            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500">
+                                No high-confidence worker depictions matched the current results. Click &ldquo;All Results&rdquo; to inspect medium-confidence candidates.
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {candidates.map((cand) => {
+                                {displayedCandidates.map((cand) => {
                                     const key = getCandidateKey(cand);
                                     const isChecked = selectedKeys.includes(key);
+                                    const isRejecting = Boolean(rejectingKeys[key]);
                                     const previewUrl = cand.images?.[0]?.file_url || '/placeholder-artifact.svg';
                                     const dimsSummary = formatDimensionsSummary(cand);
+                                    const workerBadge = getWorkerBadgeMeta(cand);
 
                                     return (
                                         <article
@@ -966,6 +1475,9 @@ const DiscoveryPage = () => {
                                                 <img
                                                     src={previewUrl}
                                                     alt={cand.object_type}
+                                                    width={96}
+                                                    height={96}
+                                                    loading="lazy"
                                                     referrerPolicy="no-referrer"
                                                     onError={(e) => {
                                                         e.target.onerror = null;
@@ -974,11 +1486,32 @@ const DiscoveryPage = () => {
                                                     className="w-24 h-24 object-cover rounded border border-gray-200 bg-gray-100 flex-shrink-0"
                                                 />
                                                 <div className="min-w-0 flex-1 space-y-1">
-                                                    <label htmlFor={`cand-${key}`} className="block font-semibold text-gray-900 text-sm cursor-pointer">
-                                                        {cand.object_type}
-                                                    </label>
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <label htmlFor={`cand-${key}`} className="block font-semibold text-gray-900 text-sm cursor-pointer">
+                                                            {cand.object_type}
+                                                        </label>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isRejecting || importing}
+                                                            onClick={() => handleRejectCandidate(cand)}
+                                                            aria-label={`Reject ${cand.object_type}`}
+                                                            className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-50 flex-shrink-0"
+                                                        >
+                                                            {isRejecting ? 'Rejecting...' : 'Reject'}
+                                                        </button>
+                                                    </div>
                                                     <p className="text-xs text-gray-600">{cand.present_location}</p>
                                                     <div className="flex flex-wrap gap-1.5 text-[11px]">
+                                                        {workerBadge && (
+                                                            <span className={`px-2 py-0.5 rounded font-semibold border ${workerBadge.className}`}>
+                                                                {workerBadge.label}
+                                                            </span>
+                                                        )}
+                                                        {cand.matched_keyword && (
+                                                            <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">
+                                                                Matched: &ldquo;{cand.matched_keyword}&rdquo;
+                                                            </span>
+                                                        )}
                                                         <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
                                                             {cand.date_display}
                                                         </span>
@@ -991,6 +1524,18 @@ const DiscoveryPage = () => {
                                                             {cand.filled_fields_count} fields populated
                                                         </span>
                                                     </div>
+                                                    {cand.worker_signals?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 pt-0.5">
+                                                            {cand.worker_signals.slice(0, 3).map((sig) => (
+                                                                <span
+                                                                    key={sig}
+                                                                    className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50/70 text-emerald-800 border border-emerald-200/80"
+                                                                >
+                                                                    {sig}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -1031,6 +1576,15 @@ const DiscoveryPage = () => {
                                                 <p className="text-xs text-slate-700 bg-slate-50 p-2 rounded border border-slate-100 line-clamp-2">
                                                     {cand.assembled_caption}
                                                 </p>
+                                            )}
+
+                                            {cand.description && (
+                                                <details className="text-xs text-gray-600 bg-gray-50/80 rounded border border-gray-100 px-2.5 py-1.5">
+                                                    <summary className="cursor-pointer font-medium text-gray-700 select-none">
+                                                        Catalog notes
+                                                    </summary>
+                                                    <p className="mt-1.5 leading-relaxed text-gray-700">{cand.description}</p>
+                                                </details>
                                             )}
 
                                             {cand.tags?.length > 0 && (

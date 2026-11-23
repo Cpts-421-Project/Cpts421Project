@@ -878,29 +878,53 @@ class TestTwoExcelSchemaAlignment:
         alembic_cfg = AlembicConfig(str(backend_dir / "alembic.ini"))
         alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
 
-        # Act: upgrade to head, inspect, downgrade to previous rev, inspect, re-upgrade to head
+        # Act: upgrade to head, inspect, downgrade to previous revs, verify backfill, re-upgrade
         command.upgrade(alembic_cfg, "head")
         mig_engine = create_engine(db_url)
         inspector_up = sa_inspect(mig_engine)
         obj_cols_up = {c["name"] for c in inspector_up.get_columns("objects")}
         img_cols_up = {c["name"] for c in inspector_up.get_columns("images")}
+        rej_cols_up = {c["name"] for c in inspector_up.get_columns("rejected_artifacts")}
         assert {"present_location", "publications", "caption", "external_url"}.issubset(obj_cols_up)
         assert {"image_sequence", "source_identifier"}.issubset(img_cols_up)
         assert "discovery_keywords" in inspector_up.get_table_names()
+        assert "rejected_artifacts" in inspector_up.get_table_names()
+        assert {"museum_id", "source_record_id", "inventory_number", "external_url", "rejected_at"}.issubset(rej_cols_up)
+
+        from sqlalchemy import text
+
+        # Verify downgrading c3d4e5f6a7b0 removes rejected_artifacts and upgrading backfills rejected objects
+        command.downgrade(alembic_cfg, "b2c3d4e5f6a9")
+        inspector_mid = sa_inspect(mig_engine)
+        assert "rejected_artifacts" not in inspector_mid.get_table_names()
+        with mig_engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO objects (object_type, date_display, date_start, date_end, inventory_number, external_url, review_status) "
+                    "VALUES ('Backfill Lamp', '300 CE', 300, 300, 'MIG-REJ-1', 'https://www.metmuseum.org/art/collection/search/777888', 'rejected')"
+                )
+            )
+        command.upgrade(alembic_cfg, "head")
+        with mig_engine.connect() as conn:
+            backfilled = conn.execute(
+                text("SELECT museum_id, source_record_id, inventory_number FROM rejected_artifacts")
+            ).fetchall()
+        assert ("met", "777888", "MIG-REJ-1") in backfilled
 
         command.downgrade(alembic_cfg, "e1a2b3c4d5e6")
         inspector_down = sa_inspect(mig_engine)
         obj_cols_down = {c["name"] for c in inspector_down.get_columns("objects")}
         assert "present_location" not in obj_cols_down
         assert "discovery_keywords" not in inspector_down.get_table_names()
+        assert "rejected_artifacts" not in inspector_down.get_table_names()
 
         command.upgrade(alembic_cfg, "head")
         inspector_reup = sa_inspect(mig_engine)
         obj_cols_reup = {c["name"] for c in inspector_reup.get_columns("objects")}
         assert "present_location" in obj_cols_reup
         assert "discovery_keywords" in inspector_reup.get_table_names()
+        assert "rejected_artifacts" in inspector_reup.get_table_names()
 
-        from sqlalchemy import text
         with mig_engine.connect() as conn:
             seeded_kws = {
                 row[0]

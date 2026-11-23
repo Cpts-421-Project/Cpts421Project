@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import threading
 from types import SimpleNamespace
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -19,21 +19,36 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from ..config import config
-from ..exceptions import EntityNotFoundError, ValidationError
+from ..exceptions import BaseAppException, EntityNotFoundError, ValidationError
 from ..logger import app_logger
-from ..models import DiscoveryKeyword, Image, Object, Source, Tag
+from ..models import DiscoveryKeyword, Image, Object, RejectedArtifact, Source, Tag
 from ..schemas import (
     DiscoveryCandidate,
+    DiscoveryRejectItem,
     DiscoverySearchRequest,
     DiscoverySearchResponse,
     MuseumKey,
 )
 from ..url_validator import ALLOWED_API_DOMAINS, is_safe_image_url, validate_url
 from .object_service import ObjectService, build_assembled_caption
+from .rejection_service import (
+    RejectionService,
+    extract_museum_provenance,
+    normalize_key,
+    normalize_url,
+)
 from .s3_service import download_and_store_image
+from .worker_depiction_scorer import (
+    WORKER_SEARCH_PRESETS,
+    expand_met_subject_tags,
+    interleave_keyword_buckets,
+    prepare_worker_keywords,
+    score_worker_depiction,
+)
 
 MAX_SAVED_KEYWORDS = 200
-USER_AGENT = "AcademicArtifactDB/1.0 (Research Project)"
+MAX_PAGES_PER_KEYWORD = 3
+USER_AGENT = "AcademicArtifactDB/1.0 (https://github.com/Cpts-421-Project/Cpts421Project; Academic Research Project)"
 ProgressCallback = Callable[[Dict[str, Any]], None]
 
 
@@ -145,6 +160,16 @@ PREDEFINED_MUSEUMS: List[Dict[str, Any]] = [
         "name": "Victoria and Albert Museum",
         "present_location": "Victoria and Albert Museum, London",
         "description": "V&A Collection API v2 + Framemark IIIF Image Service.",
+        "default_keywords": list(DEFAULT_KEYWORDS),
+        "default_date_start": DEFAULT_DATE_START,
+        "default_date_end": DEFAULT_DATE_END,
+        "default_limit": DEFAULT_LIMIT_PER_MUSEUM,
+    },
+    {
+        "id": "bm",
+        "name": "The British Museum",
+        "present_location": "The British Museum, London",
+        "description": "British Museum collection via Wikidata Linked Open Data & Wikimedia Commons (CC/PD artifacts).",
         "default_keywords": list(DEFAULT_KEYWORDS),
         "default_date_start": DEFAULT_DATE_START,
         "default_date_end": DEFAULT_DATE_END,
@@ -274,20 +299,6 @@ def count_filled_fields(candidate: Dict[str, Any]) -> int:
     return filled
 
 
-def _norm_key(val: Optional[str]) -> Optional[str]:
-    if not val or not isinstance(val, str):
-        return None
-    cleaned = val.strip().lower()
-    return cleaned or None
-
-
-def _norm_url(url: Optional[str]) -> Optional[str]:
-    if not url or not isinstance(url, str):
-        return None
-    cleaned = url.strip().rstrip("/").lower()
-    return cleaned or None
-
-
 def _sanitize_https_url(url: Optional[str]) -> Optional[str]:
     cleaned = _clean_text(url, max_len=500)
     if not cleaned:
@@ -326,34 +337,206 @@ def _finalize_candidate(candidate: Dict[str, Any]) -> Dict[str, Any]:
     return candidate
 
 
+def _apply_worker_score(
+    candidate: Dict[str, Any],
+    *,
+    subject_tags: Optional[Sequence[Optional[str]]] = None,
+    visual_alt_text: Optional[str] = None,
+    object_name: Optional[str] = None,
+    extra_description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Attach ancient worker depiction score, confidence tier, and matched signal reasons."""
+    inscr_parts = [p for p in (candidate.get("inscription_1"), candidate.get("inscription_2")) if p]
+    desc_parts = [p for p in (candidate.get("description"), extra_description) if p]
+    scored = score_worker_depiction(
+        title=candidate.get("object_type"),
+        description=" ".join(desc_parts) if desc_parts else None,
+        subject_tags=subject_tags,
+        visual_alt_text=visual_alt_text,
+        object_name=object_name,
+        inscriptions=" ; ".join(inscr_parts) if inscr_parts else None,
+        material=candidate.get("material"),
+    )
+    candidate["worker_relevance_score"] = scored.score
+    candidate["worker_confidence"] = scored.confidence
+    candidate["worker_signals"] = scored.signals
+    return candidate
+
+
+def _finalize_ranked_pool(
+    pool: List[Dict[str, Any]],
+    *,
+    limit: int,
+    index: "ExistingArtifactIndex",
+    progress_callback: Optional[ProgressCallback],
+    museum_id: MuseumKey,
+    museum_name: str,
+    fetched_count: int,
+    duplicates_skipped: int,
+    rejected_skipped: int,
+    filtered_non_worker: int,
+) -> List[Dict[str, Any]]:
+    """Sort passing candidates by worker depiction relevance, register kept rows, and emit events."""
+    pool.sort(key=lambda c: (-c.get("worker_relevance_score", 0), -c.get("filled_fields_count", 0)))
+    candidates: List[Dict[str, Any]] = []
+    for parsed in pool[:limit]:
+        index.register(
+            museum_id=museum_id,
+            inventory_number=parsed.get("inventory_number"),
+            source_record_id=str(parsed.get("source_record_id") or ""),
+            external_url=parsed.get("external_url"),
+            object_type=parsed.get("object_type"),
+            present_location=parsed.get("present_location"),
+            date_display=parsed.get("date_display"),
+        )
+        candidates.append(parsed)
+        _emit_progress(progress_callback, {
+            "type": "candidate_found",
+            "museum_id": museum_id,
+            "museum_name": museum_name,
+            "object_type": parsed["object_type"],
+            "matched_keyword": parsed.get("matched_keyword"),
+            "fetched_count": fetched_count,
+            "new_count": len(candidates),
+            "duplicates_skipped": duplicates_skipped,
+            "rejected_skipped": rejected_skipped,
+            "filtered_non_worker": filtered_non_worker,
+            "message": f'Found "{parsed["object_type"]}" at {museum_name}',
+        })
+    return candidates
+
+
 class ExistingArtifactIndex:
-    """In-memory index of existing database artifacts to guarantee zero duplicates."""
+    """In-memory index of existing & rejected artifacts to guarantee zero duplicates or re-discoveries."""
 
     def __init__(self, db: Session):
+        self.museum_record_keys: Set[Tuple[str, str]] = set()
         self.inventory_numbers: Set[str] = set()
         self.external_urls: Set[str] = set()
         self.fallback_signatures: Set[Tuple[str, str, str]] = set()
 
-        rows = db.query(
+        self.rejected_museum_record_keys: Set[Tuple[str, str]] = set()
+        self.rejected_inventory_numbers: Set[str] = set()
+        self.rejected_external_urls: Set[str] = set()
+        self.rejected_fallback_signatures: Set[Tuple[str, str, str]] = set()
+
+        src_ids_by_obj: Dict[int, List[str]] = {}
+        img_rows = (
+            db.query(Image.object_id, Image.source_identifier)
+            .filter(Image.source_identifier.isnot(None))
+            .all()
+        )
+        for obj_id, src_id in img_rows:
+            if obj_id is not None and src_id and str(src_id).strip():
+                src_ids_by_obj.setdefault(obj_id, []).append(str(src_id).strip())
+
+        obj_rows = db.query(
+            Object.id,
             Object.inventory_number,
             Object.external_url,
             Object.object_type,
             Object.present_location,
             Object.date_display,
+            Object.review_status,
         ).all()
 
-        for inv, ext_url, obj_type, pres_loc, date_disp in rows:
+        for obj_id, inv, ext_url, obj_type, pres_loc, date_disp, review_status in obj_rows:
+            mid, sid = extract_museum_provenance(
+                external_url=ext_url,
+                source_identifiers=src_ids_by_obj.get(obj_id, ()),
+                present_location=pres_loc,
+                inventory_number=inv,
+            )
             self.register(
+                museum_id=mid,
+                source_record_id=sid,
                 inventory_number=inv,
                 external_url=ext_url,
                 object_type=obj_type,
                 present_location=pres_loc,
                 date_display=date_disp,
+                is_rejected=(review_status == "rejected"),
             )
+
+        rej_rows = db.query(
+            RejectedArtifact.museum_id,
+            RejectedArtifact.source_record_id,
+            RejectedArtifact.inventory_number,
+            RejectedArtifact.external_url,
+            RejectedArtifact.object_type,
+            RejectedArtifact.present_location,
+            RejectedArtifact.date_display,
+        ).all()
+
+        for mid, sid, inv, ext_url, obj_type, pres_loc, date_disp in rej_rows:
+            if not mid or not sid:
+                inferred_mid, inferred_sid = extract_museum_provenance(
+                    external_url=ext_url,
+                    present_location=pres_loc,
+                    inventory_number=inv,
+                )
+                mid = mid or inferred_mid
+                sid = sid or inferred_sid
+            self.register(
+                museum_id=mid,
+                source_record_id=sid,
+                inventory_number=inv,
+                external_url=ext_url,
+                object_type=obj_type,
+                present_location=pres_loc,
+                date_display=date_disp,
+                is_rejected=True,
+            )
+
+    def match_reason(
+        self,
+        *,
+        museum_id: Optional[str] = None,
+        inventory_number: Optional[str] = None,
+        source_record_id: Optional[str] = None,
+        external_url: Optional[str] = None,
+        object_type: Optional[str] = None,
+        present_location: Optional[str] = None,
+        date_display: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return 'rejected', 'existing', or None for a candidate artifact."""
+        norm_mid = normalize_key(museum_id)
+        norm_src = normalize_key(source_record_id)
+        norm_inv = normalize_key(inventory_number)
+        norm_ext = normalize_url(external_url)
+        sig = (
+            object_type.strip().lower(),
+            (present_location or "").strip().lower(),
+            (date_display or "").strip().lower(),
+        ) if (not norm_inv and object_type) else None
+
+        if norm_mid and norm_src and (norm_mid, norm_src) in self.rejected_museum_record_keys:
+            return "rejected"
+        if norm_inv and norm_inv in self.rejected_inventory_numbers:
+            return "rejected"
+        if norm_src and norm_src in self.rejected_inventory_numbers:
+            return "rejected"
+        if norm_ext and norm_ext in self.rejected_external_urls:
+            return "rejected"
+        if sig and sig in self.rejected_fallback_signatures:
+            return "rejected"
+
+        if norm_mid and norm_src and (norm_mid, norm_src) in self.museum_record_keys:
+            return "existing"
+        if norm_inv and norm_inv in self.inventory_numbers:
+            return "existing"
+        if norm_src and norm_src in self.inventory_numbers:
+            return "existing"
+        if norm_ext and norm_ext in self.external_urls:
+            return "existing"
+        if sig and sig in self.fallback_signatures:
+            return "existing"
+        return None
 
     def contains(
         self,
         *,
+        museum_id: Optional[str] = None,
         inventory_number: Optional[str] = None,
         source_record_id: Optional[str] = None,
         external_url: Optional[str] = None,
@@ -361,56 +544,66 @@ class ExistingArtifactIndex:
         present_location: Optional[str] = None,
         date_display: Optional[str] = None,
     ) -> bool:
-        norm_inv = _norm_key(inventory_number)
-        if norm_inv and norm_inv in self.inventory_numbers:
-            return True
-
-        norm_src = _norm_key(source_record_id)
-        if norm_src and norm_src in self.inventory_numbers:
-            return True
-
-        norm_ext = _norm_url(external_url)
-        if norm_ext and norm_ext in self.external_urls:
-            return True
-
-        if not norm_inv and object_type:
-            sig = (
-                object_type.strip().lower(),
-                (present_location or "").strip().lower(),
-                (date_display or "").strip().lower(),
+        return (
+            self.match_reason(
+                museum_id=museum_id,
+                inventory_number=inventory_number,
+                source_record_id=source_record_id,
+                external_url=external_url,
+                object_type=object_type,
+                present_location=present_location,
+                date_display=date_display,
             )
-            if sig in self.fallback_signatures:
-                return True
-        return False
+            is not None
+        )
 
     def register(
         self,
         *,
+        museum_id: Optional[str] = None,
         inventory_number: Optional[str] = None,
         source_record_id: Optional[str] = None,
         external_url: Optional[str] = None,
         object_type: Optional[str] = None,
         present_location: Optional[str] = None,
         date_display: Optional[str] = None,
+        is_rejected: bool = False,
     ) -> None:
-        norm_inv = _norm_key(inventory_number)
+        norm_mid = normalize_key(museum_id)
+        norm_src = normalize_key(source_record_id)
+        norm_inv = normalize_key(inventory_number)
+        norm_ext = normalize_url(external_url)
+
         if norm_inv:
             self.inventory_numbers.add(norm_inv)
+            if is_rejected:
+                self.rejected_inventory_numbers.add(norm_inv)
 
-        norm_src = _norm_key(source_record_id)
         if norm_src:
-            self.inventory_numbers.add(norm_src)
+            if norm_mid:
+                key = (norm_mid, norm_src)
+                self.museum_record_keys.add(key)
+                if is_rejected:
+                    self.rejected_museum_record_keys.add(key)
+            else:
+                self.inventory_numbers.add(norm_src)
+                if is_rejected:
+                    self.rejected_inventory_numbers.add(norm_src)
 
-        norm_ext = _norm_url(external_url)
         if norm_ext:
             self.external_urls.add(norm_ext)
+            if is_rejected:
+                self.rejected_external_urls.add(norm_ext)
 
         if object_type:
-            self.fallback_signatures.add((
+            sig = (
                 object_type.strip().lower(),
                 (present_location or "").strip().lower(),
                 (date_display or "").strip().lower(),
-            ))
+            )
+            self.fallback_signatures.add(sig)
+            if is_rejected:
+                self.rejected_fallback_signatures.add(sig)
 
 
 def _request_json(
@@ -419,6 +612,7 @@ def _request_json(
     *,
     params: Optional[Dict[str, Any]] = None,
     json_body: Optional[Dict[str, Any]] = None,
+    extra_headers: Optional[Dict[str, str]] = None,
     timeout: int = 10,
     allow_404: bool = False,
 ) -> Optional[Dict[str, Any]]:
@@ -428,6 +622,8 @@ def _request_json(
         "User-Agent": USER_AGENT,
         "Accept": "application/json",
     }
+    if extra_headers:
+        headers.update(extra_headers)
     if method == "POST":
         resp = requests.post(url, json=json_body, headers=headers, timeout=timeout)
     else:
@@ -491,63 +687,137 @@ class MetMuseumAdapter:
         index: ExistingArtifactIndex,
         progress_callback: Optional[ProgressCallback] = None,
         cancel_event: Optional[threading.Event] = None,
-    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        search_mode: str = "broad",
+        min_worker_score: int = 35,
+    ) -> Tuple[List[Dict[str, Any]], int, int, int, int]:
         candidates: List[Dict[str, Any]] = []
+        pool: List[Dict[str, Any]] = []
         fetched_count = 0
         duplicates_skipped = 0
+        rejected_skipped = 0
+        filtered_non_worker = 0
+        worker_focused = search_mode == "worker_depictions"
 
         queued_ids: List[Tuple[int, str]] = []
         seen_oids: Set[int] = set()
-        detail_cap = min(limit * 4, 40)
-        total_keywords = len(keywords)
+        detail_cap = min(limit * 6, 60) if worker_focused else min(limit * 4, 40)
+        page_limit = min(limit * 3, 50)
 
-        for kw_idx, kw in enumerate(keywords, start=1):
-            if cancel_event and cancel_event.is_set():
-                break
-            if len(queued_ids) >= detail_cap:
-                break
-            _emit_progress(progress_callback, {
-                "type": "keyword_searching",
-                "museum_id": self.museum_id,
-                "museum_name": self.museum_name,
-                "keyword": kw,
-                "keyword_index": kw_idx,
-                "total_keywords": total_keywords,
-                "fetched_count": fetched_count,
-                "new_count": len(candidates),
-                "duplicates_skipped": duplicates_skipped,
-                "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
-            })
-            data = _request_json(
-                "GET",
-                self.search_url,
-                params={
-                    "hasImages": "true",
-                    "q": kw,
-                    "dateBegin": date_start,
-                    "dateEnd": date_end,
-                    "limit": min(limit * 3, 50),
-                    "offset": 0,
-                },
-                timeout=10,
-            ) or {}
-            for oid in data.get("objectIDs") or []:
-                if oid in seen_oids:
-                    continue
-                seen_oids.add(oid)
-                if index.contains(source_record_id=str(oid)):
-                    fetched_count += 1
-                    duplicates_skipped += 1
-                    continue
-                queued_ids.append((oid, kw))
+        def _collect_met_buckets(query_terms: List[str], *, use_tags_filter: bool, idx_offset: int, total_q: int, remaining_cap: int) -> List[List[Tuple[int, str]]]:
+            nonlocal fetched_count, duplicates_skipped, rejected_skipped
+            buckets: List[List[Tuple[int, str]]] = []
+            collected_count = 0
+            for offset_idx, term in enumerate(query_terms, start=1):
+                if cancel_event and cancel_event.is_set():
+                    break
+                if collected_count >= remaining_cap:
+                    break
+                _emit_progress(progress_callback, {
+                    "type": "keyword_searching",
+                    "museum_id": self.museum_id,
+                    "museum_name": self.museum_name,
+                    "keyword": term,
+                    "keyword_index": idx_offset + offset_idx,
+                    "total_keywords": total_q,
+                    "fetched_count": fetched_count,
+                    "new_count": len(pool) if worker_focused else len(candidates),
+                    "duplicates_skipped": duplicates_skipped,
+                    "rejected_skipped": rejected_skipped,
+                    "filtered_non_worker": filtered_non_worker,
+                    "message": f'{self.museum_name}: searching "{term}" ({idx_offset + offset_idx}/{total_q})',
+                })
+                bucket: List[Tuple[int, str]] = []
+                for page in range(MAX_PAGES_PER_KEYWORD):
+                    nonlocal_stop = False
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    if collected_count >= remaining_cap:
+                        break
+                    params: Dict[str, Any] = {
+                        "hasImages": "true",
+                        "q": term,
+                        "dateBegin": date_start,
+                        "dateEnd": date_end,
+                        "limit": page_limit,
+                        "offset": page * page_limit,
+                    }
+                    if use_tags_filter:
+                        params["tags"] = "true"
+                    data = _request_json(
+                        "GET",
+                        self.search_url,
+                        params=params,
+                        timeout=10,
+                    ) or {}
+                    raw_ids = data.get("objectIDs") or []
+                    unseen_on_page = 0
+                    for oid in raw_ids:
+                        if oid in seen_oids:
+                            continue
+                        unseen_on_page += 1
+                        seen_oids.add(oid)
+                        reason = index.match_reason(
+                            museum_id=self.museum_id,
+                            source_record_id=str(oid),
+                        )
+                        if reason is not None:
+                            fetched_count += 1
+                            duplicates_skipped += 1
+                            if reason == "rejected":
+                                rejected_skipped += 1
+                            continue
+                        bucket.append((oid, term))
+                        collected_count += 1
+                        if collected_count >= remaining_cap:
+                            nonlocal_stop = True
+                            break
+                    if nonlocal_stop or len(raw_ids) < page_limit or unseen_on_page == 0:
+                        break
+                if bucket:
+                    buckets.append(bucket)
+            return buckets
+
+        if worker_focused:
+            effective_keywords = prepare_worker_keywords(keywords, worker_focused=True)[:12]
+            aat_tags = expand_met_subject_tags(effective_keywords, max_tags=12)
+            total_q = max(1, len(aat_tags) + len(effective_keywords))
+            tag_buckets = _collect_met_buckets(
+                aat_tags,
+                use_tags_filter=True,
+                idx_offset=0,
+                total_q=total_q,
+                remaining_cap=detail_cap,
+            )
+            queued_ids = interleave_keyword_buckets(tag_buckets, detail_cap)
+            if len(queued_ids) < detail_cap:
+                kw_buckets = _collect_met_buckets(
+                    effective_keywords,
+                    use_tags_filter=False,
+                    idx_offset=len(aat_tags),
+                    total_q=total_q,
+                    remaining_cap=detail_cap - len(queued_ids),
+                )
+                queued_ids.extend(interleave_keyword_buckets(kw_buckets, detail_cap - len(queued_ids)))
+        else:
+            kw_buckets = _collect_met_buckets(
+                list(keywords),
+                use_tags_filter=False,
+                idx_offset=0,
+                total_q=max(1, len(keywords)),
+                remaining_cap=detail_cap,
+            )
+            for b in kw_buckets:
+                queued_ids.extend(b)
                 if len(queued_ids) >= detail_cap:
+                    queued_ids = queued_ids[:detail_cap]
                     break
 
         detail_total = len(queued_ids)
+        pool_cap = min(limit * 2, detail_cap) if worker_focused else limit
         for detail_idx, (oid, matched_kw) in enumerate(queued_ids, start=1):
             if cancel_event and cancel_event.is_set():
                 break
-            if len(candidates) >= limit:
+            if (len(pool) if worker_focused else len(candidates)) >= pool_cap:
                 break
             _emit_progress(progress_callback, {
                 "type": "detail_fetching",
@@ -556,8 +826,10 @@ class MetMuseumAdapter:
                 "detail_index": detail_idx,
                 "detail_total": detail_total,
                 "fetched_count": fetched_count,
-                "new_count": len(candidates),
+                "new_count": len(pool) if worker_focused else len(candidates),
                 "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
                 "message": f"{self.museum_name}: inspecting record {detail_idx} of {detail_total}...",
             })
             obj_data = _request_json(
@@ -583,22 +855,34 @@ class MetMuseumAdapter:
             title = _clean_text(obj_data.get("title")) or _clean_text(obj_data.get("objectName")) or "Untitled Artifact"
             date_disp = _clean_text(obj_data.get("objectDate"), max_len=255) or f"{item_start}–{item_end}"
 
-            if index.contains(
+            reason = index.match_reason(
+                museum_id=self.museum_id,
                 inventory_number=inv,
                 source_record_id=str(oid),
                 external_url=ext_url,
                 object_type=title,
                 present_location=self.present_location,
                 date_display=date_disp,
-            ):
+            )
+            if reason is not None:
                 duplicates_skipped += 1
+                if reason == "rejected":
+                    rejected_skipped += 1
                 continue
 
             parsed = self._parse_record(obj_data, oid, inv, title, date_disp, item_start, item_end, matched_kw, ext_url)
             if not parsed["images"]:
                 continue
 
+            if worker_focused:
+                if parsed.get("worker_relevance_score", 0) < min_worker_score:
+                    filtered_non_worker += 1
+                    continue
+                pool.append(parsed)
+                continue
+
             index.register(
+                museum_id=self.museum_id,
                 inventory_number=parsed.get("inventory_number"),
                 source_record_id=str(oid),
                 external_url=parsed.get("external_url"),
@@ -616,10 +900,26 @@ class MetMuseumAdapter:
                 "fetched_count": fetched_count,
                 "new_count": len(candidates),
                 "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
                 "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
             })
 
-        return candidates, fetched_count, duplicates_skipped
+        if worker_focused:
+            candidates = _finalize_ranked_pool(
+                pool,
+                limit=limit,
+                index=index,
+                progress_callback=progress_callback,
+                museum_id=self.museum_id,
+                museum_name=self.museum_name,
+                fetched_count=fetched_count,
+                duplicates_skipped=duplicates_skipped,
+                rejected_skipped=rejected_skipped,
+                filtered_non_worker=filtered_non_worker,
+            )
+
+        return candidates, fetched_count, duplicates_skipped, rejected_skipped, filtered_non_worker
 
     def _parse_record(
         self,
@@ -701,10 +1001,11 @@ class MetMuseumAdapter:
             for seq, (url, img_type, view_type) in enumerate(raw_imgs, start=1)
         ]
 
-        tags = [t.get("term") for t in (obj_data.get("tags") or []) if isinstance(t, dict)]
+        subject_tags = [t.get("term") for t in (obj_data.get("tags") or []) if isinstance(t, dict)]
+        tags = list(subject_tags)
         tags.extend([culture, period, matched_kw])
 
-        return _finalize_candidate({
+        candidate = _finalize_candidate({
             "museum_id": self.museum_id,
             "museum_name": self.museum_name,
             "source_record_id": str(oid),
@@ -736,6 +1037,11 @@ class MetMuseumAdapter:
             "tags": tags,
             "images": images,
         })
+        return _apply_worker_score(
+            candidate,
+            subject_tags=subject_tags,
+            object_name=_clean_text(obj_data.get("objectName")),
+        )
 
 
 class ClevelandMuseumAdapter:
@@ -755,16 +1061,31 @@ class ClevelandMuseumAdapter:
         index: ExistingArtifactIndex,
         progress_callback: Optional[ProgressCallback] = None,
         cancel_event: Optional[threading.Event] = None,
-    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        search_mode: str = "broad",
+        min_worker_score: int = 35,
+    ) -> Tuple[List[Dict[str, Any]], int, int, int, int]:
         candidates: List[Dict[str, Any]] = []
+        pool: List[Dict[str, Any]] = []
         fetched_count = 0
         duplicates_skipped = 0
-        total_keywords = len(keywords)
+        rejected_skipped = 0
+        filtered_non_worker = 0
+        worker_focused = search_mode == "worker_depictions"
+        search_keywords = (
+            prepare_worker_keywords(keywords, worker_focused=True)[:15]
+            if worker_focused
+            else list(keywords)
+        )
+        pool_cap = min(limit * 3, 45) if worker_focused else limit
+        per_kw_cap = max(3, limit) if (worker_focused and len(search_keywords) > 1) else pool_cap
+        page_limit = min(limit * 2, 25)
+        total_keywords = len(search_keywords)
+        evaluated_keys: Set[str] = set()
 
-        for kw_idx, kw in enumerate(keywords, start=1):
+        for kw_idx, kw in enumerate(search_keywords, start=1):
             if cancel_event and cancel_event.is_set():
                 break
-            if len(candidates) >= limit:
+            if (len(pool) if worker_focused else len(candidates)) >= pool_cap:
                 break
             _emit_progress(progress_callback, {
                 "type": "keyword_searching",
@@ -774,77 +1095,130 @@ class ClevelandMuseumAdapter:
                 "keyword_index": kw_idx,
                 "total_keywords": total_keywords,
                 "fetched_count": fetched_count,
-                "new_count": len(candidates),
+                "new_count": len(pool) if worker_focused else len(candidates),
                 "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
                 "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
             })
-            data = _request_json(
-                "GET",
-                self.search_url,
-                params={
+            seen_page_ids: Set[str] = set()
+            kw_added = 0
+            for page in range(MAX_PAGES_PER_KEYWORD):
+                if cancel_event and cancel_event.is_set():
+                    break
+                if (len(pool) if worker_focused else len(candidates)) >= pool_cap or (worker_focused and kw_added >= per_kw_cap):
+                    break
+                params: Dict[str, Any] = {
                     "q": kw,
                     "created_after": date_start,
                     "created_before": date_end,
                     "has_image": 1,
                     "cc0": 1,
-                    "limit": min(limit * 2, 25),
-                },
-                timeout=10,
-            ) or {}
-            for item in data.get("data") or []:
-                if cancel_event and cancel_event.is_set():
+                    "limit": page_limit,
+                }
+                if page > 0:
+                    params["skip"] = page * page_limit
+                data = _request_json(
+                    "GET",
+                    self.search_url,
+                    params=params,
+                    timeout=10,
+                ) or {}
+                items = data.get("data") or []
+                unseen_on_page = 0
+                for item in items:
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    if (len(pool) if worker_focused else len(candidates)) >= pool_cap or (worker_focused and kw_added >= per_kw_cap):
+                        break
+                    rec_id = str(item.get("id") or "")
+                    page_key = rec_id or _clean_text(item.get("accession_number")) or _clean_text(item.get("title")) or ""
+                    if page_key:
+                        if page_key in seen_page_ids or (worker_focused and page_key in evaluated_keys):
+                            continue
+                        seen_page_ids.add(page_key)
+                        if worker_focused:
+                            evaluated_keys.add(page_key)
+                    unseen_on_page += 1
+                    fetched_count += 1
+                    item_start = _coerce_int(item.get("creation_date_earliest"))
+                    item_end = _coerce_int(item.get("creation_date_latest"))
+                    if not _dates_overlap(item_start, item_end, date_start, date_end):
+                        continue
+
+                    inv = _clean_text(item.get("accession_number"), max_len=100) or (f"CMA-{rec_id}" if rec_id else None)
+                    ext_url = _sanitize_https_url(item.get("url"))
+                    title = _clean_text(item.get("title")) or _clean_text(item.get("type")) or "Untitled Artifact"
+                    date_disp = _clean_text(item.get("creation_date") or item.get("date_text"), max_len=255) or f"{item_start}–{item_end}"
+
+                    reason = index.match_reason(
+                        museum_id=self.museum_id,
+                        inventory_number=inv,
+                        source_record_id=rec_id,
+                        external_url=ext_url,
+                        object_type=title,
+                        present_location=self.present_location,
+                        date_display=date_disp,
+                    )
+                    if reason is not None:
+                        duplicates_skipped += 1
+                        if reason == "rejected":
+                            rejected_skipped += 1
+                        continue
+
+                    parsed = self._parse_record(item, rec_id, inv, title, date_disp, item_start, item_end, kw, ext_url)
+                    if not parsed["images"]:
+                        continue
+
+                    if worker_focused:
+                        if parsed.get("worker_relevance_score", 0) < min_worker_score:
+                            filtered_non_worker += 1
+                            continue
+                        pool.append(parsed)
+                        kw_added += 1
+                        continue
+
+                    index.register(
+                        museum_id=self.museum_id,
+                        inventory_number=parsed.get("inventory_number"),
+                        source_record_id=rec_id,
+                        external_url=parsed.get("external_url"),
+                        object_type=parsed.get("object_type"),
+                        present_location=parsed.get("present_location"),
+                        date_display=parsed.get("date_display"),
+                    )
+                    candidates.append(parsed)
+                    _emit_progress(progress_callback, {
+                        "type": "candidate_found",
+                        "museum_id": self.museum_id,
+                        "museum_name": self.museum_name,
+                        "object_type": parsed["object_type"],
+                        "matched_keyword": kw,
+                        "fetched_count": fetched_count,
+                        "new_count": len(candidates),
+                        "duplicates_skipped": duplicates_skipped,
+                        "rejected_skipped": rejected_skipped,
+                        "filtered_non_worker": filtered_non_worker,
+                        "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+                    })
+                if len(items) < page_limit or unseen_on_page == 0:
                     break
-                if len(candidates) >= limit:
-                    break
-                fetched_count += 1
-                item_start = _coerce_int(item.get("creation_date_earliest"))
-                item_end = _coerce_int(item.get("creation_date_latest"))
-                if not _dates_overlap(item_start, item_end, date_start, date_end):
-                    continue
 
-                rec_id = str(item.get("id") or "")
-                inv = _clean_text(item.get("accession_number"), max_len=100) or (f"CMA-{rec_id}" if rec_id else None)
-                ext_url = _sanitize_https_url(item.get("url"))
-                title = _clean_text(item.get("title")) or _clean_text(item.get("type")) or "Untitled Artifact"
-                date_disp = _clean_text(item.get("creation_date") or item.get("date_text"), max_len=255) or f"{item_start}–{item_end}"
+        if worker_focused:
+            candidates = _finalize_ranked_pool(
+                pool,
+                limit=limit,
+                index=index,
+                progress_callback=progress_callback,
+                museum_id=self.museum_id,
+                museum_name=self.museum_name,
+                fetched_count=fetched_count,
+                duplicates_skipped=duplicates_skipped,
+                rejected_skipped=rejected_skipped,
+                filtered_non_worker=filtered_non_worker,
+            )
 
-                if index.contains(
-                    inventory_number=inv,
-                    source_record_id=rec_id,
-                    external_url=ext_url,
-                    object_type=title,
-                    present_location=self.present_location,
-                    date_display=date_disp,
-                ):
-                    duplicates_skipped += 1
-                    continue
-
-                parsed = self._parse_record(item, rec_id, inv, title, date_disp, item_start, item_end, kw, ext_url)
-                if not parsed["images"]:
-                    continue
-
-                index.register(
-                    inventory_number=parsed.get("inventory_number"),
-                    source_record_id=rec_id,
-                    external_url=parsed.get("external_url"),
-                    object_type=parsed.get("object_type"),
-                    present_location=parsed.get("present_location"),
-                    date_display=parsed.get("date_display"),
-                )
-                candidates.append(parsed)
-                _emit_progress(progress_callback, {
-                    "type": "candidate_found",
-                    "museum_id": self.museum_id,
-                    "museum_name": self.museum_name,
-                    "object_type": parsed["object_type"],
-                    "matched_keyword": kw,
-                    "fetched_count": fetched_count,
-                    "new_count": len(candidates),
-                    "duplicates_skipped": duplicates_skipped,
-                    "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
-                })
-
-        return candidates, fetched_count, duplicates_skipped
+        return candidates, fetched_count, duplicates_skipped, rejected_skipped, filtered_non_worker
 
     def _parse_record(
         self,
@@ -891,12 +1265,22 @@ class ClevelandMuseumAdapter:
         ]
         publications = "; ".join(c for c in cit_list if c) or None
 
-        description = (
-            strip_html(item.get("description"))
-            or strip_html(item.get("wall_description"))
-            or strip_html(item.get("did_you_know"))
-            or _clean_text(item.get("tombstone"))
-        )
+        desc_candidates = [
+            strip_html(item.get("description")),
+            strip_html(item.get("wall_description")),
+            strip_html(item.get("did_you_know")),
+            strip_html(item.get("fun_fact")),
+            _clean_text(item.get("tombstone")),
+        ]
+        description = next((d for d in desc_candidates if d), None)
+        extra_cma_notes = " ".join(
+            d for d in (
+                strip_html(item.get("wall_description")),
+                strip_html(item.get("did_you_know")),
+                strip_html(item.get("fun_fact")),
+            )
+            if d and d != description
+        ) or None
 
         citation = (
             f"The Cleveland Museum of Art. \"{title}.\" {date_disp}. "
@@ -928,7 +1312,7 @@ class ClevelandMuseumAdapter:
 
         tags = list(culture_list) + [item.get("type"), item.get("department"), matched_kw]
 
-        return _finalize_candidate({
+        candidate = _finalize_candidate({
             "museum_id": self.museum_id,
             "museum_name": self.museum_name,
             "source_record_id": rec_id,
@@ -960,6 +1344,12 @@ class ClevelandMuseumAdapter:
             "tags": tags,
             "images": images,
         })
+        return _apply_worker_score(
+            candidate,
+            subject_tags=[_clean_text(item.get("type"))],
+            object_name=_clean_text(item.get("type")),
+            extra_description=extra_cma_notes,
+        )
 
 
 class ArtInstituteChicagoAdapter:
@@ -990,6 +1380,10 @@ class ArtInstituteChicagoAdapter:
         "image_id",
         "alt_image_ids",
         "term_titles",
+        "subject_titles",
+        "classification_titles",
+        "category_titles",
+        "thumbnail",
         "style_title",
         "is_public_domain",
     ]
@@ -1003,16 +1397,31 @@ class ArtInstituteChicagoAdapter:
         index: ExistingArtifactIndex,
         progress_callback: Optional[ProgressCallback] = None,
         cancel_event: Optional[threading.Event] = None,
-    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        search_mode: str = "broad",
+        min_worker_score: int = 35,
+    ) -> Tuple[List[Dict[str, Any]], int, int, int, int]:
         candidates: List[Dict[str, Any]] = []
+        pool: List[Dict[str, Any]] = []
         fetched_count = 0
         duplicates_skipped = 0
-        total_keywords = len(keywords)
+        rejected_skipped = 0
+        filtered_non_worker = 0
+        worker_focused = search_mode == "worker_depictions"
+        search_keywords = (
+            prepare_worker_keywords(keywords, worker_focused=True)[:15]
+            if worker_focused
+            else list(keywords)
+        )
+        pool_cap = min(limit * 3, 45) if worker_focused else limit
+        per_kw_cap = max(3, limit) if (worker_focused and len(search_keywords) > 1) else pool_cap
+        page_limit = min(limit * 2, 25)
+        total_keywords = len(search_keywords)
+        evaluated_keys: Set[str] = set()
 
-        for kw_idx, kw in enumerate(keywords, start=1):
+        for kw_idx, kw in enumerate(search_keywords, start=1):
             if cancel_event and cancel_event.is_set():
                 break
-            if len(candidates) >= limit:
+            if (len(pool) if worker_focused else len(candidates)) >= pool_cap:
                 break
             _emit_progress(progress_callback, {
                 "type": "keyword_searching",
@@ -1022,81 +1431,167 @@ class ArtInstituteChicagoAdapter:
                 "keyword_index": kw_idx,
                 "total_keywords": total_keywords,
                 "fetched_count": fetched_count,
-                "new_count": len(candidates),
+                "new_count": len(pool) if worker_focused else len(candidates),
                 "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
                 "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
             })
-            body = {
-                "q": kw,
-                "query": {
-                    "bool": {
-                        "filter": [
-                            {"range": {"date_start": {"lte": date_end}}},
-                            {"range": {"date_end": {"gte": date_start}}},
-                            {"term": {"is_public_domain": True}},
-                        ]
-                    }
-                },
-                "fields": self.fields,
-                "limit": min(limit * 2, 25),
-            }
-            data = _request_json("POST", self.search_url, json_body=body, timeout=10) or {}
-            iiif_base = ((data.get("config") or {}).get("iiif_url") or "https://www.artic.edu/iiif/2").rstrip("/")
-
-            for item in data.get("data") or []:
+            seen_page_ids: Set[str] = set()
+            kw_added = 0
+            for page in range(1, MAX_PAGES_PER_KEYWORD + 1):
                 if cancel_event and cancel_event.is_set():
                     break
-                if len(candidates) >= limit:
+                if (len(pool) if worker_focused else len(candidates)) >= pool_cap or (worker_focused and kw_added >= per_kw_cap):
                     break
-                fetched_count += 1
-                item_start = _coerce_int(item.get("date_start"))
-                item_end = _coerce_int(item.get("date_end"))
-                if not _dates_overlap(item_start, item_end, date_start, date_end):
-                    continue
+                filters: List[Dict[str, Any]] = [
+                    {"range": {"date_start": {"lte": date_end}}},
+                    {"range": {"date_end": {"gte": date_start}}},
+                    {"term": {"is_public_domain": True}},
+                ]
+                if worker_focused:
+                    body: Dict[str, Any] = {
+                        "query": {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "multi_match": {
+                                            "query": kw,
+                                            "fields": [
+                                                "subject_titles^5",
+                                                "title^4",
+                                                "thumbnail.alt_text^3",
+                                                "description^2",
+                                                "short_description^2",
+                                                "term_titles^1.5",
+                                            ],
+                                            "type": "best_fields",
+                                        }
+                                    }
+                                ],
+                                "filter": filters,
+                            }
+                        },
+                        "fields": self.fields,
+                        "limit": page_limit,
+                    }
+                else:
+                    body = {
+                        "q": kw,
+                        "query": {
+                            "bool": {
+                                "filter": filters,
+                            }
+                        },
+                        "fields": self.fields,
+                        "limit": page_limit,
+                    }
+                if page > 1:
+                    body["page"] = page
+                data = _request_json(
+                    "POST",
+                    self.search_url,
+                    json_body=body,
+                    extra_headers={"AIC-User-Agent": USER_AGENT},
+                    timeout=10,
+                ) or {}
+                iiif_base = ((data.get("config") or {}).get("iiif_url") or "https://www.artic.edu/iiif/2").rstrip("/")
+                items = data.get("data") or []
+                unseen_on_page = 0
 
-                rec_id = str(item.get("id") or "")
-                inv = _clean_text(item.get("main_reference_number"), max_len=100) or (f"AIC-{rec_id}" if rec_id else None)
-                ext_url = f"https://www.artic.edu/artworks/{rec_id}" if rec_id else None
-                title = _clean_text(item.get("title")) or _clean_text(item.get("artwork_type_title")) or "Untitled Artifact"
-                date_disp = _clean_text(item.get("date_display"), max_len=255) or f"{item_start}–{item_end}"
+                for item in items:
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    if (len(pool) if worker_focused else len(candidates)) >= pool_cap or (worker_focused and kw_added >= per_kw_cap):
+                        break
+                    rec_id = str(item.get("id") or "")
+                    page_key = rec_id or _clean_text(item.get("main_reference_number")) or _clean_text(item.get("title")) or ""
+                    if page_key:
+                        if page_key in seen_page_ids or (worker_focused and page_key in evaluated_keys):
+                            continue
+                        seen_page_ids.add(page_key)
+                        if worker_focused:
+                            evaluated_keys.add(page_key)
+                    unseen_on_page += 1
+                    fetched_count += 1
+                    item_start = _coerce_int(item.get("date_start"))
+                    item_end = _coerce_int(item.get("date_end"))
+                    if not _dates_overlap(item_start, item_end, date_start, date_end):
+                        continue
 
-                if index.contains(
-                    inventory_number=inv,
-                    source_record_id=rec_id,
-                    external_url=ext_url,
-                    object_type=title,
-                    present_location=self.present_location,
-                    date_display=date_disp,
-                ):
-                    duplicates_skipped += 1
-                    continue
+                    inv = _clean_text(item.get("main_reference_number"), max_len=100) or (f"AIC-{rec_id}" if rec_id else None)
+                    ext_url = f"https://www.artic.edu/artworks/{rec_id}" if rec_id else None
+                    title = _clean_text(item.get("title")) or _clean_text(item.get("artwork_type_title")) or "Untitled Artifact"
+                    date_disp = _clean_text(item.get("date_display"), max_len=255) or f"{item_start}–{item_end}"
 
-                parsed = self._parse_record(item, iiif_base, rec_id, inv, title, date_disp, item_start, item_end, kw, ext_url)
-                if not parsed["images"]:
-                    continue
+                    reason = index.match_reason(
+                        museum_id=self.museum_id,
+                        inventory_number=inv,
+                        source_record_id=rec_id,
+                        external_url=ext_url,
+                        object_type=title,
+                        present_location=self.present_location,
+                        date_display=date_disp,
+                    )
+                    if reason is not None:
+                        duplicates_skipped += 1
+                        if reason == "rejected":
+                            rejected_skipped += 1
+                        continue
 
-                index.register(
-                    inventory_number=parsed.get("inventory_number"),
-                    source_record_id=rec_id,
-                    external_url=parsed.get("external_url"),
-                    object_type=parsed.get("object_type"),
-                    present_location=parsed.get("present_location"),
-                    date_display=parsed.get("date_display"),
-                )
-                candidates.append(parsed)
-                _emit_progress(progress_callback, {
-                    "type": "candidate_found",
-                    "museum_id": self.museum_id,
-                    "museum_name": self.museum_name,
-                    "object_type": parsed["object_type"],
-                    "matched_keyword": kw,
-                    "fetched_count": fetched_count,
-                    "new_count": len(candidates),
-                    "duplicates_skipped": duplicates_skipped,
-                    "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
-                })
+                    parsed = self._parse_record(item, iiif_base, rec_id, inv, title, date_disp, item_start, item_end, kw, ext_url)
+                    if not parsed["images"]:
+                        continue
 
-        return candidates, fetched_count, duplicates_skipped
+                    if worker_focused:
+                        if parsed.get("worker_relevance_score", 0) < min_worker_score:
+                            filtered_non_worker += 1
+                            continue
+                        pool.append(parsed)
+                        kw_added += 1
+                        continue
+
+                    index.register(
+                        museum_id=self.museum_id,
+                        inventory_number=parsed.get("inventory_number"),
+                        source_record_id=rec_id,
+                        external_url=parsed.get("external_url"),
+                        object_type=parsed.get("object_type"),
+                        present_location=parsed.get("present_location"),
+                        date_display=parsed.get("date_display"),
+                    )
+                    candidates.append(parsed)
+                    _emit_progress(progress_callback, {
+                        "type": "candidate_found",
+                        "museum_id": self.museum_id,
+                        "museum_name": self.museum_name,
+                        "object_type": parsed["object_type"],
+                        "matched_keyword": kw,
+                        "fetched_count": fetched_count,
+                        "new_count": len(candidates),
+                        "duplicates_skipped": duplicates_skipped,
+                        "rejected_skipped": rejected_skipped,
+                        "filtered_non_worker": filtered_non_worker,
+                        "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+                    })
+                if len(items) < page_limit or unseen_on_page == 0:
+                    break
+
+        if worker_focused:
+            candidates = _finalize_ranked_pool(
+                pool,
+                limit=limit,
+                index=index,
+                progress_callback=progress_callback,
+                museum_id=self.museum_id,
+                museum_name=self.museum_name,
+                fetched_count=fetched_count,
+                duplicates_skipped=duplicates_skipped,
+                rejected_skipped=rejected_skipped,
+                filtered_non_worker=filtered_non_worker,
+            )
+
+        return candidates, fetched_count, duplicates_skipped, rejected_skipped, filtered_non_worker
 
     def _parse_record(
         self,
@@ -1153,10 +1648,13 @@ class ArtInstituteChicagoAdapter:
                 "source_citation": citation,
             })
 
-        raw_tags = list((item.get("term_titles") or [])[:8])
+        subject_titles = list(item.get("subject_titles") or [])
+        raw_tags = list(subject_titles[:4]) + list((item.get("term_titles") or [])[:8])
         raw_tags.extend([item.get("style_title"), item.get("artwork_type_title"), matched_kw])
+        thumb_obj = item.get("thumbnail") if isinstance(item.get("thumbnail"), dict) else {}
+        visual_alt_text = _clean_text(thumb_obj.get("alt_text"))
 
-        return _finalize_candidate({
+        candidate = _finalize_candidate({
             "museum_id": self.museum_id,
             "museum_name": self.museum_name,
             "source_record_id": rec_id,
@@ -1188,6 +1686,12 @@ class ArtInstituteChicagoAdapter:
             "tags": raw_tags,
             "images": images,
         })
+        return _apply_worker_score(
+            candidate,
+            subject_tags=subject_titles,
+            visual_alt_text=visual_alt_text,
+            object_name=_clean_text(item.get("artwork_type_title")),
+        )
 
 
 class VamMuseumAdapter:
@@ -1208,63 +1712,136 @@ class VamMuseumAdapter:
         index: ExistingArtifactIndex,
         progress_callback: Optional[ProgressCallback] = None,
         cancel_event: Optional[threading.Event] = None,
-    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        search_mode: str = "broad",
+        min_worker_score: int = 35,
+    ) -> Tuple[List[Dict[str, Any]], int, int, int, int]:
         candidates: List[Dict[str, Any]] = []
+        pool: List[Dict[str, Any]] = []
         fetched_count = 0
         duplicates_skipped = 0
+        rejected_skipped = 0
+        filtered_non_worker = 0
+        worker_focused = search_mode == "worker_depictions"
         queued: List[Tuple[str, str]] = []
         seen_sys: Set[str] = set()
-        detail_cap = min(limit * 3, 30)
-        total_keywords = len(keywords)
+        detail_cap = min(limit * 5, 45) if worker_focused else min(limit * 3, 30)
+        page_limit = min(limit * 2, 25)
 
-        for kw_idx, kw in enumerate(keywords, start=1):
-            if cancel_event and cancel_event.is_set():
-                break
-            if len(queued) >= detail_cap:
-                break
-            _emit_progress(progress_callback, {
-                "type": "keyword_searching",
-                "museum_id": self.museum_id,
-                "museum_name": self.museum_name,
-                "keyword": kw,
-                "keyword_index": kw_idx,
-                "total_keywords": total_keywords,
-                "fetched_count": fetched_count,
-                "new_count": len(candidates),
-                "duplicates_skipped": duplicates_skipped,
-                "message": f'{self.museum_name}: searching "{kw}" ({kw_idx}/{total_keywords})',
-            })
-            data = _request_json(
-                "GET",
-                self.search_url,
-                params={
-                    "q": kw,
-                    "year_made_from": date_start,
-                    "year_made_to": date_end,
-                    "images_exist": 1,
-                    "page_size": min(limit * 2, 25),
-                },
-                timeout=10,
-            ) or {}
-            for rec in data.get("records") or []:
-                sn = rec.get("systemNumber")
-                if not sn or sn in seen_sys:
-                    continue
-                seen_sys.add(sn)
-                acc = _clean_text(rec.get("accessionNumber"), max_len=100)
-                if index.contains(inventory_number=acc, source_record_id=sn):
-                    fetched_count += 1
-                    duplicates_skipped += 1
-                    continue
-                queued.append((sn, kw))
+        def _collect_vam_buckets(param_name: str, kw_list: List[str], idx_offset: int, total_q: int, remaining_cap: int) -> List[List[Tuple[str, str]]]:
+            nonlocal fetched_count, duplicates_skipped, rejected_skipped
+            buckets: List[List[Tuple[str, str]]] = []
+            collected = 0
+            for offset_idx, kw in enumerate(kw_list, start=1):
+                if cancel_event and cancel_event.is_set():
+                    break
+                if collected >= remaining_cap:
+                    break
+                _emit_progress(progress_callback, {
+                    "type": "keyword_searching",
+                    "museum_id": self.museum_id,
+                    "museum_name": self.museum_name,
+                    "keyword": kw,
+                    "keyword_index": idx_offset + offset_idx,
+                    "total_keywords": total_q,
+                    "fetched_count": fetched_count,
+                    "new_count": len(pool) if worker_focused else len(candidates),
+                    "duplicates_skipped": duplicates_skipped,
+                    "rejected_skipped": rejected_skipped,
+                    "filtered_non_worker": filtered_non_worker,
+                    "message": f'{self.museum_name}: searching "{kw}" ({idx_offset + offset_idx}/{total_q})',
+                })
+                bucket: List[Tuple[str, str]] = []
+                for page in range(1, MAX_PAGES_PER_KEYWORD + 1):
+                    stop_bucket = False
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    if collected >= remaining_cap:
+                        break
+                    params: Dict[str, Any] = {
+                        param_name: kw,
+                        "year_made_from": date_start,
+                        "year_made_to": date_end,
+                        "images_exist": 1,
+                        "page_size": page_limit,
+                    }
+                    if page > 1:
+                        params["page"] = page
+                    data = _request_json(
+                        "GET",
+                        self.search_url,
+                        params=params,
+                        timeout=10,
+                    ) or {}
+                    records = data.get("records") or []
+                    unseen_on_page = 0
+                    for rec in records:
+                        sn = rec.get("systemNumber")
+                        if not sn or sn in seen_sys:
+                            continue
+                        unseen_on_page += 1
+                        seen_sys.add(sn)
+                        acc = _clean_text(rec.get("accessionNumber"), max_len=100)
+                        reason = index.match_reason(
+                            museum_id=self.museum_id,
+                            inventory_number=acc,
+                            source_record_id=sn,
+                        )
+                        if reason is not None:
+                            fetched_count += 1
+                            duplicates_skipped += 1
+                            if reason == "rejected":
+                                rejected_skipped += 1
+                            continue
+                        bucket.append((sn, kw))
+                        collected += 1
+                        if collected >= remaining_cap:
+                            stop_bucket = True
+                            break
+                    if stop_bucket or len(records) < page_limit or unseen_on_page == 0:
+                        break
+                if bucket:
+                    buckets.append(bucket)
+            return buckets
+
+        if worker_focused:
+            search_keywords = prepare_worker_keywords(keywords, worker_focused=True)[:12]
+            title_buckets = _collect_vam_buckets(
+                "q_object_title",
+                search_keywords,
+                idx_offset=0,
+                total_q=max(1, len(search_keywords) * 2),
+                remaining_cap=detail_cap,
+            )
+            queued = interleave_keyword_buckets(title_buckets, detail_cap)
+            if len(queued) < detail_cap:
+                gen_buckets = _collect_vam_buckets(
+                    "q",
+                    search_keywords,
+                    idx_offset=len(search_keywords),
+                    total_q=max(1, len(search_keywords) * 2),
+                    remaining_cap=detail_cap - len(queued),
+                )
+                queued.extend(interleave_keyword_buckets(gen_buckets, detail_cap - len(queued)))
+        else:
+            kw_buckets = _collect_vam_buckets(
+                "q",
+                list(keywords),
+                idx_offset=0,
+                total_q=max(1, len(keywords)),
+                remaining_cap=detail_cap,
+            )
+            for b in kw_buckets:
+                queued.extend(b)
                 if len(queued) >= detail_cap:
+                    queued = queued[:detail_cap]
                     break
 
         detail_total = len(queued)
+        pool_cap = min(limit * 2, detail_cap) if worker_focused else limit
         for detail_idx, (sn, matched_kw) in enumerate(queued, start=1):
             if cancel_event and cancel_event.is_set():
                 break
-            if len(candidates) >= limit:
+            if (len(pool) if worker_focused else len(candidates)) >= pool_cap:
                 break
             _emit_progress(progress_callback, {
                 "type": "detail_fetching",
@@ -1273,8 +1850,10 @@ class VamMuseumAdapter:
                 "detail_index": detail_idx,
                 "detail_total": detail_total,
                 "fetched_count": fetched_count,
-                "new_count": len(candidates),
+                "new_count": len(pool) if worker_focused else len(candidates),
                 "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
                 "message": f"{self.museum_name}: inspecting record {detail_idx} of {detail_total}...",
             })
             detail = _request_json("GET", f"{self.detail_url}/{sn}", timeout=8, allow_404=True)
@@ -1295,22 +1874,34 @@ class VamMuseumAdapter:
             )
             title = primary_title or _clean_text(rec.get("objectType")) or "Untitled Artifact"
 
-            if index.contains(
+            reason = index.match_reason(
+                museum_id=self.museum_id,
                 inventory_number=inv,
                 source_record_id=sn,
                 external_url=ext_url,
                 object_type=title,
                 present_location=self.present_location,
                 date_display=date_disp,
-            ):
+            )
+            if reason is not None:
                 duplicates_skipped += 1
+                if reason == "rejected":
+                    rejected_skipped += 1
                 continue
 
             parsed = self._parse_record(rec, sn, inv, title, date_disp, item_start, item_end, date_basis, matched_kw, ext_url)
             if not parsed["images"]:
                 continue
 
+            if worker_focused:
+                if parsed.get("worker_relevance_score", 0) < min_worker_score:
+                    filtered_non_worker += 1
+                    continue
+                pool.append(parsed)
+                continue
+
             index.register(
+                museum_id=self.museum_id,
                 inventory_number=parsed.get("inventory_number"),
                 source_record_id=sn,
                 external_url=parsed.get("external_url"),
@@ -1328,10 +1919,26 @@ class VamMuseumAdapter:
                 "fetched_count": fetched_count,
                 "new_count": len(candidates),
                 "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
                 "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
             })
 
-        return candidates, fetched_count, duplicates_skipped
+        if worker_focused:
+            candidates = _finalize_ranked_pool(
+                pool,
+                limit=limit,
+                index=index,
+                progress_callback=progress_callback,
+                museum_id=self.museum_id,
+                museum_name=self.museum_name,
+                fetched_count=fetched_count,
+                duplicates_skipped=duplicates_skipped,
+                rejected_skipped=rejected_skipped,
+                filtered_non_worker=filtered_non_worker,
+            )
+
+        return candidates, fetched_count, duplicates_skipped, rejected_skipped, filtered_non_worker
 
     @staticmethod
     def _parse_iso_year(raw: Any) -> Optional[int]:
@@ -1422,7 +2029,8 @@ class VamMuseumAdapter:
 
         summary = strip_html(rec.get("summaryDescription"))
         physical = strip_html(rec.get("physicalDescription"))
-        description = " ".join(p for p in (summary, physical) if p) or None
+        brief = strip_html(rec.get("briefDescription"))
+        description = " ".join(p for p in (summary, physical) if p) or brief or None
 
         medium = _clean_text(rec.get("materialsAndTechniques"), max_len=255)
         citation = (
@@ -1444,14 +2052,20 @@ class VamMuseumAdapter:
                 "source_citation": citation,
             })
 
-        tags: List[Optional[str]] = [
+        content_people = [
+            _clean_text(p.get("name") or p.get("text"))
+            for p in (rec.get("contentPerson") or [])
+            if isinstance(p, dict)
+        ]
+        cat_tags: List[Optional[str]] = [
             c.get("text") for c in (rec.get("categories") or []) if isinstance(c, dict)
         ]
+        tags: List[Optional[str]] = list(cat_tags) + [p for p in content_people if p]
         tags.extend(m.get("text") for m in (rec.get("materials") or []) if isinstance(m, dict))
         tags.extend(s.get("text") for s in (rec.get("styles") or []) if isinstance(s, dict))
         tags.extend([rec.get("objectType"), matched_kw])
 
-        return _finalize_candidate({
+        candidate = _finalize_candidate({
             "museum_id": self.museum_id,
             "museum_name": self.museum_name,
             "source_record_id": sn,
@@ -1483,6 +2097,920 @@ class VamMuseumAdapter:
             "tags": tags,
             "images": images,
         })
+        vam_subject_tags = [p for p in content_people if p] + [c for c in cat_tags if c]
+        return _apply_worker_score(
+            candidate,
+            subject_tags=vam_subject_tags,
+            object_name=_clean_text(rec.get("objectType")),
+            extra_description=brief if brief and brief != description else None,
+        )
+
+
+class BritishMuseumAdapter:
+    """Adapter for The British Museum collection via Wikidata Action API and Wikimedia Commons."""
+
+    museum_id: MuseumKey = "bm"
+    museum_name = "The British Museum"
+    present_location = "The British Museum, London"
+    wikidata_api_url = "https://www.wikidata.org/w/api.php"
+    commons_api_url = "https://commons.wikimedia.org/w/api.php"
+
+    EXCLUDED_INSTANCE_QIDS = frozenset({
+        "Q5",         # human
+        "Q33506",     # museum
+        "Q43229",     # organization
+        "Q16521",     # taxon
+        "Q13442814",  # scholarly article
+        "Q4167410",   # Wikimedia disambiguation page
+        "Q4167836",   # Wikimedia category
+        "Q11266439",  # Wikimedia template
+    })
+    LENGTH_TO_CM: Dict[str, float] = {
+        "Q174728": 1.0,     # centimetre
+        "Q174789": 0.1,     # millimetre
+        "Q11573": 100.0,    # metre
+        "Q218593": 2.54,    # inch
+    }
+    MASS_UNITS: Dict[str, str] = {
+        "Q11570": "kg",
+        "Q41803": "g",
+    }
+    RASTER_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
+
+    @staticmethod
+    def _sanitize_search_term(kw: str) -> str:
+        if not kw or not isinstance(kw, str):
+            return ""
+        cleaned = re.sub(r'["\'\\:;(){}\[\]~^*?!/|&<>]+', " ", kw)
+        tokens = [tok.lstrip("+-") for tok in cleaned.split()]
+        tokens = [tok for tok in tokens if tok]
+        return " ".join(tokens)
+
+    @staticmethod
+    def _ordinal(n: int) -> str:
+        if 11 <= (n % 100) <= 13:
+            suffix = "th"
+        else:
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+        return f"{n}{suffix}"
+
+    @staticmethod
+    def _active_claims(claims: Dict[str, Any], prop: str) -> List[Dict[str, Any]]:
+        raw = claims.get(prop) or []
+        if not isinstance(raw, list):
+            return []
+        active = [c for c in raw if isinstance(c, dict) and c.get("rank") != "deprecated"]
+        rank_order = {"preferred": 0, "normal": 1}
+        active.sort(key=lambda c: rank_order.get(c.get("rank", "normal"), 1))
+        return active
+
+    @staticmethod
+    def _extract_qid(snak: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not isinstance(snak, dict) or snak.get("snaktype") != "value":
+            return None
+        dv = snak.get("datavalue") or {}
+        if dv.get("type") != "wikibase-entityid":
+            return None
+        val = dv.get("value") or {}
+        qid = val.get("id")
+        if isinstance(qid, str) and qid.startswith("Q"):
+            return qid
+        num_id = val.get("numeric-id")
+        if isinstance(num_id, int):
+            return f"Q{num_id}"
+        return None
+
+    @staticmethod
+    def _extract_string(snak: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not isinstance(snak, dict) or snak.get("snaktype") != "value":
+            return None
+        dv = snak.get("datavalue") or {}
+        dv_type = dv.get("type")
+        val = dv.get("value")
+        if dv_type == "string" and isinstance(val, str):
+            return _clean_text(val)
+        if dv_type == "monolingualtext" and isinstance(val, dict):
+            return _clean_text(val.get("text"))
+        if isinstance(val, str):
+            return _clean_text(val)
+        return None
+
+    @classmethod
+    def _parse_wikibase_time(
+        cls,
+        time_val: Optional[Dict[str, Any]],
+    ) -> Tuple[Optional[int], Optional[int], Optional[str]]:
+        if not isinstance(time_val, dict):
+            return None, None, None
+        raw_time = time_val.get("time")
+        if not isinstance(raw_time, str):
+            return None, None, None
+        match = re.match(r"^\s*([+-])0*(\d+)-", raw_time)
+        if not match:
+            return None, None, None
+        sign, digits = match.group(1), match.group(2)
+        year = int(digits)
+        if sign == "-" and year != 0:
+            year = -year
+
+        precision = time_val.get("precision")
+        if not isinstance(precision, int):
+            precision = 9
+
+        if precision < 6:
+            return None, None, None
+        if precision >= 9:
+            disp = f"{abs(year)} BCE" if year < 0 else f"{year} CE"
+            return year, year, disp
+        if precision == 8:
+            if year >= 0:
+                start = (year // 10) * 10
+                end = start + 9
+                return start, end, f"{start}s CE"
+            base = (abs(year) // 10) * 10
+            start = -(base + 9)
+            end = -base
+            return start, end, f"{base}s BCE"
+        if precision == 7:
+            if year > 0:
+                c = (year - 1) // 100 + 1
+                start = (c - 1) * 100 + 1
+                end = c * 100
+                return start, end, f"{cls._ordinal(c)} century CE"
+            if year < 0:
+                c = (abs(year) - 1) // 100 + 1
+                start = -c * 100
+                end = -((c - 1) * 100 + 1)
+                return start, end, f"{cls._ordinal(c)} century BCE"
+            return 0, 99, "1st century CE"
+        # precision == 6 (millennium)
+        if year > 0:
+            m = (year - 1) // 1000 + 1
+            start = (m - 1) * 1000 + 1
+            end = m * 1000
+            return start, end, f"{cls._ordinal(m)} millennium CE"
+        if year < 0:
+            m = (abs(year) - 1) // 1000 + 1
+            start = -m * 1000
+            end = -((m - 1) * 1000 + 1)
+            return start, end, f"{cls._ordinal(m)} millennium BCE"
+        return 0, 999, "1st millennium CE"
+
+    @staticmethod
+    def _format_year_span(start: int, end: int) -> str:
+        if start == end:
+            return f"{abs(start)} BCE" if start < 0 else f"{start} CE"
+        if start < 0 and end < 0:
+            return f"{abs(start)}–{abs(end)} BCE"
+        if start < 0 <= end:
+            return f"{abs(start)} BCE–{end} CE"
+        return f"{start}–{end} CE"
+
+    @classmethod
+    def _parse_dates(cls, claims: Dict[str, Any]) -> Tuple[Optional[int], Optional[int], str]:
+        for claim in cls._active_claims(claims, "P571"):
+            qualifiers = claim.get("qualifiers") or {}
+            is_circa = any(
+                cls._extract_qid(q) == "Q5727902"
+                for q in (qualifiers.get("P1480") or [])
+            )
+
+            earliest_tuple: Tuple[Optional[int], Optional[int], Optional[str]] = (None, None, None)
+            for q in qualifiers.get("P1319") or []:
+                if isinstance(q, dict) and q.get("snaktype") == "value" and (q.get("datavalue") or {}).get("type") == "time":
+                    earliest_tuple = cls._parse_wikibase_time((q.get("datavalue") or {}).get("value"))
+                    if earliest_tuple[0] is not None:
+                        break
+
+            latest_tuple: Tuple[Optional[int], Optional[int], Optional[str]] = (None, None, None)
+            for q in qualifiers.get("P1326") or []:
+                if isinstance(q, dict) and q.get("snaktype") == "value" and (q.get("datavalue") or {}).get("type") == "time":
+                    latest_tuple = cls._parse_wikibase_time((q.get("datavalue") or {}).get("value"))
+                    if latest_tuple[0] is not None:
+                        break
+
+            mainsnak = claim.get("mainsnak") or {}
+            main_tuple: Tuple[Optional[int], Optional[int], Optional[str]] = (None, None, None)
+            if mainsnak.get("snaktype") == "value" and (mainsnak.get("datavalue") or {}).get("type") == "time":
+                main_tuple = cls._parse_wikibase_time((mainsnak.get("datavalue") or {}).get("value"))
+
+            e_start, e_end, e_disp = earliest_tuple
+            l_start, l_end, l_disp = latest_tuple
+            m_start, m_end, m_disp = main_tuple
+
+            if e_start is not None and l_end is not None:
+                start, end = e_start, l_end
+                if start > end:
+                    start, end = end, start
+                if m_disp and m_start is not None and m_end is not None and start <= m_start and m_end <= end:
+                    disp = m_disp
+                else:
+                    disp = cls._format_year_span(start, end)
+                if is_circa and not disp.startswith("c."):
+                    disp = f"c. {disp}"
+                return start, end, disp
+
+            if m_start is not None and m_end is not None:
+                disp = m_disp or cls._format_year_span(m_start, m_end)
+                if is_circa and not disp.startswith("c."):
+                    disp = f"c. {disp}"
+                return m_start, m_end, disp
+
+            if e_start is not None and e_end is not None:
+                disp = e_disp or cls._format_year_span(e_start, e_end)
+                if is_circa and not disp.startswith("c."):
+                    disp = f"c. {disp}"
+                return e_start, e_end, disp
+
+            if l_start is not None and l_end is not None:
+                disp = l_disp or cls._format_year_span(l_start, l_end)
+                if is_circa and not disp.startswith("c."):
+                    disp = f"c. {disp}"
+                return l_start, l_end, disp
+
+        p580_tuple: Tuple[Optional[int], Optional[int], Optional[str]] = (None, None, None)
+        for claim in cls._active_claims(claims, "P580"):
+            ms = claim.get("mainsnak") or {}
+            if ms.get("snaktype") == "value" and (ms.get("datavalue") or {}).get("type") == "time":
+                p580_tuple = cls._parse_wikibase_time((ms.get("datavalue") or {}).get("value"))
+                if p580_tuple[0] is not None:
+                    break
+
+        p582_tuple: Tuple[Optional[int], Optional[int], Optional[str]] = (None, None, None)
+        for claim in cls._active_claims(claims, "P582"):
+            ms = claim.get("mainsnak") or {}
+            if ms.get("snaktype") == "value" and (ms.get("datavalue") or {}).get("type") == "time":
+                p582_tuple = cls._parse_wikibase_time((ms.get("datavalue") or {}).get("value"))
+                if p582_tuple[0] is not None:
+                    break
+
+        s_start, s_end, s_disp = p580_tuple
+        e_start, e_end, e_disp = p582_tuple
+        if s_start is not None and e_end is not None:
+            start, end = s_start, e_end
+            if start > end:
+                start, end = end, start
+            return start, end, cls._format_year_span(start, end)
+        if s_start is not None and s_end is not None:
+            return s_start, s_end, s_disp or cls._format_year_span(s_start, s_end)
+        if e_start is not None and e_end is not None:
+            return e_start, e_end, e_disp or cls._format_year_span(e_start, e_end)
+
+        return None, None, "Unknown"
+
+    @classmethod
+    def _extract_quantity_cm(cls, claims: Dict[str, Any], prop: str) -> Optional[float]:
+        for claim in cls._active_claims(claims, prop):
+            ms = claim.get("mainsnak") or {}
+            if ms.get("snaktype") != "value":
+                continue
+            dv = ms.get("datavalue") or {}
+            if dv.get("type") != "quantity":
+                continue
+            val = dv.get("value") or {}
+            unit_uri = str(val.get("unit") or "")
+            unit_qid = unit_uri.rstrip("/").rsplit("/", 1)[-1]
+            factor = cls.LENGTH_TO_CM.get(unit_qid)
+            if factor is None:
+                continue
+            num = _coerce_float(val.get("amount"), digits=6)
+            if num is None or num < 0:
+                continue
+            return round(num * factor, 2)
+        return None
+
+    @classmethod
+    def _extract_weight(cls, claims: Dict[str, Any]) -> Optional[str]:
+        for claim in cls._active_claims(claims, "P2067"):
+            ms = claim.get("mainsnak") or {}
+            if ms.get("snaktype") != "value":
+                continue
+            dv = ms.get("datavalue") or {}
+            if dv.get("type") != "quantity":
+                continue
+            val = dv.get("value") or {}
+            unit_uri = str(val.get("unit") or "")
+            unit_qid = unit_uri.rstrip("/").rsplit("/", 1)[-1]
+            unit_label = cls.MASS_UNITS.get(unit_qid)
+            if not unit_label:
+                continue
+            num = _coerce_float(val.get("amount"), digits=2)
+            if num is None or num < 0:
+                continue
+            return f"{num:g} {unit_label}"[:100]
+        return None
+
+    @staticmethod
+    def _normalize_commons_key(filename: str) -> str:
+        cleaned = str(filename or "").strip()
+        if cleaned.lower().startswith("file:"):
+            cleaned = cleaned[5:]
+        return cleaned.replace("_", " ").strip().lower()
+
+    @classmethod
+    def _resolve_commons_images(cls, filenames: List[str]) -> Dict[str, Dict[str, Any]]:
+        unique_names: List[str] = []
+        seen_keys: Set[str] = set()
+        for raw in filenames:
+            if not raw or not isinstance(raw, str):
+                continue
+            key = cls._normalize_commons_key(raw)
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                clean_title = raw.strip()
+                if not clean_title.lower().startswith("file:"):
+                    clean_title = f"File:{clean_title}"
+                unique_names.append(clean_title)
+
+        resolved: Dict[str, Dict[str, Any]] = {}
+        for i in range(0, len(unique_names), 50):
+            batch = unique_names[i:i + 50]
+            data = _request_json(
+                "GET",
+                cls.commons_api_url,
+                params={
+                    "action": "query",
+                    "titles": "|".join(batch),
+                    "prop": "imageinfo",
+                    "iiprop": "url|extmetadata",
+                    "iiurlwidth": 1000,
+                    "format": "json",
+                },
+                timeout=10,
+            ) or {}
+            query_block = data.get("query") or {}
+            norm_map: Dict[str, List[str]] = {}
+            for norm in query_block.get("normalized") or []:
+                if isinstance(norm, dict) and norm.get("to") and norm.get("from"):
+                    to_key = cls._normalize_commons_key(norm["to"])
+                    from_key = cls._normalize_commons_key(norm["from"])
+                    norm_map.setdefault(to_key, []).append(from_key)
+
+            pages = query_block.get("pages") or {}
+            page_iter = pages.values() if isinstance(pages, dict) else pages
+            for page in page_iter:
+                if not isinstance(page, dict) or page.get("missing") is not None:
+                    continue
+                title = page.get("title") or ""
+                title_key = cls._normalize_commons_key(title)
+                ii_list = page.get("imageinfo") or []
+                if not title_key or not ii_list or not isinstance(ii_list[0], dict):
+                    continue
+                ii = ii_list[0]
+                chosen = ii.get("thumburl") or ii.get("url")
+                if not chosen or not is_safe_image_url(chosen):
+                    continue
+                parsed_path = urlparse(chosen).path.lower()
+                if not parsed_path.endswith(cls.RASTER_EXTENSIONS):
+                    orig = ii.get("url")
+                    if orig and is_safe_image_url(orig) and urlparse(orig).path.lower().endswith(cls.RASTER_EXTENSIONS):
+                        chosen = orig
+                    else:
+                        continue
+                info_payload = {
+                    "url": chosen,
+                    "extmetadata": ii.get("extmetadata") if isinstance(ii.get("extmetadata"), dict) else {},
+                }
+                resolved[title_key] = info_payload
+                for alias_key in norm_map.get(title_key, ()):
+                    resolved[alias_key] = info_payload
+        return resolved
+
+    @classmethod
+    def _resolve_entity_labels(cls, qids: Set[str]) -> Dict[str, str]:
+        sorted_qids = sorted(q for q in qids if isinstance(q, str) and re.match(r"^Q\d+$", q))
+        labels: Dict[str, str] = {}
+        for i in range(0, len(sorted_qids), 50):
+            batch = sorted_qids[i:i + 50]
+            data = _request_json(
+                "GET",
+                cls.wikidata_api_url,
+                params={
+                    "action": "wbgetentities",
+                    "ids": "|".join(batch),
+                    "languages": "en",
+                    "props": "labels",
+                    "format": "json",
+                },
+                timeout=10,
+            ) or {}
+            for qid, ent in (data.get("entities") or {}).items():
+                if not isinstance(ent, dict):
+                    continue
+                lbl = ((ent.get("labels") or {}).get("en") or {}).get("value")
+                cleaned = _clean_text(lbl)
+                if cleaned:
+                    labels[qid] = cleaned
+        return labels
+
+    @classmethod
+    def _fetch_entities(cls, qids: List[str]) -> Dict[str, Dict[str, Any]]:
+        entities: Dict[str, Dict[str, Any]] = {}
+        for i in range(0, len(qids), 50):
+            batch = qids[i:i + 50]
+            data = _request_json(
+                "GET",
+                cls.wikidata_api_url,
+                params={
+                    "action": "wbgetentities",
+                    "ids": "|".join(batch),
+                    "languages": "en",
+                    "props": "labels|descriptions|claims",
+                    "format": "json",
+                },
+                timeout=10,
+            ) or {}
+            for qid, ent in (data.get("entities") or {}).items():
+                if isinstance(ent, dict) and "missing" not in ent:
+                    entities[qid] = ent
+        return entities
+
+    def discover(
+        self,
+        keywords: List[str],
+        date_start: int,
+        date_end: int,
+        limit: int,
+        index: ExistingArtifactIndex,
+        progress_callback: Optional[ProgressCallback] = None,
+        cancel_event: Optional[threading.Event] = None,
+        search_mode: str = "broad",
+        min_worker_score: int = 35,
+    ) -> Tuple[List[Dict[str, Any]], int, int, int, int]:
+        candidates: List[Dict[str, Any]] = []
+        pool: List[Dict[str, Any]] = []
+        fetched_count = 0
+        duplicates_skipped = 0
+        rejected_skipped = 0
+        filtered_non_worker = 0
+        worker_focused = search_mode == "worker_depictions"
+
+        queued_qids: List[Tuple[str, str]] = []
+        seen_qids: Set[str] = set()
+        detail_cap = min(limit * 5, 50) if worker_focused else min(limit * 4, 40)
+        page_limit = min(limit * 3, 50)
+
+        def _collect_bm_buckets(kw_list: List[str], *, require_depicts: bool, idx_offset: int, total_q: int, remaining_cap: int) -> List[List[Tuple[str, str]]]:
+            nonlocal fetched_count, duplicates_skipped, rejected_skipped
+            buckets: List[List[Tuple[str, str]]] = []
+            collected = 0
+            depicts_clause = " haswbstatement:P180" if require_depicts else ""
+            for offset_idx, kw in enumerate(kw_list, start=1):
+                if cancel_event and cancel_event.is_set():
+                    break
+                if collected >= remaining_cap:
+                    break
+                safe_kw = self._sanitize_search_term(kw)
+                if not safe_kw:
+                    continue
+                _emit_progress(progress_callback, {
+                    "type": "keyword_searching",
+                    "museum_id": self.museum_id,
+                    "museum_name": self.museum_name,
+                    "keyword": kw,
+                    "keyword_index": idx_offset + offset_idx,
+                    "total_keywords": total_q,
+                    "fetched_count": fetched_count,
+                    "new_count": len(pool) if worker_focused else len(candidates),
+                    "duplicates_skipped": duplicates_skipped,
+                    "rejected_skipped": rejected_skipped,
+                    "filtered_non_worker": filtered_non_worker,
+                    "message": f'{self.museum_name}: searching "{kw}" ({idx_offset + offset_idx}/{total_q})',
+                })
+                bucket: List[Tuple[str, str]] = []
+                for page in range(MAX_PAGES_PER_KEYWORD):
+                    stop_bucket = False
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    if collected >= remaining_cap:
+                        break
+                    data = _request_json(
+                        "GET",
+                        self.wikidata_api_url,
+                        params={
+                            "action": "query",
+                            "list": "search",
+                            "srsearch": f"haswbstatement:P195=Q6373|P276=Q6373 haswbstatement:P18{depicts_clause} {safe_kw}",
+                            "srnamespace": "0",
+                            "srlimit": page_limit,
+                            "sroffset": page * page_limit,
+                            "format": "json",
+                        },
+                        timeout=10,
+                    ) or {}
+                    hits = (data.get("query") or {}).get("search") or []
+                    unseen_on_page = 0
+                    for hit in hits:
+                        qid = hit.get("title")
+                        if not isinstance(qid, str) or not re.match(r"^Q\d+$", qid) or qid in seen_qids:
+                            continue
+                        unseen_on_page += 1
+                        seen_qids.add(qid)
+                        reason = index.match_reason(
+                            museum_id=self.museum_id,
+                            source_record_id=qid,
+                        )
+                        if reason is not None:
+                            fetched_count += 1
+                            duplicates_skipped += 1
+                            if reason == "rejected":
+                                rejected_skipped += 1
+                            continue
+                        bucket.append((qid, kw))
+                        collected += 1
+                        if collected >= remaining_cap:
+                            stop_bucket = True
+                            break
+                    if stop_bucket or len(hits) < page_limit or unseen_on_page == 0:
+                        break
+                if bucket:
+                    buckets.append(bucket)
+            return buckets
+
+        if worker_focused:
+            search_keywords = prepare_worker_keywords(keywords, worker_focused=True)[:12]
+            depicts_buckets = _collect_bm_buckets(
+                search_keywords,
+                require_depicts=True,
+                idx_offset=0,
+                total_q=max(1, len(search_keywords) * 2),
+                remaining_cap=detail_cap,
+            )
+            queued_qids = interleave_keyword_buckets(depicts_buckets, detail_cap)
+            if len(queued_qids) < detail_cap:
+                gen_buckets = _collect_bm_buckets(
+                    search_keywords,
+                    require_depicts=False,
+                    idx_offset=len(search_keywords),
+                    total_q=max(1, len(search_keywords) * 2),
+                    remaining_cap=detail_cap - len(queued_qids),
+                )
+                queued_qids.extend(interleave_keyword_buckets(gen_buckets, detail_cap - len(queued_qids)))
+        else:
+            kw_buckets = _collect_bm_buckets(
+                list(keywords),
+                require_depicts=False,
+                idx_offset=0,
+                total_q=max(1, len(keywords)),
+                remaining_cap=detail_cap,
+            )
+            for b in kw_buckets:
+                queued_qids.extend(b)
+                if len(queued_qids) >= detail_cap:
+                    queued_qids = queued_qids[:detail_cap]
+                    break
+
+        if not queued_qids or (cancel_event and cancel_event.is_set()):
+            return candidates, fetched_count, duplicates_skipped, rejected_skipped, filtered_non_worker
+
+        entities = self._fetch_entities([qid for qid, _ in queued_qids])
+        ref_qids: Set[str] = set()
+        image_filenames: List[str] = []
+        label_props = ("P31", "P186", "P189", "P1071", "P2596", "P2348", "P361", "P1343", "P180", "P921")
+        for ent in entities.values():
+            claims = ent.get("claims") or {}
+            for prop in label_props:
+                for claim in self._active_claims(claims, prop):
+                    ref_qid = self._extract_qid(claim.get("mainsnak"))
+                    if ref_qid:
+                        ref_qids.add(ref_qid)
+            for claim in self._active_claims(claims, "P18")[:3]:
+                fname = self._extract_string(claim.get("mainsnak"))
+                if fname:
+                    image_filenames.append(fname)
+
+        label_map = self._resolve_entity_labels(ref_qids) if ref_qids else {}
+        commons_images = self._resolve_commons_images(image_filenames) if image_filenames else {}
+
+        detail_total = len(queued_qids)
+        pool_cap = min(limit * 2, detail_cap) if worker_focused else limit
+        for detail_idx, (qid, matched_kw) in enumerate(queued_qids, start=1):
+            if cancel_event and cancel_event.is_set():
+                break
+            if (len(pool) if worker_focused else len(candidates)) >= pool_cap:
+                break
+            _emit_progress(progress_callback, {
+                "type": "detail_fetching",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "detail_index": detail_idx,
+                "detail_total": detail_total,
+                "fetched_count": fetched_count,
+                "new_count": len(pool) if worker_focused else len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
+                "message": f"{self.museum_name}: inspecting record {detail_idx} of {detail_total}...",
+            })
+            ent = entities.get(qid)
+            if not ent:
+                continue
+            fetched_count += 1
+            claims = ent.get("claims") or {}
+
+            instance_qids = [
+                self._extract_qid(c.get("mainsnak"))
+                for c in self._active_claims(claims, "P31")
+            ]
+            if any(q in self.EXCLUDED_INSTANCE_QIDS for q in instance_qids if q):
+                continue
+
+            item_start, item_end, date_disp = self._parse_dates(claims)
+            if not _dates_overlap(item_start, item_end, date_start, date_end):
+                continue
+
+            inv = self._extract_inventory_number(claims, qid)
+            ext_url = self._extract_external_url(claims, qid)
+            en_label = _clean_text(((ent.get("labels") or {}).get("en") or {}).get("value"))
+            first_type_label = next(
+                (label_map[q] for q in instance_qids if q and q in label_map),
+                None,
+            )
+            title = en_label or first_type_label or "Untitled Artifact"
+
+            reason = index.match_reason(
+                museum_id=self.museum_id,
+                inventory_number=inv,
+                source_record_id=qid,
+                external_url=ext_url,
+                object_type=title,
+                present_location=self.present_location,
+                date_display=date_disp,
+            )
+            if reason is not None:
+                duplicates_skipped += 1
+                if reason == "rejected":
+                    rejected_skipped += 1
+                continue
+
+            parsed = self._parse_record(
+                ent=ent,
+                qid=qid,
+                inv=inv,
+                title=title,
+                date_disp=date_disp,
+                item_start=item_start,
+                item_end=item_end,
+                matched_kw=matched_kw,
+                ext_url=ext_url,
+                label_map=label_map,
+                commons_images=commons_images,
+            )
+            if not parsed["images"]:
+                continue
+
+            if worker_focused:
+                if parsed.get("worker_relevance_score", 0) < min_worker_score:
+                    filtered_non_worker += 1
+                    continue
+                pool.append(parsed)
+                continue
+
+            index.register(
+                museum_id=self.museum_id,
+                inventory_number=parsed.get("inventory_number"),
+                source_record_id=qid,
+                external_url=parsed.get("external_url"),
+                object_type=parsed.get("object_type"),
+                present_location=parsed.get("present_location"),
+                date_display=parsed.get("date_display"),
+            )
+            candidates.append(parsed)
+            _emit_progress(progress_callback, {
+                "type": "candidate_found",
+                "museum_id": self.museum_id,
+                "museum_name": self.museum_name,
+                "object_type": parsed["object_type"],
+                "matched_keyword": matched_kw,
+                "fetched_count": fetched_count,
+                "new_count": len(candidates),
+                "duplicates_skipped": duplicates_skipped,
+                "rejected_skipped": rejected_skipped,
+                "filtered_non_worker": filtered_non_worker,
+                "message": f'Found "{parsed["object_type"]}" at {self.museum_name}',
+            })
+
+        if worker_focused:
+            candidates = _finalize_ranked_pool(
+                pool,
+                limit=limit,
+                index=index,
+                progress_callback=progress_callback,
+                museum_id=self.museum_id,
+                museum_name=self.museum_name,
+                fetched_count=fetched_count,
+                duplicates_skipped=duplicates_skipped,
+                rejected_skipped=rejected_skipped,
+                filtered_non_worker=filtered_non_worker,
+            )
+
+        return candidates, fetched_count, duplicates_skipped, rejected_skipped, filtered_non_worker
+
+    @classmethod
+    def _extract_inventory_number(cls, claims: Dict[str, Any], qid: str) -> str:
+        fallback_inv: Optional[str] = None
+        for claim in cls._active_claims(claims, "P217"):
+            val = cls._extract_string(claim.get("mainsnak"))
+            if not val:
+                continue
+            if fallback_inv is None:
+                fallback_inv = val
+            qual_collections = (claim.get("qualifiers") or {}).get("P195") or []
+            if any(cls._extract_qid(q) == "Q6373" for q in qual_collections):
+                return val[:100]
+        return (fallback_inv or f"BM-{qid}")[:100]
+
+    @classmethod
+    def _extract_external_url(cls, claims: Dict[str, Any], qid: str) -> str:
+        for prop in ("P973", "P2699"):
+            for claim in cls._active_claims(claims, prop):
+                candidate = _sanitize_https_url(cls._extract_string(claim.get("mainsnak")))
+                if candidate and "britishmuseum.org" in (urlparse(candidate).hostname or "").lower():
+                    return candidate
+        return f"https://www.wikidata.org/wiki/{qid}"
+
+    def _parse_record(
+        self,
+        *,
+        ent: Dict[str, Any],
+        qid: str,
+        inv: str,
+        title: str,
+        date_disp: str,
+        item_start: Optional[int],
+        item_end: Optional[int],
+        matched_kw: str,
+        ext_url: str,
+        label_map: Dict[str, str],
+        commons_images: Dict[str, Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        claims = ent.get("claims") or {}
+
+        def _claim_labels(prop: str) -> List[str]:
+            seen: Set[str] = set()
+            result: List[str] = []
+            for c in self._active_claims(claims, prop):
+                ref_qid = self._extract_qid(c.get("mainsnak"))
+                lbl = label_map.get(ref_qid) if ref_qid else None
+                if lbl and lbl.lower() not in seen:
+                    seen.add(lbl.lower())
+                    result.append(lbl)
+            return result
+
+        material_labels = _claim_labels("P186")
+        material = _clean_text(", ".join(material_labels), max_len=255)
+
+        findspot_labels = _claim_labels("P189")
+        findspot = _clean_text(", ".join(findspot_labels), max_len=255)
+
+        prod_labels = _claim_labels("P1071")
+        culture_labels = _claim_labels("P2596")
+        production_location = _clean_text(", ".join(prod_labels or culture_labels), max_len=255)
+
+        period_labels = _claim_labels("P2348")
+        basis_parts: List[str] = []
+        seen_basis: Set[str] = set()
+        for p in period_labels + culture_labels:
+            if p.lower() not in seen_basis:
+                seen_basis.add(p.lower())
+                basis_parts.append(p)
+        date_basis = "; ".join(basis_parts) or None
+
+        height = self._extract_quantity_cm(claims, "P2048")
+        width = self._extract_quantity_cm(claims, "P2049") or self._extract_quantity_cm(claims, "P2386")
+        depth = self._extract_quantity_cm(claims, "P2610") or self._extract_quantity_cm(claims, "P2043")
+        dim_parts = []
+        if height is not None:
+            dim_parts.append(f"H. {height:g} cm")
+        if width is not None:
+            dim_parts.append(f"W. {width:g} cm")
+        if depth is not None:
+            dim_parts.append(f"D. {depth:g} cm")
+        dimensions_display = _clean_text(", ".join(dim_parts), max_len=255)
+        weight = self._extract_weight(claims)
+
+        lat: Optional[float] = None
+        lon: Optional[float] = None
+        for claim in self._active_claims(claims, "P625"):
+            ms = claim.get("mainsnak") or {}
+            if ms.get("snaktype") != "value":
+                continue
+            dv = ms.get("datavalue") or {}
+            if dv.get("type") != "globecoordinate":
+                continue
+            val = dv.get("value") or {}
+            c_lat = _coerce_float(val.get("latitude"), digits=6)
+            c_lon = _coerce_float(val.get("longitude"), digits=6)
+            if c_lat is not None and c_lon is not None:
+                lat, lon = c_lat, c_lon
+                break
+
+        inscr_list = [
+            s
+            for c in self._active_claims(claims, "P1684")
+            for s in [self._extract_string(c.get("mainsnak"))]
+            if s
+        ]
+        inscription_present = True if inscr_list else None
+
+        type_labels = _claim_labels("P31")
+        part_of_labels = _claim_labels("P361")
+        object_group = _clean_text(", ".join(part_of_labels or type_labels), max_len=255)
+
+        pub_labels = _claim_labels("P1343")
+        publications = "; ".join(pub_labels) or None
+
+        citation = (
+            f'The British Museum. "{title}." {date_disp}. '
+            f"{material or 'Unknown medium'}. {ext_url}"
+        ).strip()
+
+        images: List[Dict[str, Any]] = []
+        commons_desc: Optional[str] = None
+        for claim in self._active_claims(claims, "P18")[:3]:
+            fname = self._extract_string(claim.get("mainsnak"))
+            if not fname:
+                continue
+            img_info = commons_images.get(self._normalize_commons_key(fname))
+            if not img_info or not img_info.get("url"):
+                continue
+            if commons_desc is None:
+                extmeta = img_info.get("extmetadata") or {}
+                raw_desc = (extmeta.get("ImageDescription") or {}).get("value")
+                commons_desc = strip_html(raw_desc)
+            seq = len(images) + 1
+            clean_fname = fname.removeprefix("File:")
+            images.append({
+                "file_url": img_info["url"],
+                "image_type": "Colour photo",
+                "view_type": "Front" if seq == 1 else f"View {seq}",
+                "image_sequence": seq,
+                "source_identifier": f"BM {qid} / File:{clean_fname}"[:255],
+                "source_citation": citation,
+            })
+
+        wd_desc = _clean_text(((ent.get("descriptions") or {}).get("en") or {}).get("value"))
+        desc_parts: List[str] = []
+        if wd_desc:
+            desc_parts.append(wd_desc)
+        if commons_desc and (not wd_desc or commons_desc.lower() not in wd_desc.lower()):
+            if wd_desc and wd_desc.lower() in commons_desc.lower():
+                desc_parts = [commons_desc]
+            else:
+                desc_parts.append(commons_desc)
+        description = ". ".join(desc_parts) if desc_parts else None
+
+        depicts_labels = _claim_labels("P180")
+        main_subject_labels = _claim_labels("P921")
+        tags: List[Optional[str]] = (
+            list(depicts_labels)
+            + list(main_subject_labels)
+            + list(type_labels)
+            + material_labels
+            + culture_labels
+            + period_labels
+            + [matched_kw]
+        )
+
+        candidate = _finalize_candidate({
+            "museum_id": self.museum_id,
+            "museum_name": self.museum_name,
+            "source_record_id": qid,
+            "matched_keyword": matched_kw,
+            "object_type": title[:255],
+            "material": material,
+            "findspot": findspot,
+            "production_location": production_location,
+            "present_location": self.present_location,
+            "latitude": lat,
+            "longitude": lon,
+            "inventory_number": inv,
+            "description": description,
+            "date_display": date_disp,
+            "date_start": item_start if item_start is not None else item_end or 0,
+            "date_end": item_end if item_end is not None else item_start or 0,
+            "date_basis": date_basis,
+            "width": width,
+            "height": height,
+            "depth": depth,
+            "unit": "cm",
+            "dimensions_display": dimensions_display,
+            "weight": weight,
+            "completeness": infer_completeness(title, description),
+            "inscription_present": inscription_present,
+            "inscription_1": inscr_list[0] if len(inscr_list) > 0 else None,
+            "inscription_2": inscr_list[1] if len(inscr_list) > 1 else None,
+            "object_group": object_group,
+            "publications": publications,
+            "external_url": ext_url,
+            "tags": tags,
+            "images": images,
+        })
+        return _apply_worker_score(
+            candidate,
+            subject_tags=depicts_labels + main_subject_labels,
+            object_name=", ".join(type_labels) if type_labels else None,
+        )
 
 
 ADAPTERS: Dict[MuseumKey, Any] = {
@@ -1490,6 +3018,7 @@ ADAPTERS: Dict[MuseumKey, Any] = {
     "cma": ClevelandMuseumAdapter(),
     "aic": ArtInstituteChicagoAdapter(),
     "vam": VamMuseumAdapter(),
+    "bm": BritishMuseumAdapter(),
 }
 
 
@@ -1603,9 +3132,21 @@ class MuseumDiscoveryService:
         saved_keywords = self.get_saved_keywords()
         return [{**museum, "default_keywords": list(saved_keywords)} for museum in PREDEFINED_MUSEUMS]
 
+    @staticmethod
+    def list_presets() -> List[Dict[str, Any]]:
+        """Return curated ancient-worker depiction keyword presets."""
+        return [
+            {
+                **preset,
+                "keywords": list(preset["keywords"]),
+            }
+            for preset in WORKER_SEARCH_PRESETS
+        ]
+
     def prepare_discovery(self, request: DiscoverySearchRequest) -> ExistingArtifactIndex:
-        """Persist new search keywords and snapshot the deduplication index before streaming."""
-        self.save_keywords(request.keywords)
+        """Persist new search keywords (when enabled) and snapshot the deduplication index before streaming."""
+        if request.save_keywords:
+            self.save_keywords(request.keywords)
         return ExistingArtifactIndex(self.db)
 
     @staticmethod
@@ -1620,6 +3161,8 @@ class MuseumDiscoveryService:
         all_candidates: List[Dict[str, Any]] = []
         reports: List[Dict[str, Any]] = []
         total_duplicates = 0
+        total_rejected = 0
+        total_filtered_non_worker = 0
         total_museums = len(request.museums)
 
         _emit_progress(progress_callback, {
@@ -1631,6 +3174,7 @@ class MuseumDiscoveryService:
             "total_museums": total_museums,
             "total_keywords": len(request.keywords),
             "limit_per_museum": request.limit_per_museum,
+            "search_mode": request.search_mode,
             "message": f"Starting discovery across {total_museums} museum(s)...",
         })
 
@@ -1648,7 +3192,7 @@ class MuseumDiscoveryService:
                 "message": f"Connecting to {adapter.museum_name} ({museum_idx}/{total_museums})...",
             })
             try:
-                found, fetched, dupes = adapter.discover(
+                found, fetched, dupes, rejected, filtered_non_worker = adapter.discover(
                     keywords=request.keywords,
                     date_start=request.date_start,
                     date_end=request.date_end,
@@ -1656,15 +3200,21 @@ class MuseumDiscoveryService:
                     index=index,
                     progress_callback=progress_callback,
                     cancel_event=cancel_event,
+                    search_mode=request.search_mode,
+                    min_worker_score=request.min_worker_score,
                 )
                 all_candidates.extend(found)
                 total_duplicates += dupes
+                total_rejected += rejected
+                total_filtered_non_worker += filtered_non_worker
                 reports.append({
                     "museum_id": museum_id,
                     "museum_name": adapter.museum_name,
                     "fetched_count": fetched,
                     "new_count": len(found),
                     "duplicates_skipped": dupes,
+                    "rejected_skipped": rejected,
+                    "filtered_non_worker": filtered_non_worker,
                     "error": None,
                 })
                 _emit_progress(progress_callback, {
@@ -1676,6 +3226,8 @@ class MuseumDiscoveryService:
                     "fetched_count": fetched,
                     "new_count": len(found),
                     "duplicates_skipped": dupes,
+                    "rejected_skipped": rejected,
+                    "filtered_non_worker": filtered_non_worker,
                     "error": None,
                     "message": (
                         f"{adapter.museum_name}: finished — {len(found)} new, "
@@ -1696,6 +3248,8 @@ class MuseumDiscoveryService:
                     "fetched_count": 0,
                     "new_count": 0,
                     "duplicates_skipped": 0,
+                    "rejected_skipped": 0,
+                    "filtered_non_worker": 0,
                     "error": err_msg,
                 })
                 _emit_progress(progress_callback, {
@@ -1707,15 +3261,31 @@ class MuseumDiscoveryService:
                     "fetched_count": 0,
                     "new_count": 0,
                     "duplicates_skipped": 0,
+                    "rejected_skipped": 0,
+                    "filtered_non_worker": 0,
                     "error": err_msg,
                     "message": err_msg,
                 })
 
-        all_candidates.sort(key=lambda c: ((c.get("object_type") or "").lower(), c.get("museum_id", "")))
+        if request.search_mode == "worker_depictions":
+            all_candidates.sort(
+                key=lambda c: (
+                    -c.get("worker_relevance_score", 0),
+                    -c.get("filled_fields_count", 0),
+                    (c.get("object_type") or "").lower(),
+                    c.get("museum_id", ""),
+                )
+            )
+        else:
+            all_candidates.sort(key=lambda c: ((c.get("object_type") or "").lower(), c.get("museum_id", "")))
+
         result = {
             "candidates": all_candidates,
             "total_new": len(all_candidates),
             "total_duplicates_skipped": total_duplicates,
+            "total_rejected_skipped": total_rejected,
+            "total_filtered_non_worker": total_filtered_non_worker,
+            "search_mode": request.search_mode,
             "museum_reports": reports,
         }
         if not (cancel_event and cancel_event.is_set()):
@@ -1724,6 +3294,9 @@ class MuseumDiscoveryService:
                 "type": "complete",
                 "total_new": serialized_result["total_new"],
                 "total_duplicates_skipped": serialized_result["total_duplicates_skipped"],
+                "total_rejected_skipped": serialized_result["total_rejected_skipped"],
+                "total_filtered_non_worker": serialized_result["total_filtered_non_worker"],
+                "search_mode": serialized_result["search_mode"],
                 "result": serialized_result,
                 "message": (
                     f"Discovery complete: {serialized_result['total_new']} new artifact(s) found, "
@@ -1781,6 +3354,7 @@ class MuseumDiscoveryService:
 
         for cand in candidates:
             if index.contains(
+                museum_id=cand.museum_id,
                 inventory_number=cand.inventory_number,
                 source_record_id=cand.source_record_id,
                 external_url=cand.external_url,
@@ -1879,6 +3453,7 @@ class MuseumDiscoveryService:
                                 primary_img_record.tags.append(tag_model)
 
                 index.register(
+                    museum_id=cand.museum_id,
                     inventory_number=cand.inventory_number,
                     source_record_id=cand.source_record_id,
                     external_url=cand.external_url,
@@ -1911,6 +3486,72 @@ class MuseumDiscoveryService:
             "skipped_inventory_numbers": skipped_inventory_numbers,
             "errors": errors,
         }
+
+    def reject_candidates(self, candidates: List[DiscoveryRejectItem]) -> Dict[str, Any]:
+        """Persist rejected discovery candidates so future searches skip them."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        rejection_service = RejectionService(self.db)
+        rejected_count = 0
+        already_rejected_count = 0
+        rows_by_id: Dict[int, RejectedArtifact] = {}
+
+        try:
+            for cand in candidates:
+                row, created = rejection_service.record_rejection(
+                    museum_id=cand.museum_id,
+                    source_record_id=cand.source_record_id,
+                    inventory_number=cand.inventory_number,
+                    external_url=cand.external_url,
+                    object_type=cand.object_type,
+                    present_location=cand.present_location,
+                    date_display=cand.date_display,
+                    commit=False,
+                )
+                if row is not None:
+                    rows_by_id[row.id] = row
+                if created:
+                    rejected_count += 1
+                else:
+                    already_rejected_count += 1
+
+            self.db.commit()
+            for row in rows_by_id.values():
+                self.db.refresh(row)
+
+            rejected_items = [
+                {
+                    "id": row.id,
+                    "museum_id": row.museum_id,
+                    "source_record_id": row.source_record_id,
+                    "inventory_number": row.inventory_number,
+                    "external_url": row.external_url,
+                    "object_type": row.object_type,
+                    "present_location": row.present_location,
+                    "date_display": row.date_display,
+                }
+                for row in rows_by_id.values()
+            ]
+            return {
+                "rejected_count": rejected_count,
+                "already_rejected_count": already_rejected_count,
+                "rejected_items": rejected_items,
+            }
+        except SQLAlchemyError:
+            self.db.rollback()
+            app_logger.error("Failed persisting rejected discovery candidates", exc_info=True)
+            raise BaseAppException("Internal database error saving rejected artifacts", 500)
+
+    def unreject_artifact(self, rejected_id: int) -> None:
+        """Remove a persisted rejection tombstone by ID so an artifact can be discovered again."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        try:
+            deleted = RejectionService(self.db).delete_by_id(rejected_id)
+        except SQLAlchemyError:
+            raise BaseAppException("Internal database error removing rejection", 500)
+        if not deleted:
+            raise EntityNotFoundError("RejectedArtifact", rejected_id)
 
     @staticmethod
     def _filter_unique_safe_urls(urls: List[Optional[str]], limit: int = 3) -> List[str]:
@@ -2057,6 +3698,60 @@ class MuseumDiscoveryService:
                             return filtered, "cma"
             except Exception as exc:
                 app_logger.warning("Failed CMA image recovery for object %s: %s", obj.id, exc)
+
+        # 5. The British Museum (via Wikimedia Commons / Wikidata)
+        bm_filenames: List[str] = []
+        bm_qid: Optional[str] = None
+        for src_id in source_ids:
+            m_file = re.search(r"BM\s+(Q\d+)\s*/\s*(File:.+)", src_id, re.IGNORECASE)
+            if m_file:
+                bm_qid = bm_qid or m_file.group(1).upper()
+                bm_filenames.append(m_file.group(2).strip())
+            elif not bm_qid:
+                m_qid = re.search(r"\bBM\s+(Q\d+)\b", src_id, re.IGNORECASE)
+                if m_qid:
+                    bm_qid = m_qid.group(1).upper()
+
+        if bm_filenames:
+            try:
+                resolved = BritishMuseumAdapter._resolve_commons_images(bm_filenames[:3])
+                raw_bm = [
+                    (resolved.get(BritishMuseumAdapter._normalize_commons_key(fn)) or {}).get("url")
+                    for fn in bm_filenames[:3]
+                ]
+                filtered = self._filter_unique_safe_urls(raw_bm)
+                if filtered:
+                    return filtered, "bm"
+            except Exception as exc:
+                app_logger.warning("Failed BM Commons image recovery for object %s: %s", obj.id, exc)
+
+        if not bm_qid:
+            wd_match = re.search(r"wikidata\.org/wiki/(Q\d+)", ext_url, re.IGNORECASE)
+            if wd_match:
+                bm_qid = wd_match.group(1).upper()
+
+        if bm_qid:
+            try:
+                entities = BritishMuseumAdapter._fetch_entities([bm_qid])
+                ent = entities.get(bm_qid)
+                if isinstance(ent, dict):
+                    p18_names = [
+                        name
+                        for c in BritishMuseumAdapter._active_claims(ent.get("claims") or {}, "P18")[:3]
+                        for name in [BritishMuseumAdapter._extract_string(c.get("mainsnak"))]
+                        if name
+                    ]
+                    if p18_names:
+                        resolved = BritishMuseumAdapter._resolve_commons_images(p18_names)
+                        raw_bm = [
+                            (resolved.get(BritishMuseumAdapter._normalize_commons_key(fn)) or {}).get("url")
+                            for fn in p18_names
+                        ]
+                        filtered = self._filter_unique_safe_urls(raw_bm)
+                        if filtered:
+                            return filtered, "bm"
+            except Exception as exc:
+                app_logger.warning("Failed BM Wikidata image recovery for object %s: %s", obj.id, exc)
 
         return [], "obj"
 

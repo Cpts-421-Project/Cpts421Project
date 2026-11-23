@@ -569,4 +569,592 @@ describe('DiscoveryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Gateway failure');
   });
+
+  it('normal_rendersAndSearchesBritishMuseumOptionAndRestoresOnReset', async () => {
+    // Arrange
+    const museumsWithBm = [
+      ...MOCK_MUSEUMS,
+      {
+        id: 'bm',
+        name: 'The British Museum',
+        present_location: 'The British Museum, London',
+        description: 'British Museum collection via Wikidata Linked Open Data & Wikimedia Commons.',
+        default_keywords: ['craftsman', 'glass'],
+        default_date_start: 0,
+        default_date_end: 899,
+        default_limit: 10,
+      },
+    ];
+    api.get.mockResolvedValueOnce({ data: museumsWithBm });
+    api.post.mockImplementation((url) => {
+      if (url === '/admin/discovery/search') {
+        return Promise.resolve({
+          data: {
+            candidates: [
+              {
+                museum_id: 'bm',
+                museum_name: 'The British Museum',
+                source_record_id: 'Q2457011',
+                object_type: 'Vindolanda Copper-Alloy Stylus',
+                present_location: 'The British Museum, London',
+                findspot: 'Vindolanda',
+                material: 'bronze',
+                date_display: '2nd century CE',
+                date_start: 101,
+                date_end: 200,
+                inventory_number: '1986,1001.15',
+                assembled_caption: 'Vindolanda Copper-Alloy Stylus, Vindolanda, 2nd century CE',
+                tags: ['Ancient Rome', 'bronze'],
+                images: [{
+                  file_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Vindolanda_stylus_BM.jpg/1000px-Vindolanda_stylus_BM.jpg',
+                  image_sequence: 1,
+                }],
+                filled_fields_count: 15,
+              },
+            ],
+            total_new: 1,
+            total_duplicates_skipped: 0,
+            museum_reports: [
+              { museum_id: 'bm', museum_name: 'The British Museum', fetched_count: 1, new_count: 1, duplicates_skipped: 0, error: null },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    // Assert BM checkbox loads checked by default
+    const bmCheckbox = await screen.findByLabelText(/The British Museum/i);
+    expect(bmCheckbox).toBeChecked();
+
+    // Toggle off and restore via Reset Defaults
+    fireEvent.click(bmCheckbox);
+    expect(bmCheckbox).not.toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: /Reset Defaults/i }));
+    expect(bmCheckbox).toBeChecked();
+
+    // Act: Submit discovery search and verify 'bm' included and candidate rendered
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Vindolanda Copper-Alloy Stylus')).toBeInTheDocument();
+    });
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/discovery/search',
+      expect.objectContaining({
+        museums: expect.arrayContaining(['met', 'cma', 'bm']),
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it('normal_rejectsCandidateDirectlyShowsRejectedCountsAndUndoesVia204', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    api.post.mockImplementation((url) => {
+      if (url === '/admin/discovery/search') {
+        return Promise.resolve({
+          data: {
+            candidates: [
+              {
+                museum_id: 'cma',
+                museum_name: 'Cleveland Museum of Art',
+                source_record_id: '199001',
+                object_type: 'Blown Glass Unguentarium',
+                present_location: 'The Cleveland Museum of Art, Cleveland',
+                date_display: '2nd century CE',
+                date_start: 100,
+                date_end: 199,
+                inventory_number: '1985.12',
+                external_url: 'https://clevelandart.org/art/1985.12',
+                images: [{ file_url: 'https://openaccess-cdn.clevelandart.org/1985.12/web.jpg', image_sequence: 1 }],
+                filled_fields_count: 8,
+              },
+            ],
+            total_new: 1,
+            total_duplicates_skipped: 4,
+            total_rejected_skipped: 2,
+            museum_reports: [
+              { museum_id: 'cma', museum_name: 'Cleveland Museum of Art', fetched_count: 5, new_count: 1, duplicates_skipped: 4, rejected_skipped: 2, error: null },
+            ],
+          },
+        });
+      }
+      if (url === '/admin/discovery/reject') {
+        return Promise.resolve({
+          data: {
+            rejected_count: 1,
+            already_rejected_count: 0,
+            rejected_items: [
+              {
+                id: 42,
+                museum_id: 'cma',
+                source_record_id: '199001',
+                inventory_number: '1985.12',
+                external_url: 'https://clevelandart.org/art/1985.12',
+                object_type: 'Blown Glass Unguentarium',
+              },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    api.delete.mockResolvedValueOnce({ status: 204, data: '' });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    // Act 1: Run discovery search and verify previously rejected breakdown renders
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/4 existing\/duplicate item\(s\) automatically skipped \(2 previously rejected\)\./i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/4 skipped \(2 rejected\)/i)).toBeInTheDocument();
+
+    // Act 2: Reject candidate directly
+    fireEvent.click(screen.getByRole('button', { name: 'Reject Blown Glass Unguentarium' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(/Rejected .Blown Glass Unguentarium.\. It will be skipped in future searches\./i);
+    });
+    expect(api.post).toHaveBeenCalledWith('/admin/discovery/reject', {
+      candidates: [
+        expect.objectContaining({
+          museum_id: 'cma',
+          source_record_id: '199001',
+          inventory_number: '1985.12',
+        }),
+      ],
+    });
+    expect(screen.getByText(/Discovered Candidates \(0 new\)/i)).toBeInTheDocument();
+
+    // Act 3: Undo direct rejection via HTTP 204 DELETE
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Discovered Candidates \(1 new\)/i)).toBeInTheDocument();
+    });
+    expect(api.delete).toHaveBeenCalledWith('/admin/discovery/rejected/42');
+    expect(screen.getByRole('button', { name: 'Reject Blown Glass Unguentarium' })).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('edge_guardsDuplicateRejectClicksAndTracksStreamRejectedSkippedCounts', async () => {
+    // Arrange: verify stream reducer tracks rejected_skipped and double-click is guarded
+    let state = createInitialProgressState(['met'], MOCK_MUSEUMS, 1);
+    state = reduceDiscoveryProgress(state, {
+      type: 'detail_fetching',
+      museum_id: 'met',
+      detail_index: 1,
+      detail_total: 2,
+      fetched_count: 3,
+      new_count: 1,
+      duplicates_skipped: 2,
+      rejected_skipped: 2,
+      message: 'Inspecting...',
+    });
+    expect(state.totalSkipped).toBe(2);
+    expect(state.totalRejectedSkipped).toBe(2);
+
+    let resolveReject;
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    api.post.mockImplementation((url) => {
+      if (url === '/admin/discovery/search') {
+        return Promise.resolve({
+          data: {
+            candidates: [
+              {
+                museum_id: 'met',
+                museum_name: 'The Metropolitan Museum of Art',
+                source_record_id: '555001',
+                object_type: 'Gold-Glass Fragment',
+                date_display: '4th century CE',
+                date_start: 300,
+                date_end: 399,
+                images: [{ file_url: 'https://images.metmuseum.org/CRDImages/md/original/DP123.jpg', image_sequence: 1 }],
+                filled_fields_count: 6,
+              },
+            ],
+            total_new: 1,
+            total_duplicates_skipped: 0,
+            total_rejected_skipped: 0,
+            museum_reports: [
+              { museum_id: 'met', museum_name: 'The Metropolitan Museum of Art', fetched_count: 1, new_count: 1, duplicates_skipped: 0, rejected_skipped: 0, error: null },
+            ],
+          },
+        });
+      }
+      if (url === '/admin/discovery/reject') {
+        return new Promise((resolve) => {
+          resolveReject = resolve;
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    const rejectBtn = await screen.findByRole('button', { name: 'Reject Gold-Glass Fragment' });
+
+    // Act: click Reject twice while request is in-flight
+    fireEvent.click(rejectBtn);
+    expect(rejectBtn).toBeDisabled();
+    expect(rejectBtn).toHaveTextContent('Rejecting...');
+    fireEvent.click(rejectBtn);
+    expect(api.post).toHaveBeenCalledTimes(2); // 1 search + 1 reject (second click ignored)
+
+    resolveReject({
+      data: {
+        rejected_count: 1,
+        already_rejected_count: 0,
+        rejected_items: [{ id: 77, museum_id: 'met', source_record_id: '555001' }],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(/Rejected .Gold-Glass Fragment./i);
+    });
+  });
+
+  it('extraordinary_displaysAlertsOnRejectOrUndoFailuresWithoutDroppingCandidate', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    api.post.mockImplementation((url) => {
+      if (url === '/admin/discovery/search') {
+        return Promise.resolve({
+          data: {
+            candidates: [
+              {
+                museum_id: 'met',
+                museum_name: 'The Metropolitan Museum of Art',
+                source_record_id: '555002',
+                object_type: 'Roman Bronze Lamp',
+                date_display: '2nd century CE',
+                date_start: 100,
+                date_end: 199,
+                images: [{ file_url: 'https://images.metmuseum.org/CRDImages/md/original/lamp.jpg', image_sequence: 1 }],
+                filled_fields_count: 6,
+              },
+            ],
+            total_new: 1,
+            total_duplicates_skipped: 0,
+            total_rejected_skipped: 0,
+            museum_reports: [],
+          },
+        });
+      }
+      if (url === '/admin/discovery/reject') {
+        return Promise.reject({ response: { data: { detail: 'Reject persistence error' } } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    const rejectBtn = await screen.findByRole('button', { name: 'Reject Roman Bronze Lamp' });
+
+    // Act 1: Reject fails -> shows alert and keeps candidate in list
+    fireEvent.click(rejectBtn);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Reject persistence error');
+    expect(screen.getByRole('button', { name: 'Reject Roman Bronze Lamp' })).toBeInTheDocument();
+
+    // Act 2: Reject succeeds, then Undo fails -> shows alert
+    api.post.mockResolvedValueOnce({
+      data: {
+        rejected_count: 1,
+        already_rejected_count: 0,
+        rejected_items: [{ id: 88, museum_id: 'met', source_record_id: '555002' }],
+      },
+    });
+    api.delete.mockRejectedValueOnce({ response: { data: { detail: 'Undo failed on server' } } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject Roman Bronze Lamp' }));
+    const undoBtn = await screen.findByRole('button', { name: 'Undo' });
+    fireEvent.click(undoBtn);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Undo failed on server');
+  });
+
+  it('normal_appliesWorkerPresetsBceEraAndRendersWorkerRelevanceDetails', async () => {
+    // Arrange
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/discovery/museums') {
+        return Promise.resolve({ data: MOCK_MUSEUMS });
+      }
+      if (url === '/admin/discovery/presets') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 'artisans_workshops',
+              name: 'Artisans & Workshops',
+              description: 'Potters and smiths',
+              keywords: ['potter', 'shoemaker', 'ergasterion'],
+              recommended_date_start: -2500,
+              recommended_date_end: 899,
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.post.mockImplementation((url) => {
+      if (url === '/admin/discovery/search') {
+        return Promise.resolve({
+          data: {
+            candidates: [
+              {
+                museum_id: 'bm',
+                museum_name: 'The British Museum',
+                source_record_id: 'Q880009',
+                matched_keyword: 'shoemaker',
+                object_type: 'Grave Stele of Xanthippos',
+                present_location: 'The British Museum, London',
+                date_display: 'ca. 420 BCE',
+                date_start: -420,
+                date_end: -420,
+                description: 'Athenian marble funerary stele depicting a seated shoemaker.',
+                worker_relevance_score: 92,
+                worker_confidence: 'high',
+                worker_signals: ['Subject tag: shoemaker', 'Title depicts worker: shoemaker'],
+                images: [{ file_url: 'https://upload.wikimedia.org/wikipedia/commons/x/xa/Xanthippos_stele.jpg', image_sequence: 1 }],
+                filled_fields_count: 11,
+              },
+            ],
+            total_new: 1,
+            total_duplicates_skipped: 0,
+            total_rejected_skipped: 0,
+            total_filtered_non_worker: 3,
+            search_mode: 'worker_depictions',
+            museum_reports: [
+              {
+                museum_id: 'bm',
+                museum_name: 'The British Museum',
+                fetched_count: 4,
+                new_count: 1,
+                duplicates_skipped: 0,
+                rejected_skipped: 0,
+                filtered_non_worker: 3,
+                error: null,
+              },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Artisans & Workshops' })).toBeInTheDocument();
+    });
+
+    // Assert default focus mode radio
+    expect(screen.getByLabelText(/Ancient Workers Depictions \(Recommended\)/i)).toBeChecked();
+
+    // Act: Apply preset + BCE era focus + submit
+    fireEvent.click(screen.getByRole('button', { name: 'Artisans & Workshops' }));
+    expect(screen.getByText('ergasterion')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ancient World (3000 BCE–500 CE)' }));
+    expect(screen.getByLabelText(/Start Year/i)).toHaveValue(-3000);
+    expect(screen.getByLabelText(/End Year/i)).toHaveValue(500);
+
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+
+    // Assert request payload + rendered relevance badge, signals, filtered summary, and native details
+    expect(await screen.findByText('Grave Stele of Xanthippos')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/discovery/search',
+      expect.objectContaining({
+        keywords: ['potter', 'shoemaker', 'ergasterion'],
+        date_start: -3000,
+        date_end: 500,
+        search_mode: 'worker_depictions',
+        min_worker_score: 35,
+        save_keywords: false,
+      }),
+      expect.any(Object)
+    );
+    expect(screen.getByText('★ High Worker Match (92%)')).toBeInTheDocument();
+    expect(screen.getByText(/Matched:/)).toHaveTextContent('shoemaker');
+    expect(screen.getByText('Subject tag: shoemaker')).toBeInTheDocument();
+    expect(screen.getByText(/3 non-worker item\(s\) filtered\./i)).toBeInTheDocument();
+    expect(screen.getByText('Catalog notes')).toBeInTheDocument();
+  });
+
+  it('edge_handlesStrictToggleBroadModeConfidenceFilteringAndStreamFilteredReducer', async () => {
+    // Arrange
+    api.get.mockResolvedValueOnce({ data: MOCK_MUSEUMS });
+    api.post.mockResolvedValue({
+      data: {
+        candidates: [
+          {
+            museum_id: 'met',
+            museum_name: 'The Metropolitan Museum of Art',
+            source_record_id: '9001',
+            object_type: 'Meketre Bakery Model',
+            date_display: '2000 BCE',
+            date_start: -2000,
+            date_end: -1990,
+            worker_relevance_score: 95,
+            worker_confidence: 'high',
+            worker_signals: ['Subject tag: Bakers'],
+            images: [],
+            filled_fields_count: 9,
+          },
+          {
+            museum_id: 'cma',
+            museum_name: 'Cleveland Museum of Art',
+            source_record_id: '9002',
+            object_type: 'Shabti Servant Figure',
+            date_display: '1300 BCE',
+            date_start: -1300,
+            date_end: -1290,
+            worker_relevance_score: 45,
+            worker_confidence: 'medium',
+            worker_signals: ['Title mentions worker: shabti'],
+            images: [],
+            filled_fields_count: 7,
+          },
+        ],
+        total_new: 2,
+        total_duplicates_skipped: 0,
+        total_rejected_skipped: 0,
+        total_filtered_non_worker: 2,
+        museum_reports: [],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cleveland Museum of Art')).toBeInTheDocument();
+    });
+
+    // Act 1: Toggle Strict checkbox -> sends min_worker_score: 65
+    fireEvent.click(screen.getByLabelText(/Strict: High-confidence worker depictions only/i));
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    expect(await screen.findByText('Meketre Bakery Model')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/discovery/search',
+      expect.objectContaining({ min_worker_score: 65, search_mode: 'worker_depictions' }),
+      expect.any(Object)
+    );
+
+    // Act 2: Filter UI to High Confidence Only
+    fireEvent.click(screen.getByRole('button', { name: /High Confidence Only \(1\)/i }));
+    expect(screen.getByText('Meketre Bakery Model')).toBeInTheDocument();
+    expect(screen.queryByText('Shabti Servant Figure')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /All Results \(2\)/i }));
+    expect(screen.getByText('Shabti Servant Figure')).toBeInTheDocument();
+
+    // Act 3: Switch to Broad Keyword Search -> hides Strict checkbox and sends search_mode: 'broad'
+    fireEvent.click(screen.getByLabelText(/Broad Keyword Search/i));
+    expect(screen.queryByLabelText(/Strict: High-confidence/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/admin/discovery/search',
+        expect.objectContaining({ search_mode: 'broad' }),
+        expect.any(Object)
+      );
+    });
+
+    // Act 4: Verify discoveryStream reducer tracks filtered_non_worker counts
+    const init = createInitialProgressState(['met'], MOCK_MUSEUMS, 5);
+    const updated = reduceDiscoveryProgress(init, {
+      type: 'museum_completed',
+      museum_id: 'met',
+      fetched_count: 10,
+      new_count: 2,
+      duplicates_skipped: 1,
+      filtered_non_worker: 4,
+      message: 'Done',
+    });
+    expect(updated.totalFilteredNonWorker).toBe(4);
+    expect(updated.museums[0].filtered_non_worker).toBe(4);
+  });
+
+  it('extraordinary_fallsBackSilentlyOnPresetsFailureAndShowsZeroFilteredGuidance', async () => {
+    // Arrange
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/discovery/museums') {
+        return Promise.resolve({ data: MOCK_MUSEUMS });
+      }
+      if (url === '/admin/discovery/presets') {
+        return Promise.reject(new Error('Presets unavailable'));
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.post.mockResolvedValueOnce({
+      data: {
+        candidates: [],
+        total_new: 0,
+        total_duplicates_skipped: 0,
+        total_rejected_skipped: 0,
+        total_filtered_non_worker: 12,
+        museum_reports: [],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <DiscoveryPage />
+      </MemoryRouter>
+    );
+
+    // Built-in presets still render with no alert banner
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'All Ancient Workers' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Act: Run search with 0 surviving candidates after filtering
+    fireEvent.click(screen.getByRole('button', { name: /Discover New Artifacts/i }));
+
+    // Assert recovery guidance renders
+    expect(
+      await screen.findByText(/12 record\(s\) matched your keywords but scored below the worker depiction threshold/i)
+    ).toBeInTheDocument();
+  });
 });

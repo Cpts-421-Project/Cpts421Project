@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Numeric, ForeignKey, Table, Boolean
+from sqlalchemy import Column, Integer, String, Date, DateTime, Numeric, ForeignKey, Table, Boolean, func
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -93,4 +93,17 @@ class DiscoveryKeyword(Base):
     id = Column(Integer, primary_key=True, index=True)
     keyword = Column(String(80), unique=True, nullable=False, index=True)
     is_default = Column(Boolean, nullable=False, default=False)
+
+
+class RejectedArtifact(Base):
+    __tablename__ = "rejected_artifacts"
+    id = Column(Integer, primary_key=True, index=True)
+    museum_id = Column(String(32), index=True)
+    source_record_id = Column(String(100), index=True)
+    inventory_number = Column(String(100), index=True)
+    external_url = Column(String(500), index=True)
+    object_type = Column(String(255))
+    present_location = Column(String(255))
+    date_display = Column(String(255))
+    rejected_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
